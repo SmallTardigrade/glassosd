@@ -1,0 +1,44 @@
+{
+  "_comment": "Nord, solid. A flat theme with no translucency at all — for people who want the behaviour and not the glass.",
+
+  "accent": "#88c0d0",
+
+  "text.primary": "#eceff4",
+  "text.muted": "#e5e9f0",
+  "text.secondary": "#d8dee9",
+
+  "osd.background": "#2e3440",
+  "panel.background": "#2e3440",
+  "card.background": "#3b4252",
+  "entry.background": "#434c5e",
+  "entry.backgroundHover": "#4c566a",
+  "entry.edge": "rgba(76, 86, 106, 1.0)",
+  "surface.solid": "#2e3440",
+
+  "glass.edge": "rgba(76, 86, 106, 1.0)",
+  "glass.sheen": "rgba(0, 0, 0, 0)",
+  "card.sheen": "rgba(0, 0, 0, 0)",
+  "edge.outer": "rgba(76, 86, 106, 1.0)",
+
+  "control.fill": "#434c5e",
+  "control.fillHover": "#4c566a",
+  "control.edge": "rgba(76, 86, 106, 1.0)",
+
+  "slider.track": "#4c566a",
+  "chip.idle": "#434c5e",
+  "urgency.critical": "#bf616a",
+
+  "radius.card": 8,
+  "radius.chipRatio": 0.25,
+  "radius.pill": false,
+
+  "font.family": "JetBrains Mono",
+
+  "blur.saturation": 1.0,
+  "blur.contrast": 0.0,
+  "shadow.opacity": 0.35,
+  "shadow.blur": 16,
+  "shadow.offsetY": 4,
+  "motion.in": 100,
+  "motion.out": 100
+}

@@ -12,7 +12,7 @@ SPDX-FileCopyrightText = "2026 glassosd contributors"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["data/**", "packaging/**", "README.md", ".gitignore", "screenshots/**", "screenshots-v2/**", "screenshots-v3/**"]
+path = ["data/**", "packaging/**", "themes/**", "README.md", ".gitignore", "screenshots/**", "screenshots-v2/**", "screenshots-v3/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 glassosd contributors"
 SPDX-License-Identifier = "GPL-2.0-or-later"

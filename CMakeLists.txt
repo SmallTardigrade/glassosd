@@ -142,7 +142,8 @@ if(NOT SYSTEMD_USER_UNIT_DIR)
 endif()
 
 install(TARGETS glassosd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(PROGRAMS tools/glassosdctl DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(PROGRAMS tools/glassosdctl tools/glassosd-setup
+        DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/glassosd.service
         DESTINATION ${SYSTEMD_USER_UNIT_DIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service

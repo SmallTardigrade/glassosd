@@ -369,8 +369,36 @@ bool NotificationModel::closeId(uint id, uint reason)
     return false;
 }
 
+void NotificationModel::setHoverPause(bool on)
+{
+    if (m_hoverPause == on) {
+        return;
+    }
+    m_hoverPause = on;
+    if (!on) {
+        /* Anything currently held by the pointer resumes counting from now,
+           not from whenever it appeared — otherwise turning the setting off
+           makes every hovered popup vanish at once. */
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        for (uint id : std::as_const(m_hovered)) {
+            const int row = indexOfDisplayed(id);
+            if (row >= 0) {
+                m_displayed[row].displayedAt = now;
+            }
+        }
+        m_hovered.clear();
+    }
+}
+
 void NotificationModel::setHovered(uint id, bool hovered)
 {
+    if (!m_hoverPause) {
+        return;
+    }
+    /* Logged once per transition: this is the only way to confirm from
+       outside that pointer events are reaching the card at all, which
+       depends on the layer surface's input region being right. */
+    qDebug("glassosd: notification %u hover=%s", id, hovered ? "in" : "out");
     if (hovered) {
         m_hovered.insert(id);
     } else {

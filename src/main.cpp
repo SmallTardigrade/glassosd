@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
         notifications->setCoalesce(g.readEntry("CoalesceThreshold", 3),
                                    g.readEntry("CoalesceWindowMs", 20000));
         notifications->setDoNotDisturb(g.readEntry("DoNotDisturb", false));
+        notifications->setHoverPause(g.readEntry("HoverPause", true));
     };
     applySettings();
 

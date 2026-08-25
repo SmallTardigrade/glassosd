@@ -1,0 +1,239 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: 2026 glassosd contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Interactive first-run setup.
+#
+# Every step prints what it is about to change and asks first. Nothing here
+# needs root, and every change is reversible with `glassosd-setup --undo`.
+set -uo pipefail
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+PORTAL_DIR="$CONF_DIR/xdg-desktop-portal"
+STATE="$CONF_DIR/glassosd-setup.state"
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+dim()  { printf '\033[2m%s\033[0m\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+skip() { printf '  \033[2m-\033[0m %s\n' "$*"; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+ask() { # question  -> 0 for yes
+  [ "${ASSUME_YES:-0}" = 1 ] && return 0
+  local a
+  read -r -p "    $1 [Y/n] " a </dev/tty || return 1
+  [[ -z "$a" || "$a" =~ ^[Yy] ]]
+}
+note() { echo "$1" >> "$STATE"; }
+
+# ---------------------------------------------------------------- undo -----
+if [ "${1:-}" = "--undo" ]; then
+  bold "Undoing glassosd setup"
+  [ -f "$STATE" ] || { warn "nothing recorded in $STATE"; exit 0; }
+  while read -r what; do
+    case "$what" in
+      portal)
+        rm -f "$PORTAL_DIR/glassosd-portals.conf" \
+              "$PORTAL_DIR/portals.conf" "$PORTAL_DIR/kde-portals.conf"
+        systemctl --user restart xdg-desktop-portal.service 2>/dev/null
+        ok "portal notification routing restored to the desktop default" ;;
+      plasma-osd)
+        kwriteconfig6 --notify --file plasmarc --group OSD --key Enabled true
+        ok "Plasma's built-in OSD re-enabled" ;;
+      service)
+        systemctl --user disable --now glassosd.service 2>/dev/null
+        ok "glassosd.service stopped and disabled" ;;
+    esac
+  done < "$STATE"
+  rm -f "$STATE"
+  exit 0
+fi
+
+[ "${1:-}" = "--yes" ] && ASSUME_YES=1
+: > "$STATE"
+
+bold "glassosd setup"
+echo
+
+# ------------------------------------------------------- 0. environment ----
+DESKTOP="${XDG_CURRENT_DESKTOP:-unknown}"
+SESSION="${XDG_SESSION_TYPE:-unknown}"
+dim "desktop: $DESKTOP    session: $SESSION"
+
+if [ "$SESSION" != "wayland" ]; then
+  warn "This is not a Wayland session. glassosd needs Wayland with"
+  warn "wlr-layer-shell; it cannot run on X11. Nothing else to do."
+  exit 1
+fi
+echo
+
+# --------------------------------------- 1. conflicting notification daemon -
+bold "1. Notification daemon"
+owner_pid=$(busctl --user call org.freedesktop.DBus /org/freedesktop/DBus \
+            org.freedesktop.DBus GetConnectionUnixProcessID s \
+            org.freedesktop.Notifications 2>/dev/null | awk '{print $2}')
+owner=$(ps -o comm= -p "${owner_pid:-0}" 2>/dev/null)
+
+if [ -n "$owner" ] && [ "$owner" != "glassosd" ]; then
+  warn "org.freedesktop.Notifications is currently owned by: $owner"
+  echo "    Only one daemon can own it. glassosd will not get notifications"
+  echo "    until that one stops."
+  for unit in dunst swaync mako; do
+    if systemctl --user is-enabled "$unit.service" >/dev/null 2>&1; then
+      if ask "Disable $unit.service?"; then
+        systemctl --user disable --now "$unit.service" && ok "$unit stopped"
+      else
+        skip "left $unit running"
+      fi
+    fi
+  done
+elif [ "$owner" = "glassosd" ]; then
+  ok "glassosd already owns org.freedesktop.Notifications"
+else
+  skip "nothing currently owns the notification name"
+fi
+echo
+
+# ------------------------------------------------- 2. the portal problem ----
+bold "2. Flatpak / portal notification routing"
+echo "    Sandboxed apps (Flatpak, and anything using the portal) send"
+echo "    notifications through xdg-desktop-portal rather than straight to"
+echo "    the notification daemon."
+echo
+
+current_backend=$(
+  for f in "$PORTAL_DIR/${DESKTOP,,}-portals.conf" "$PORTAL_DIR/portals.conf" \
+           "/etc/xdg-desktop-portal/${DESKTOP,,}-portals.conf" \
+           "/etc/xdg-desktop-portal/portals.conf" \
+           "/usr/share/xdg-desktop-portal/${DESKTOP,,}-portals.conf"; do
+    [ -f "$f" ] || continue
+    v=$(grep -oP '^org\.freedesktop\.impl\.portal\.Notification=\K.*' "$f" 2>/dev/null | head -1)
+    [ -n "$v" ] && { echo "$v"; break; }
+  done
+)
+
+case "$current_backend" in
+  plasmanotify)
+    warn "The notification portal is handled by 'plasmanotify'."
+    echo "    That delivers straight into plasmashell's own notification"
+    echo "    system — it never reaches org.freedesktop.Notifications, so"
+    echo "    glassosd (or dunst, or swaync) never sees those notifications"
+    echo "    at all. This is why some apps appear to be ignored."
+    echo
+    if ! rpm -q xdg-desktop-portal-gtk >/dev/null 2>&1 \
+       && ! [ -f /usr/share/xdg-desktop-portal/portals/gtk.portal ]; then
+      warn "xdg-desktop-portal-gtk is not installed; install it first:"
+      echo "        sudo dnf install xdg-desktop-portal-gtk"
+    elif ask "Route portal notifications through xdg-desktop-portal-gtk instead?"; then
+      mkdir -p "$PORTAL_DIR"
+      # Written to both names: the desktop-specific file takes precedence in
+      # the portal's search order, and leaving only the generic one lets a
+      # distro-shipped kde-portals.conf win.
+      for name in portals.conf "${DESKTOP,,}-portals.conf"; do
+        cat > "$PORTAL_DIR/$name" <<EOF
+# Written by glassosd-setup.
+# The desktop's own notification portal backend delivers to its built-in
+# notification system, bypassing org.freedesktop.Notifications entirely.
+# The gtk backend forwards to whichever daemon owns that name.
+[preferred]
+default=${DESKTOP,,}
+org.freedesktop.impl.portal.Notification=gtk
+EOF
+      done
+      systemctl --user restart xdg-desktop-portal.service 2>/dev/null
+      note portal
+      ok "portal notifications now route to the notification daemon"
+      dim "    (restart any running Flatpak apps for them to pick this up)"
+    else
+      skip "portal routing left alone"
+    fi ;;
+  gtk)
+    ok "portal notifications already route through the gtk backend" ;;
+  "")
+    skip "no explicit notification portal backend configured" ;;
+  *)
+    dim "    notification portal backend: $current_backend" ;;
+esac
+echo
+
+# ------------------------------------------ 3. Plasma's built-in OSD --------
+if [[ "$DESKTOP" == *KDE* ]] && have kwriteconfig6; then
+  bold "3. Plasma's built-in OSD"
+  cur=$(kreadconfig6 --file plasmarc --group OSD --key Enabled 2>/dev/null)
+  if [ "$cur" = "false" ]; then
+    ok "already disabled"
+  else
+    echo "    Plasma draws its own volume/brightness popup. Leaving it on"
+    echo "    means two popups for every keypress."
+    if ask "Disable Plasma's built-in OSD?"; then
+      kwriteconfig6 --notify --file plasmarc --group OSD --key Enabled false
+      note plasma-osd
+      ok "Plasma OSD disabled"
+    else
+      skip "left enabled — expect double popups"
+    fi
+  fi
+  echo
+fi
+
+# ------------------------------------------------- 4. optional helpers ------
+bold "4. Optional helpers"
+have wpctl || have pactl || warn "no wpctl/pactl — the volume widget will stay hidden"
+have wpctl && ok "wpctl found (volume widget, osd volume)"
+have brightnessctl && ok "brightnessctl found (brightness widget)" \
+                   || warn "no brightnessctl — the brightness widget will stay hidden"
+[ -d /usr/share/icons/Papirus ] && ok "Papirus icons found (third-party app icons)" \
+                                || dim "    papirus-icon-theme improves third-party app icons"
+echo
+
+# ----------------------------------------------------- 5. start it ----------
+bold "5. Start glassosd"
+if systemctl --user is-enabled glassosd.service >/dev/null 2>&1; then
+  ok "glassosd.service already enabled"
+  systemctl --user restart glassosd.service && ok "restarted"
+elif ask "Enable and start glassosd.service now?"; then
+  systemctl --user enable --now glassosd.service && note service && ok "running"
+else
+  skip "not started"
+fi
+echo
+
+# ----------------------------------------------- 6. non-KDE keybindings -----
+if [[ "$DESKTOP" != *KDE* ]]; then
+  bold "6. Keybindings"
+  echo "    Your compositor owns its keybindings, so add these yourself."
+  case "$DESKTOP" in
+    *Hyprland*)
+      cat <<'EOF'
+        bind  = SUPER, N, exec, glassosdctl history
+        bind  = SUPER SHIFT, N, exec, glassosdctl dnd toggle
+        bindl = , XF86AudioRaiseVolume, exec, glassosdctl osd volume raise
+        bindl = , XF86AudioLowerVolume, exec, glassosdctl osd volume lower
+        bindl = , XF86AudioMute,        exec, glassosdctl osd volume mute
+
+        layerrule = blur on, match:namespace glassosd-osd
+        layerrule = blur on, match:namespace glassosd-notifications
+        layerrule = blur on, match:namespace glassosd-history
+EOF
+      ;;
+    *sway*)
+      cat <<'EOF'
+        bindsym $mod+n exec glassosdctl history
+        bindsym --locked XF86AudioRaiseVolume exec glassosdctl osd volume raise
+        bindsym --locked XF86AudioLowerVolume exec glassosdctl osd volume lower
+EOF
+      echo
+      echo "    sway does not blur. For readable surfaces:"
+      echo "        glassosdctl theme-file nord    # or: glassosdctl solidity 0.8"
+      ;;
+    *) echo "        glassosdctl history / dnd toggle / osd volume raise|lower|mute" ;;
+  esac
+  echo
+fi
+
+bold "Done"
+echo "  glassosdctl status      what is running and every setting"
+echo "  glassosdctl test        fire the demo notifications"
+echo "  glassosdctl themes      list themes"
+echo "  glassosd-setup --undo   revert everything this script changed"

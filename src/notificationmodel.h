@@ -85,8 +85,11 @@ public:
 
     Q_INVOKABLE void dismiss(uint id);                       // user clicked away
     /* Hovering pauses the dwell timer: a notification should not expire out
-       from under someone who is visibly reading it. */
+       from under someone who is visibly reading it. Off by request for people
+       who would rather popups clear on schedule regardless. */
     Q_INVOKABLE void setHovered(uint id, bool hovered);
+    void setHoverPause(bool on);
+    bool hoverPause() const { return m_hoverPause; }
     Q_INVOKABLE void invokeAction(uint id, const QString &key);
     Q_INVOKABLE void sendReply(uint id, const QString &text);
 
@@ -138,4 +141,5 @@ private:
     QHash<QString, QList<QDateTime>> m_recentByGroup;
     QTimer m_tick;
     QSet<uint> m_hovered;
+    bool m_hoverPause = true;
 };

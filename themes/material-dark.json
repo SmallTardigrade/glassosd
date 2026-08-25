@@ -1,0 +1,54 @@
+{
+  "_comment": "Material 3 dark. Fully opaque surfaces, no glass at all — proof that the default look is a theme, not the architecture. Elevation is carried by surface tone the way Material does it, rather than by translucency.",
+
+  "accent": "#d0bcff",
+
+  "text.primary": "#e6e0e9",
+  "text.muted": "#cac4d0",
+  "text.secondary": "#938f99",
+
+  "_surfaces": "M3 surface + surface-container tones. Alpha 1.0 throughout, so Solidity has nothing left to do and an unblurred compositor looks identical to a blurred one.",
+  "osd.background": "#211f26",
+  "panel.background": "#1d1b20",
+  "card.background": "#211f26",
+  "entry.background": "#2b2930",
+  "entry.backgroundHover": "#36343b",
+  "entry.edge": "rgba(147, 143, 153, 0.24)",
+  "surface.solid": "#1d1b20",
+
+  "_edges": "Material draws outlines, not lit glass edges — outline-variant, flat, no white sheen.",
+  "glass.edge": "rgba(73, 69, 79, 1.0)",
+  "glass.sheen": "rgba(0, 0, 0, 0)",
+  "card.sheen": "rgba(0, 0, 0, 0)",
+  "edge.outer": "rgba(73, 69, 79, 1.0)",
+  "edge.width": 1,
+
+  "control.fill": "#36343b",
+  "control.fillHover": "#48454e",
+  "control.edge": "rgba(73, 69, 79, 1.0)",
+
+  "slider.track": "#4a4458",
+  "chip.idle": "#36343b",
+  "urgency.critical": "#f2b8b5",
+
+  "_shape": "M3 uses larger corners than the glass default: 16dp on cards, full pill on controls.",
+  "radius.card": 16,
+  "radius.chipRatio": 0.5,
+  "radius.pill": true,
+
+  "font.family": "Roboto",
+
+  "_blur": "Saturation 1.0 and low contrast: nothing shows through an opaque surface, so leaving the effect on would only cost GPU time.",
+  "blur.saturation": 1.0,
+  "blur.contrast": 0.0,
+  "blur.intensity": 1.0,
+
+  "_elevation": "M3 level-2 shadow: tighter and darker than the glass default's wide soft falloff.",
+  "shadow.color": "#000000",
+  "shadow.opacity": 0.30,
+  "shadow.blur": 18,
+  "shadow.offsetY": 3,
+
+  "motion.in": 200,
+  "motion.out": 150
+}

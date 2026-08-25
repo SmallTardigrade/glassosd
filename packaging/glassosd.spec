@@ -45,6 +45,8 @@ Requires:       systemd
 # Optional, and genuinely optional: glassosdctl uses kwriteconfig6 when it is
 # there and edits the INI itself when it is not.
 Recommends:     kf6-kconfig
+# Routes sandboxed apps' portal notifications to the daemon; see the README.
+Recommends:     xdg-desktop-portal-gtk
 # Only needed for `glassosdctl osd volume|mic` on compositors that have no
 # org.kde.osdService to monitor.
 Suggests:       wireplumber
@@ -90,6 +92,8 @@ install -Dpm0755 tools/stress-test.sh        %{buildroot}%{_datadir}/%{name}/str
 %doc README.md packaging/DEPENDENCIES.md
 %{_bindir}/glassosd
 %{_bindir}/glassosdctl
+%{_bindir}/glassosd-setup
+%{_datadir}/glassosd/themes/
 %{_userunitdir}/glassosd.service
 %{_datadir}/dbus-1/services/org.freedesktop.Notifications.service
 %dir %{_datadir}/%{name}

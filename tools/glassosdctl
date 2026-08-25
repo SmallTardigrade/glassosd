@@ -114,7 +114,7 @@ glassosdctl <command>
 
 Settings keys:  Enabled, Limit, IndicateHidden, CoalesceThreshold,
                 CoalesceWindowMs, DoNotDisturb, AutoCollapseOver,
-                HistoryLength, IdleThresholdMs
+                HistoryLength, IdleThresholdMs, HoverPause
 Rule keys:      appname, summary, body, category, desktop_entry,
                 match_urgency, set_stack_tag, timeout, set_urgency,
                 skip_display, history_ignore
@@ -194,7 +194,7 @@ case "$cmd" in
     printf 'notifications: owned by %s\n' "$(ps -o comm= -p "${owner:-0}" 2>/dev/null || echo 'nobody')"
     echo
     echo "settings:"
-    for k in Enabled Limit IndicateHidden CoalesceThreshold CoalesceWindowMs DoNotDisturb AutoCollapseOver HistoryLength IdleThresholdMs; do
+    for k in Enabled Limit IndicateHidden CoalesceThreshold CoalesceWindowMs DoNotDisturb AutoCollapseOver HistoryLength IdleThresholdMs HoverPause; do
       printf '  %-18s %s\n' "$k" "$(cfg_read $G "$k")"
     done
     echo

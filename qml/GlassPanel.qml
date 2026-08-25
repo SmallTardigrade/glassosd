@@ -75,15 +75,25 @@ Rectangle {
     }
 
     function refreshBlur() {
-        if (!glass || !Window.window)
+        if (!Window.window)
             return
         const p = mapToItem(null, 0, 0)
         const r = Qt.rect(p.x, p.y, width, height)
+
+        /* The input region is registered for every panel, glass or not.
+           It used to sit behind the `glass` guard, so a plain panel — a
+           notification card, for one — registered nothing, the aggregate
+           came out empty, and the mask fell back to the whole window. That
+           made the transparent shadow padding swallow clicks meant for
+           whatever was underneath. */
+        Surface.setPanelRegion(Window.window, root, r, root.radius)
+
         /* Register rather than set: several panels share one window and a
            direct call would wipe the others' regions. */
-        Surface.applyContrast(Window.window, r, root.radius,
-                              Style.bgContrast, Style.bgIntensity, Style.bgSaturation)
-        Surface.setPanelRegion(Window.window, root, r, root.radius)
+        if (glass) {
+            Surface.applyContrast(Window.window, r, root.radius,
+                                  Style.bgContrast, Style.bgIntensity, Style.bgSaturation)
+        }
     }
 
     Component.onCompleted: refreshBlur()
