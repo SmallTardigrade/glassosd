@@ -21,7 +21,7 @@ Window {
     width: Style.notifyWidth + Style.shadowPad * 2
     height: Math.max(1, column.implicitHeight + Style.shadowPad * 2)
 
-    visible: list.count > 0 || NotificationModel.hiddenCount > 0
+    visible: Modules.notifications && (list.count > 0 || NotificationModel.hiddenCount > 0)
 
     Component.onCompleted: {
         /* anchors 1|8 == Top|Right. exclusiveZone 0 reserves nothing of our

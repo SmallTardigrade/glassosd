@@ -24,7 +24,7 @@ Window {
     width: panel.implicitWidth
     height: panel.implicitHeight
 
-    visible: OsdModel.active || panel.opacity > 0.001
+    visible: Modules.osd && (OsdModel.active || panel.opacity > 0.001)
 
     Component.onCompleted: {
         // anchors: 1 == Top. No keyboard focus: this must never steal input.

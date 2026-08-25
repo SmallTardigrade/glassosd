@@ -8,22 +8,18 @@ import QtQuick
 /*
     Root object of the daemon. Holds one instance of each surface.
 
-    Each surface is created through a Loader gated on its module, so a
-    disabled module never constructs a layer-shell window at all. Hiding the
-    window instead would still reserve the surface with the compositor, which
-    on some setups is enough to affect input regions and exclusive zones.
+    These are Windows, so they are instantiated directly rather than through a
+    Loader. A Loader is an Item and cannot parent a Window, and assigning
+    `sourceComponent: OsdSurface {}` instantiates the object instead of
+    supplying a Component — which fails silently and leaves every surface
+    dead with nothing in the log.
+
+    Module gating therefore lives in each surface's own `visible` binding. A
+    QML Window creates no wl_surface until it is first shown, so a module that
+    is off still costs the compositor nothing.
 */
 QtObject {
-    property Loader osd: Loader {
-        active: Modules.osd
-        sourceComponent: OsdSurface {}
-    }
-    property Loader notifications: Loader {
-        active: Modules.notifications
-        sourceComponent: NotificationStack {}
-    }
-    property Loader history: Loader {
-        active: Modules.notificationCentre
-        sourceComponent: HistoryPanel {}
-    }
+    property OsdSurface osd: OsdSurface {}
+    property NotificationStack notifications: NotificationStack {}
+    property HistoryPanel history: HistoryPanel {}
 }

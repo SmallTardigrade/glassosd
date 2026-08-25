@@ -18,7 +18,7 @@ Window {
 
     flags: Qt.FramelessWindowHint
     color: "transparent"
-    visible: HistoryModel.panelOpen
+    visible: Modules.notificationCentre && HistoryModel.panelOpen
 
     Component.onCompleted: {
         /* Anchored on all four sides so the surface covers the screen: the
