@@ -369,6 +369,24 @@ bool NotificationModel::closeId(uint id, uint reason)
     return false;
 }
 
+int NotificationModel::dismissAll()
+{
+    /* Ids are collected first: closeId() mutates both containers, so
+       iterating them directly would invalidate the loop underneath itself. */
+    QList<uint> ids;
+    ids.reserve(m_displayed.size() + m_waiting.size());
+    for (const Notification &n : std::as_const(m_displayed)) {
+        ids << n.id;
+    }
+    for (const Notification &n : std::as_const(m_waiting)) {
+        ids << n.id;
+    }
+    for (uint id : std::as_const(ids)) {
+        closeId(id, CloseReason::Dismissed);
+    }
+    return int(ids.size());
+}
+
 void NotificationModel::setHoverPause(bool on)
 {
     if (m_hoverPause == on) {

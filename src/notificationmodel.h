@@ -88,6 +88,11 @@ public:
     bool closeId(uint id, uint reason);
 
     Q_INVOKABLE void dismiss(uint id);                       // user clicked away
+    /* Clear every popup on screen and everything queued behind them.
+       A notification with expire_timeout 0, or critical urgency, is required
+       by the spec to stay until acted on — correct, but it means a misbehaving
+       app can pin a card indefinitely with no way out but a restart. */
+    Q_INVOKABLE int dismissAll();
     /* Hovering pauses the dwell timer: a notification should not expire out
        from under someone who is visibly reading it. Off by request for people
        who would rather popups clear on schedule regardless. */

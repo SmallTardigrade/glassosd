@@ -41,6 +41,11 @@ QString Controller::Version() const
     return QStringLiteral(GLASSOSD_VERSION);
 }
 
+int Controller::DismissAll()
+{
+    return m_notifications->dismissAll();
+}
+
 void Controller::ToggleHistory()
 {
     m_history->togglePanel();

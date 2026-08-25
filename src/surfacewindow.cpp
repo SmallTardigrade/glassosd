@@ -85,6 +85,18 @@ void Surface::setPanelRegion(QQuickWindow *window, QObject *panel, const QRectF 
     if (!window || !panel || rect.isEmpty()) {
         return;
     }
+    /* Both containers are keyed on a raw QQuickWindow*, and recompute()
+       dereferences it. Nothing purged them when a window died, so a panel
+       outliving its window — which multi-monitor hotplug will produce as soon
+       as surfaces are created per output — would have called setMask() on
+       freed memory. */
+    if (!m_regions.contains(window)) {
+        connect(window, &QObject::destroyed, this, [this, window]() {
+            m_regions.remove(window);
+            m_maskedWindows.remove(window);
+        });
+    }
+
     auto &perWindow = m_regions[window];
     if (!perWindow.contains(panel)) {
         /* Cards are created and destroyed constantly; a stale rect would keep
@@ -104,6 +116,12 @@ void Surface::clearPanelRegion(QQuickWindow *window, QObject *panel)
         return;
     }
     it->remove(panel);
+    /* Drop the destroyed-handler too. Qt reuses freed addresses aggressively
+       for QML delegates, so a panel cleared explicitly and then re-registered
+       at the same address would otherwise stack a second connection on this
+       singleton every time round. */
+    disconnect(panel, &QObject::destroyed, this, nullptr);
+
     if (it->isEmpty()) {
         m_regions.erase(it);
         clearBlur(window);

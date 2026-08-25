@@ -34,3 +34,10 @@ for i in $(seq 1 60); do
   sleep 0.03
 done
 echo "done"
+
+# The suite deliberately sends notifications with expire_timeout 0 and
+# critical urgency, both of which the spec requires to stay until acted on.
+# Leaving them pinned on screen after a test run is just litter.
+sleep 2
+busctl --user call org.glassosd.Daemon /Control org.glassosd.Control DismissAll >/dev/null 2>&1 || true
+echo "stress test done; popups cleared"

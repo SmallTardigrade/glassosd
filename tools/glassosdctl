@@ -79,6 +79,9 @@ glassosdctl <command>
 
   dnd [on|off|toggle]    Do Not Disturb (no argument prints current state)
   history [show|hide]    Open/close the notification centre
+  dismiss                Close every popup on screen, including ones with
+                         expire_timeout 0 or critical urgency, which the spec
+                         requires to stay until acted on
 
   osd volume [raise|lower|mute|<0-100>]
   osd mic [mute|<0-100>]
@@ -224,6 +227,9 @@ case "$cmd" in
       "")     call DoNotDisturb | grep -q true && echo "DND: on" || echo "DND: off" ;;
       *)      echo "usage: glassosdctl dnd [on|off|toggle]" >&2; exit 1 ;;
     esac ;;
+  dismiss)
+    n=$(call DismissAll | awk '{print $2}')
+    echo "dismissed ${n:-0} notification(s)" ;;
   history)
     case "${1:-}" in
       show) call ShowHistory   >/dev/null ;;

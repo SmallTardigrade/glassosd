@@ -37,6 +37,8 @@ public:
 public Q_SLOTS:
     QString Version() const;
 
+    int DismissAll();
+
     void ToggleHistory();
     void ShowHistory();
     void HideHistory();
