@@ -1,2 +1,5 @@
+# SPDX-FileCopyrightText: 2026 glassosd contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 # Required by QTP0004: extra directories containing .qml files need a qmldir.
 # Type registration itself comes from qt_add_qml_module in CMakeLists.txt.
