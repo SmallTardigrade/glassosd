@@ -17,6 +17,13 @@ translucency at all. See [Theming](#theming).
 glassosdctl theme-file material-dark   # or nord, frosted, rose, glass-dark
 ```
 
+> **Blur strength is your compositor's setting, not ours.**
+> `ext-background-effect-v1` lets a client name the *region* to blur, not how
+> hard. On KWin: System Settings → Desktop Effects → Blur, or
+> `kwriteconfig6 --file kwinrc --group Effect-blur --key BlurStrength <1-15>`.
+> A stronger blur samples a wider area, so over a bright window it pulls that
+> brightness in — the surface gets lighter as well as hazier.
+
 ---
 
 ## Contents
