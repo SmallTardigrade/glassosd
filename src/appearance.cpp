@@ -82,12 +82,17 @@ void Appearance::reload()
     m_notifyWidth = qBound(240, g.readEntry("NotifyWidth", 380), 900);
     m_solidity = qBound(0.0, g.readEntry("Solidity", 0.0), 1.0);
 
-    /* "top" keeps popups below fullscreen windows, which is what most people
-       want, but KWin's Show Desktop hides top-layer surfaces along with
-       ordinary windows — deliberately, so it does not fight layer-shell
-       stacking. "overlay" survives Show Desktop and rides above fullscreen
-       too. The protocol has no layer between the two: fullscreen surfaces
-       occupy exactly that gap, so this cannot be had both ways. */
+    /* "top" keeps popups below fullscreen windows; "overlay" puts them above.
+       The protocol has no layer between the two — fullscreen surfaces occupy
+       exactly that gap — so it is an either/or.
+
+       Note this does NOT decide whether Show Desktop hides the popup.
+       Measured on KWin 6.7: an overlay-layer surface is hidden by Show
+       Desktop just as a top-layer one is, while plasmashell's own surfaces
+       stay because they belong to the desktop. KWin hides everything that is
+       not the desktop rather than restacking, and layer-shell offers a client
+       no way to opt out. Any layer-shell notification daemon has this — dunst
+       and swaync included — so switching layer will not fix it. */
     const QString layer = g.readEntry("NotifyLayer", QStringLiteral("top")).toLower();
     m_notifyLayer = (layer == QLatin1String("overlay")) ? 3 : 2;
 

@@ -110,11 +110,11 @@ glassosdctl <command>
   width [240-900]        Notification popup width in logical px
   solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
                          raise it on compositors that do not blur (sway, river)
-  layer [top|overlay]    Where popups sit. top (default) stays below
-                         fullscreen windows, but KWin's Show Desktop hides
-                         top-layer surfaces. overlay survives Show Desktop
-                         and also covers fullscreen. The protocol has no
-                         layer in between — fullscreen sits exactly there.
+  layer [top|overlay]    Where popups sit relative to fullscreen windows.
+                         top (default) stays below them; overlay covers them.
+                         No layer exists in between — fullscreen sits exactly
+                         there. Neither survives KWin's Show Desktop, which
+                         hides every layer-shell surface regardless.
   blur [auto|on|off]     Whether the compositor can blur behind us. auto
                          assumes yes on Wayland; set off on sway/river/labwc,
                          which have no blur and would render unreadable glass
