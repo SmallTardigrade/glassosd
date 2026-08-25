@@ -66,7 +66,11 @@ public:
     bool doNotDisturb() const { return m_dnd; }
     void setDoNotDisturb(bool dnd);
 
-    void setLimit(int limit) { m_limit = limit; update(); }
+    /* Clamped at 0 (dunst's "unlimited"). A negative limit is an easy typo
+       in a config file and would make effectiveLimit() negative, so update()
+       would promote nothing and every notification would queue forever with
+       no popup and no error. */
+    void setLimit(int limit) { m_limit = qMax(0, limit); update(); }
     void setIndicateHidden(bool on) { m_indicateHidden = on; update(); }
     /* dunst's idle_threshold: while the session has been idle longer than
        this, nothing is allowed to expire. Stepping away for coffee should not
@@ -75,8 +79,8 @@ public:
 
     void setCoalesce(int threshold, int windowMs)
     {
-        m_coalesceThreshold = threshold;
-        m_coalesceWindowMs = windowMs;
+        m_coalesceThreshold = qMax(0, threshold);   // 0 disables coalescing
+        m_coalesceWindowMs = qMax(0, windowMs);
     }
 
     /* Returns the id actually used (may be the replaced one). */

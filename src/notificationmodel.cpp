@@ -503,6 +503,20 @@ void NotificationModel::update()
 
 void NotificationModel::expireTick()
 {
+    /* Drop coalescing history for groups that have gone quiet. The per-group
+       list is pruned on use, but the map entry itself was never removed, so
+       every app that ever sent a notification left a key behind for the life
+       of the session. */
+    if (m_coalesceWindowMs > 0) {
+        const QDateTime cutoff = QDateTime::currentDateTimeUtc();
+        for (auto it = m_recentByGroup.begin(); it != m_recentByGroup.end();) {
+            it.value().removeIf([&](const QDateTime &t) {
+                return t.msecsTo(cutoff) > m_coalesceWindowMs;
+            });
+            it = it.value().isEmpty() ? m_recentByGroup.erase(it) : std::next(it);
+        }
+    }
+
     /* Hold everything while the user is away. The point is "nobody is here to
        read these", which is a property of the session, not of any one
        message. */

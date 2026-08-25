@@ -94,7 +94,7 @@ public:
     Q_INVOKABLE void clearFilter() { setGroupFilter({}); }
     Q_INVOKABLE void toggleGroup(const QString &key);
     Q_INVOKABLE void clearGroup(const QString &key);
-    void setAutoCollapseOver(int n) { m_autoCollapseOver = n; rebuild(); }
+    void setAutoCollapseOver(int n) { m_autoCollapseOver = qMax(0, n); rebuild(); }
 
 private:
     bool isCollapsed(const QString &key, int count) const;
