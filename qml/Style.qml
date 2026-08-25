@@ -71,10 +71,26 @@ QtObject {
     readonly property int stackInset: Math.round(Theme.num("stack.inset", 8))
     /* Each peeking edge is lighter than the card in front so the layers read
        as separate sheets; matching the card colour made the stack invisible.
-       A dark seam along the top of each edge is what separates one sheet from
-       the next — without it the lighter tones merge into a single soft blob. */
-    readonly property color cardStackEdge: Theme.color("card.stackEdge", dark ? Qt.rgba(0x2a/255, 0x2f/255, 0x36/255, 1.0)
-                                               : Qt.rgba(0xe6/255, 0xe8/255, 0xed/255, 1.0))
+       A dark seam along the bottom of each edge is what separates one sheet
+       from the next — without it the tones merge into a single soft blob.
+
+       Derived from the card rather than hardcoded. The old constant was a
+       fixed grey that took no notice of card.background, so a theme could
+       recolour its cards completely and the sheets behind them stayed the
+       same — which showed up as a stack in the wrong colour family rather
+       than as anything obviously wrong, so it went unnoticed.
+
+       The card's own alpha is kept, so a glass card gets glass sheets. That
+       only works because each sliver registers its own backdrop region; see
+       the Repeater in NotificationCard.qml. */
+    /* Qt.lighter() forces alpha to 1, so the factor has to be applied to an
+       opaque copy and the original alpha put back afterwards. */
+    function shade(c, factor) {
+        const lit = Qt.lighter(Qt.rgba(c.r, c.g, c.b, 1.0), factor)
+        return Qt.rgba(lit.r, lit.g, lit.b, c.a)
+    }
+    readonly property color cardStackEdge: Theme.color("card.stackEdge",
+                                                       shade(cardBackground, dark ? 1.9 : 0.94))
     readonly property color cardStackSeam: Theme.color("card.stackSeam", dark ? Qt.rgba(0,0,0,0.55) : Qt.rgba(0,0,0,0.18))
     readonly property int cardRadius: Math.round(Theme.num("radius.card", px(16)))
 

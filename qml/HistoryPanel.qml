@@ -662,7 +662,13 @@ Window {
                                 id: entryCard
                                 Rectangle {
                                     width: parent ? parent.width : 0
-                                    height: entryBody.implicitHeight + 20
+                                    /* Style.padding, not a hardcoded 20. The
+                                       entries were noticeably tighter than the
+                                       popups showing the same notification, and
+                                       got relatively tighter still as Scale went
+                                       up, because the padding here never scaled
+                                       with anything while the text did. */
+                                    height: entryBody.implicitHeight + Style.padding * 2
                                     radius: Style.cardRadius - 2
                                     color: entryHover.containsMouse
                                            ? Style.entryCardHover : Style.entryCard
@@ -697,13 +703,13 @@ Window {
                                         anchors.left: parent.left
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
-                                        anchors.leftMargin: 12
-                                        anchors.rightMargin: 8
-                                        spacing: 10
+                                        anchors.leftMargin: Style.padding
+                                        anchors.rightMargin: Math.round(Style.padding * 0.7)
+                                        spacing: Math.round(Style.padding * 0.8)
 
                                         Image {
-                                            Layout.preferredWidth: 26
-                                            Layout.preferredHeight: 26
+                                            Layout.preferredWidth: Style.notifyIconSize - 4
+                                            Layout.preferredHeight: Style.notifyIconSize - 4
                                             Layout.alignment: Qt.AlignTop
                                             visible: model.iconSource !== ""
                                             source: model.iconSource
@@ -715,14 +721,23 @@ Window {
 
                                         ColumnLayout {
                                             Layout.fillWidth: true
-                                            spacing: 2
+                                            spacing: 3
 
+                                            /* Same two sizes the popup uses for
+                                               the same two strings. They used to
+                                               be a step smaller each, so the
+                                               centre read as a cramped version of
+                                               the notification rather than as the
+                                               same notification. The centre is the
+                                               surface you actually *read* — it has
+                                               no business being the smaller of the
+                                               two. */
                                             Text {
                                                 Layout.fillWidth: true
                                                 text: model.summary
                                                 color: Style.foreground
                                                 font.family: Style.fontFamily
-                                                font.pointSize: Style.fontSize - 1
+                                                font.pointSize: Style.fontSize
                                                 font.bold: true
                                                 elide: Text.ElideRight
                                             }
@@ -733,7 +748,7 @@ Window {
                                                 text: model.body
                                                 color: Style.foregroundDim
                                                 font.family: Style.fontFamily
-                                                font.pointSize: Style.fontSize - 2
+                                                font.pointSize: Style.fontSize - 1
                                                 wrapMode: Text.WordWrap
                                                 maximumLineCount: Appearance.centreBodyLines
                                                 elide: Text.ElideRight

@@ -21,6 +21,14 @@ namespace
    bands plus four corner ellipses. */
 QRegion roundedRegion(const QRect &r, int radius)
 {
+    /* Clamp to what the rectangle can actually hold. The corner ellipses are
+       2*radius across, so a radius larger than half the shorter side put them
+       outside the rect and the region came out *bigger* than the thing it was
+       describing — as a blur or input area extending past the surface. It
+       never showed up because every caller had been a card, where the radius
+       is a fraction of the height; a short strip is the first caller where
+       the difference is the whole shape. */
+    radius = qMin(radius, qMin(r.width(), r.height()) / 2);
     if (radius <= 0) {
         return QRegion(r);
     }

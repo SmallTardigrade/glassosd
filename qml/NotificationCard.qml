@@ -4,6 +4,7 @@
     SPDX-License-Identifier: GPL-2.0-or-later
 */
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import org.glassosd.ui
 
@@ -32,7 +33,16 @@ Item {
        even highlights on hover. Binding through mapToItem() does not help:
        QML does not re-evaluate it when an ancestor moves. The delegate's own
        y is the thing that actually changes, so drive it from here. */
-    onYChanged: card.refreshBlur()
+    onYChanged: {
+        card.refreshBlur()
+        /* The sheets are registered in window coordinates too, so they go
+           stale for exactly the same reason the card does when the ListView
+           moves this delegate. */
+        for (let i = 0; i < sheets.count; ++i) {
+            const s = sheets.itemAt(i)
+            if (s) s.refreshSheet()
+        }
+    }
     signal dismissed()
     signal settingsRequested()
     signal moreRequested()
@@ -44,30 +54,82 @@ Item {
     implicitHeight: card.implicitHeight + stackDepth * Style.stackOffset
 
     // ---- stacked edges, drawn behind and below --------------------------
+    /* Each sheet is clipped to the sliver that actually peeks out.
+
+       It used to be a full card-height rectangle parked behind the card. That
+       was invisible while cards were opaque, but they are glass now and an
+       opaque rectangle behind a translucent card is simply a backing: the top
+       9px of the card showed the wallpaper through it and everything below
+       showed this rectangle instead. The card read as translucent along its
+       top edge and solid for the rest of its height — a hard horizontal step
+       across the card with nothing in the design to explain it.
+
+       Clipping to the sliver means the sheet never covers any part of the
+       card, so the glass is glass the whole way down. The visible result is
+       unchanged for an opaque theme, which is what this looked like when it
+       was written. */
     Repeater {
+        id: sheets
         model: root.stackDepth
-        delegate: Rectangle {
+        delegate: Item {
+            id: sheet
             required property int index
             z: -1 - index
             anchors.horizontalCenter: parent.horizontalCenter
             width: card.width - (index + 1) * Style.stackInset * 2
-            height: card.height
-            y: (index + 1) * Style.stackOffset
-            radius: Style.cardRadius
-            color: Style.cardStackEdge
-            antialiasing: true
+            y: card.height
+            height: (index + 1) * Style.stackOffset
+            clip: true
 
-            /* Seam along the *bottom* of each sheet. Only the bottom sliver
-               of an edge is visible — its top is hidden behind the card in
-               front — so a seam on the top edge draws nothing at all. */
+            /* The sliver gets the card's backdrop treatment too. Without it
+               the sheet is the only opaque thing on a glass card, so it
+               tracked nothing: over a dark wallpaper it read as a lighter
+               sheet behind, and over a bright one — a white page in a browser
+               — the card composited to mid-grey while the sheet stayed near
+               black, and the stack looked like a bar of shadow rather than a
+               card. Registering it means both are lit by the same backdrop
+               and the relationship holds whatever is behind the window. */
+            function refreshSheet() {
+                if (!Window.window)
+                    return
+                const p = mapToItem(null, 0, 0)
+                const r = Qt.rect(p.x, p.y, width, height)
+                Surface.setPanelRegion(Window.window, sheet, r, Style.cardRadius)
+                if (card.glass) {
+                    Surface.applyContrast(Window.window, r, Style.cardRadius,
+                                          Style.bgContrast, Style.bgIntensity,
+                                          Style.bgSaturation)
+                }
+            }
+            Component.onCompleted: refreshSheet()
+            onYChanged: refreshSheet()
+            onWidthChanged: refreshSheet()
+            onHeightChanged: refreshSheet()
+            Component.onDestruction: if (Window.window) Surface.clearPanelRegion(Window.window, sheet)
+
+            /* Card-sized and bottom-aligned inside the clip, so the corners
+               that show are the same radius as the card's own. Drawing a
+               short rounded rect instead would round the top corners too and
+               read as a separate pill rather than as a sheet behind. */
             Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.leftMargin: Style.cardRadius * 0.5
-                anchors.rightMargin: Style.cardRadius * 0.5
-                height: 1
-                color: Style.cardStackSeam
+                width: parent.width
+                height: card.height
+                y: parent.height - height
+                radius: Style.cardRadius
+                color: Style.cardStackEdge
+                antialiasing: true
+
+                /* Seam along the bottom of each sheet. Only the bottom sliver
+                   is ever visible, so a seam on the top edge draws nothing. */
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: Style.cardRadius * 0.5
+                    anchors.rightMargin: Style.cardRadius * 0.5
+                    height: 1
+                    color: Style.cardStackSeam
+                }
             }
         }
     }
