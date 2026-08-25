@@ -110,6 +110,9 @@ public:
     void setHoverPause(bool on);
     bool hoverPause() const { return m_hoverPause; }
     Q_INVOKABLE void invokeAction(uint id, const QString &key);
+    /* True while the notification is still displayed or queued, which is the
+       only window in which its sender is still listening for an action. */
+    bool isLive(uint id) const;
     Q_INVOKABLE void sendReply(uint id, const QString &text);
 
     /* Activating a notification has to hand the sender an XDG activation

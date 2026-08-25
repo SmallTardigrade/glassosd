@@ -34,6 +34,17 @@ Window {
         Surface.setOutput(win, Appearance.output)
     }
 
+    /* Close when the centre stops being the focused surface. Alt+Tab, or a
+       click on another window, should dismiss it the way any other transient
+       panel behaves — leaving it floating over whatever you switched to is
+       just in the way. Guarded on panelOpen so this cannot fight the opening
+       animation. */
+    onActiveChanged: {
+        if (!active && HistoryModel.panelOpen) {
+            HistoryModel.panelOpen = false
+        }
+    }
+
     onVisibleChanged: {
         Surface.setKeyboardFocus(win, visible)
         /* wpctl and brightnessctl are only queried while the centre is open;
@@ -458,6 +469,22 @@ Window {
                                 id: entryHover
                                 anchors.fill: parent
                                 hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                                onClicked: (mouse) => {
+                                    if (mouse.button === Qt.MiddleButton) {
+                                        HistoryModel.removeAt(index)
+                                        return
+                                    }
+                                    /* Same gesture as a popup: open the thing
+                                       the notification was about. For a live
+                                       notification that is its default action;
+                                       for one that has expired the sender is
+                                       gone, so it falls back to launching the
+                                       application. */
+                                    HistoryModel.activateEntry(index)
+                                    HistoryModel.panelOpen = false
+                                }
                             }
 
                             RowLayout {

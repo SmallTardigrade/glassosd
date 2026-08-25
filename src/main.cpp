@@ -26,6 +26,8 @@
 #include "osdmonitor.h"
 
 #include <QApplication>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QQmlApplicationEngine>
@@ -251,6 +253,37 @@ int main(int argc, char *argv[])
 
     if (modules->notificationCentre()) {
         new TrayIcon(notifications, history, &app);
+
+        /* Clicking an entry in the centre. If the notification is still on
+           screen its sender is still listening, so the real default action
+           works. Once it has expired nobody is listening and invoking the
+           action is silently nothing — so fall back to launching the
+           application it came from, which is what the click meant anyway.
+           gio launch runs the .desktop properly (respecting Terminal=,
+           DBusActivatable= and the rest) rather than exec'ing a guess. */
+        QObject::connect(history, &HistoryModel::entryActivated, &app,
+                         [notifications](uint id, const QString &desktopEntry) {
+            if (notifications->isLive(id)) {
+                notifications->invokeAction(id, QStringLiteral("default"));
+                return;
+            }
+            if (desktopEntry.isEmpty()) {
+                return;
+            }
+            QString id2 = desktopEntry;
+            if (!id2.endsWith(QLatin1String(".desktop"))) {
+                id2 += QStringLiteral(".desktop");
+            }
+            const QString path =
+                QStandardPaths::locate(QStandardPaths::ApplicationsLocation, id2);
+            if (path.isEmpty()) {
+                qInfo("glassosd: no .desktop for '%s'; nothing to open",
+                      qUtf8Printable(desktopEntry));
+                return;
+            }
+            QProcess::startDetached(QStringLiteral("gio"),
+                                    {QStringLiteral("launch"), path});
+        });
 
         /* The grid needs live DND state to render its toggle, and something
            to hand clear-all to. */

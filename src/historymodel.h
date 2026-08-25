@@ -93,6 +93,12 @@ public:
     Q_INVOKABLE void removeAt(int row);
     Q_INVOKABLE void clearAll();
     Q_INVOKABLE void clearFilter() { setGroupFilter({}); }
+    /* Clicking an entry in the centre. Tries the original notification's
+       default action first — that only lands if the notification is still
+       live — and otherwise launches the application it came from, which is
+       what the click was almost certainly for. */
+    Q_INVOKABLE void activateEntry(int row);
+
     Q_INVOKABLE void toggleGroup(const QString &key);
     Q_INVOKABLE void clearGroup(const QString &key);
     void setAutoCollapseOver(int n) { m_autoCollapseOver = qMax(0, n); rebuild(); }
@@ -105,6 +111,8 @@ public:
 Q_SIGNALS:
     void changed();
     void panelOpenChanged();
+    /* Handled in main.cpp: the server knows whether the id is still live. */
+    void entryActivated(uint id, const QString &desktopEntry);
 
 private:
     void rebuild();

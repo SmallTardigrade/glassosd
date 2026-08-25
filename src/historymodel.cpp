@@ -351,6 +351,15 @@ bool HistoryModel::isCollapsed(const QString &key, int count) const
     return m_autoCollapseOver > 0 && count > m_autoCollapseOver;
 }
 
+void HistoryModel::activateEntry(int row)
+{
+    if (row < 0 || row >= m_rows.size() || m_rows.at(row).header) {
+        return;
+    }
+    const Notification &n = m_rows.at(row).entry;
+    Q_EMIT entryActivated(n.id, n.desktopEntry);
+}
+
 void HistoryModel::toggleGroup(const QString &key)
 {
     int count = 0;

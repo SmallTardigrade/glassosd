@@ -259,7 +259,12 @@ void Surface::recompute(QQuickWindow *window)
         const QRect r = c.rect.toAlignedRect();
         const int radius = qRound(c.radius);
         combined += roundedRegion(r, radius);
-        const QRect inner = r.adjusted(1, 1, -1, -1);
+        /* Two pixels, not one. The region's rounded corners are built from
+           integer strips, so its boundary is stair-stepped; the card's own
+           corner is anti-aliased over roughly two pixels and is not opaque
+           enough there to hide a stepped edge underneath it. At one pixel the
+           steps show as visible jaggies on the corner. */
+        const QRect inner = r.adjusted(2, 2, -2, -2);
         if (inner.isValid()) {
             effectRegion += roundedRegion(inner, radius);
         }

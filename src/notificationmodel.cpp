@@ -168,6 +168,19 @@ int NotificationModel::defaultTimeoutFor(Urgency u) const
     }
 }
 
+bool NotificationModel::isLive(uint id) const
+{
+    if (indexOfDisplayed(id) >= 0) {
+        return true;
+    }
+    for (const Notification &n : m_waiting) {
+        if (n.id == id) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int NotificationModel::indexOfDisplayed(uint id) const
 {
     for (int i = 0; i < m_displayed.size(); ++i) {
