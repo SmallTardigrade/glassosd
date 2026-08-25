@@ -10,6 +10,10 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QRegularExpression>
+#include <QDir>
+#include <QHash>
+#include <QSettings>
+#include <QStandardPaths>
 
 namespace
 {
@@ -104,6 +108,71 @@ bool NotificationServer::start()
     return true;
 }
 
+namespace
+{
+/* Resolve a desktop-entry id to the name and icon in its .desktop file.
+
+   xdg-desktop-portal forwards a sandboxed app's notification with an empty
+   app_name and app_icon, so everything arriving that way — which is every
+   Flatpak — would otherwise be an anonymous card. The desktop-entry hint is
+   usually still present and is enough to recover both. */
+struct DesktopInfo {
+    QString name;
+    QString icon;
+};
+
+DesktopInfo lookupDesktopEntry(const QString &entry)
+{
+    if (entry.isEmpty()) {
+        return {};
+    }
+    /* Cached: a burst from one app would otherwise stat the whole XDG data
+       path once per message. */
+    static QHash<QString, DesktopInfo> cache;
+    const auto cached = cache.constFind(entry);
+    if (cached != cache.constEnd()) {
+        return *cached;
+    }
+
+    QString id = entry;
+    if (id.endsWith(QLatin1String(".desktop"))) {
+        id.chop(8);
+    }
+
+    QString path = QStandardPaths::locate(QStandardPaths::ApplicationsLocation,
+                                          id + QStringLiteral(".desktop"));
+    if (path.isEmpty()) {
+        /* Flatpaks install under their full reverse-DNS id but some apps send
+           only the last component, so fall back to a suffix match. */
+        for (const QString &dir : QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation)) {
+            const QStringList hits =
+                QDir(dir).entryList({QStringLiteral("*") + id + QStringLiteral(".desktop")}, QDir::Files);
+            if (!hits.isEmpty()) {
+                path = dir + QLatin1Char('/') + hits.first();
+                break;
+            }
+        }
+    }
+
+    DesktopInfo info;
+    if (!path.isEmpty()) {
+        QSettings df(path, QSettings::IniFormat);
+        df.beginGroup(QStringLiteral("Desktop Entry"));
+        info.name = df.value(QStringLiteral("Name")).toString();
+        info.icon = df.value(QStringLiteral("Icon")).toString();
+    }
+    cache.insert(entry, info);
+    return info;
+}
+} // namespace
+
+void NotificationServer::reserveIds(uint highest)
+{
+    if (highest >= m_nextId) {
+        m_nextId = highest + 1;
+    }
+}
+
 uint NotificationServer::handleNotify(const QString &appName,
                                       uint replacesId,
                                       const QString &appIcon,
@@ -175,6 +244,20 @@ uint NotificationServer::handleNotify(const QString &appName,
     /* The reply affordance is requested by the app as an action key, so it is
        driven entirely by the sender rather than assumed for particular apps. */
     n.inlineReply = n.actions.contains(QLatin1String("inline-reply"));
+
+    /* Everything arriving through xdg-desktop-portal has an empty app_name
+       and app_icon — the portal does not forward the sandboxed app's
+       identity. Recover both from the desktop-entry hint, or a Flatpak's
+       notification renders as an anonymous card with no name and no icon. */
+    if (n.appName.isEmpty() || n.appIcon.isEmpty()) {
+        const DesktopInfo info = lookupDesktopEntry(n.desktopEntry);
+        if (n.appName.isEmpty() && !info.name.isEmpty()) {
+            n.appName = info.name;
+        }
+        if (n.appIcon.isEmpty() && !info.icon.isEmpty()) {
+            n.appIcon = info.icon;
+        }
+    }
 
     /* Rules run after the hints are parsed (so they can match on category and
        desktop-entry) but before insertion, because assigning a stack tag has

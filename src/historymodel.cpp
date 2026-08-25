@@ -6,6 +6,8 @@
 #include "historymodel.h"
 
 #include <QDateTime>
+
+#include <algorithm>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -65,11 +67,24 @@ void HistoryModel::load()
         n.body = o.value(QStringLiteral("body")).toString();
         n.urgency = static_cast<Urgency>(o.value(QStringLiteral("urgency")).toInt(1));
         n.received = QDateTime::fromString(o.value(QStringLiteral("at")).toString(), Qt::ISODate);
+        m_maxLoadedId = qMax(m_maxLoadedId, n.id);
         m_all.append(n);
         if (m_all.size() >= m_capacity) {
             break;
         }
     }
+
+    /* Sort by arrival rather than trusting the file's order. Two reasons:
+       a file written by an older build can be out of order (ids used to
+       collide across restarts, so a new notification would overwrite an
+       unrelated entry *in that entry's position*), and sorting is the only
+       thing that repairs such a file. It also means the on-disk order is not
+       load-bearing, so a hand-edited history still comes back sane. */
+    std::stable_sort(m_all.begin(), m_all.end(),
+                     [](const Notification &a, const Notification &b) {
+                         return a.received > b.received;
+                     });
+
     rebuild();
 }
 
@@ -164,9 +179,16 @@ void HistoryModel::record(const Notification &n)
 
     /* A replaces_id notification is the *same* message updating itself — a
        file-copy progress notification would otherwise leave a hundred entries
-       behind. Update in place instead of appending. */
+       behind. Update in place instead of prepending.
+
+       The app name has to match as well as the id. Ids are only unique within
+       one run of the daemon, but history outlives restarts, so id alone let a
+       fresh notification overwrite an unrelated old entry — silently, and in
+       that entry's old position, which is what put the file out of time
+       order. Seeding the server's id counter past maxLoadedId() prevents the
+       collision; this check is the belt to that pair of braces. */
     for (int i = 0; i < m_all.size(); ++i) {
-        if (m_all.at(i).id == n.id) {
+        if (m_all.at(i).id == n.id && m_all.at(i).appName == n.appName) {
             m_all[i] = n;
             rebuild();
             return;
@@ -213,6 +235,15 @@ void HistoryModel::setPanelOpen(bool open)
     Q_EMIT panelOpenChanged();
 }
 
+void HistoryModel::setNewestFirst(bool on)
+{
+    if (m_newestFirst == on) {
+        return;
+    }
+    m_newestFirst = on;
+    rebuild();
+}
+
 void HistoryModel::rebuild()
 {
     beginResetModel();
@@ -247,6 +278,18 @@ void HistoryModel::rebuild()
         byGroup[key].append(n);
     }
 
+    /* Newest-last is the default because the centre opens scrolled to the
+       bottom, the way a message thread does: the thing you just heard arrive
+       is under your eyes without scrolling. Groups reverse and so do their
+       members, but the header still leads its own group — reversing the flat
+       row list instead would put every header underneath its entries. */
+    if (!m_newestFirst) {
+        std::reverse(order.begin(), order.end());
+        for (auto it = byGroup.begin(); it != byGroup.end(); ++it) {
+            std::reverse(it.value().begin(), it.value().end());
+        }
+    }
+
     for (const QString &key : std::as_const(order)) {
         const QList<Notification> &items = byGroup.value(key);
         const bool collapsed = isCollapsed(key, items.size());
@@ -254,7 +297,7 @@ void HistoryModel::rebuild()
         Row header;
         header.header = true;
         header.groupKey = key;
-        header.appName = items.first().appName;
+        header.appName = items.first().appName;   // same app throughout the group
         header.count = items.size();
         header.collapsed = collapsed;
         m_rows.append(header);

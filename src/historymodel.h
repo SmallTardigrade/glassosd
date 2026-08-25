@@ -33,6 +33,7 @@ class HistoryModel : public QAbstractListModel
     Q_PROPERTY(QString groupFilter READ groupFilter WRITE setGroupFilter NOTIFY changed)
     Q_PROPERTY(QString groupFilterLabel READ groupFilterLabel NOTIFY changed)
     Q_PROPERTY(bool panelOpen READ panelOpen WRITE setPanelOpen NOTIFY panelOpenChanged)
+    Q_PROPERTY(bool newestFirst READ newestFirst NOTIFY changed)
 
 public:
     /* The view is a flat list of rows where a row is either a group header or
@@ -64,6 +65,16 @@ public:
     bool panelOpen() const { return m_panelOpen; }
     void setPanelOpen(bool open);
     Q_INVOKABLE void togglePanel() { setPanelOpen(!m_panelOpen); }
+
+    /* false (the default) puts the newest at the bottom so the centre can
+       open already scrolled to it. */
+    /* The highest id present in the persisted file. Notification ids restart
+       from 1 on every launch, so without seeding the server above this a new
+       notification collides with an unrelated old entry and overwrites it. */
+    uint maxLoadedId() const { return m_maxLoadedId; }
+
+    void setNewestFirst(bool on);
+    bool newestFirst() const { return m_newestFirst; }
     QString groupFilter() const { return m_filter; }
     QString groupFilterLabel() const { return m_filterLabel; }
     void setGroupFilter(const QString &key);
@@ -113,6 +124,8 @@ private:
     QString storePath() const;
     mutable QTimer m_saveTimer;
     bool m_panelOpen = false;
+    bool m_newestFirst = true;
+    uint m_maxLoadedId = 0;
     /* Two sets, not one: a group is collapsed by default once it grows past
        the threshold, but an explicit expand has to survive rebuilds — and an
        explicit collapse has to survive a group shrinking below it. */

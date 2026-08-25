@@ -31,6 +31,11 @@ public:
        already owns it — during development that is dunst, still running. */
     bool start();
 
+    /* Start issuing ids above anything already in persisted history. Ids are
+       only unique within one run, but history outlives restarts, so without
+       this a fresh notification reuses an old entry's id and overwrites it. */
+    void reserveIds(uint highest);
+
     uint handleNotify(const QString &appName,
                       uint replacesId,
                       const QString &appIcon,

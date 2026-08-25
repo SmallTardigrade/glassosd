@@ -329,6 +329,26 @@ Window {
             // ---- grouped list -------------------------------------------
             ListView {
                 id: list
+
+                /* Open at the newest entry rather than at the top of the
+                   backlog. positionViewAtEnd alone runs before the delegates
+                   have been sized, so it lands short on a long list; the
+                   Timer re-runs it once layout has settled. */
+                function jumpToNewest() {
+                    if (HistoryModel.newestFirst) positionViewAtBeginning()
+                    else positionViewAtEnd()
+                }
+                Timer {
+                    id: settle
+                    interval: 30; repeat: false
+                    onTriggered: list.jumpToNewest()
+                }
+                Connections {
+                    target: HistoryModel
+                    function onPanelOpenChanged() {
+                        if (HistoryModel.panelOpen) { list.jumpToNewest(); settle.restart() }
+                    }
+                }
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true

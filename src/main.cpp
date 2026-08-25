@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
                             new NotifyImageProvider(notifications, history));
 
     history->setAutoCollapseOver(notifyCfg.readEntry("AutoCollapseOver", 3));
+    history->setNewestFirst(notifyCfg.readEntry("NewestFirst", true));
     history->setCapacity(notifyCfg.readEntry("HistoryLength", 200));
 
     /* Flush on shutdown so the last few notifications are not lost to the
@@ -119,6 +120,7 @@ int main(int argc, char *argv[])
     QObject::connect(&app, &QCoreApplication::aboutToQuit, history, [history] { history->save(); });
 
     auto *server = new NotificationServer(notifications, history, &app);
+    server->reserveIds(history->maxLoadedId());
     /* On by default now that we ship a D-Bus activation file. An app that
        posts a notification starts us on demand, and a daemon that starts and
        then declines to claim the name would swallow the message that woke it.
@@ -148,6 +150,9 @@ int main(int argc, char *argv[])
     QObject::connect(watcher.get(), &KConfigWatcher::configChanged, &app,
                      [=](const KConfigGroup &, const QByteArrayList &) mutable {
                          applySettings();
+                         history->setNewestFirst(
+                             KConfigGroup(cfg, QStringLiteral("Notifications"))
+                                 .readEntry("NewestFirst", true));
                          appearance->reload();
                          /* ThemeFile lives in the same config, and Theme's own
                             file watcher only knows about the file it already
@@ -185,6 +190,8 @@ int main(int argc, char *argv[])
     control->start();
     QObject::connect(control, &Controller::reloadRequested, &app, [=]() mutable {
         applySettings();
+        history->setNewestFirst(
+            KConfigGroup(cfg, QStringLiteral("Notifications")).readEntry("NewestFirst", true));
         appearance->reload();
         theme->reload();
         server->loadRules(cfg);
