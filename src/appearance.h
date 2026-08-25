@@ -40,6 +40,10 @@ class Appearance : public QObject
        friends do not blur at all, and unblurred translucency over a busy
        wallpaper is unreadable. 0 keeps the glass, 1 makes it solid. */
     Q_PROPERTY(qreal solidity READ solidity NOTIFY changed)
+    /* wlr-layer-shell layer for notification popups: 2 = Top, 3 = Overlay.
+       There is no value between them — fullscreen surfaces sit in the gap —
+       so this is an either/or the user has to pick. */
+    Q_PROPERTY(int notifyLayer READ notifyLayer NOTIFY changed)
     /* Which widgets the centre shows, and in what order — swaync's
        `widgets` list. Unknown names are ignored rather than fatal. */
     Q_PROPERTY(QStringList widgets READ widgets NOTIFY changed)
@@ -54,6 +58,7 @@ public:
     qreal scale() const { return m_scale; }
     int notifyWidth() const { return m_notifyWidth; }
     qreal solidity() const { return m_solidity; }
+    int notifyLayer() const { return m_notifyLayer; }
     QStringList widgets() const { return m_widgets; }
     Q_INVOKABLE bool hasWidget(const QString &name) const { return m_widgets.contains(name); }
     Q_INVOKABLE int widgetOrder(const QString &name) const { return m_widgets.indexOf(name); }
@@ -72,5 +77,6 @@ private:
     qreal m_scale = 1.0;
     int m_notifyWidth = 380;
     qreal m_solidity = 0.0;
+    int m_notifyLayer = 2;
     QStringList m_widgets;
 };

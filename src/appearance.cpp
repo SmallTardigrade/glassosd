@@ -82,6 +82,15 @@ void Appearance::reload()
     m_notifyWidth = qBound(240, g.readEntry("NotifyWidth", 380), 900);
     m_solidity = qBound(0.0, g.readEntry("Solidity", 0.0), 1.0);
 
+    /* "top" keeps popups below fullscreen windows, which is what most people
+       want, but KWin's Show Desktop hides top-layer surfaces along with
+       ordinary windows — deliberately, so it does not fight layer-shell
+       stacking. "overlay" survives Show Desktop and rides above fullscreen
+       too. The protocol has no layer between the two: fullscreen surfaces
+       occupy exactly that gap, so this cannot be had both ways. */
+    const QString layer = g.readEntry("NotifyLayer", QStringLiteral("top")).toLower();
+    m_notifyLayer = (layer == QLatin1String("overlay")) ? 3 : 2;
+
     /* Default order mirrors swaync's: media, then DND, then the list. */
     m_widgets = g.readEntry("Widgets", QStringList{QStringLiteral("media"),
                                                    QStringLiteral("dnd")});

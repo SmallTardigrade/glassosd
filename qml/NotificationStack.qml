@@ -33,7 +33,8 @@ Window {
            typed into; it is only taken when the surface is clicked. */
         /* keyboardFocus false: a notification must never steal the next
            click. It is raised to OnDemand only while a reply field exists. */
-        Surface.initLayerShell(win, "glassosd-notifications", 1 | 8, 0, 0, 0, 0, false, 0)
+        Surface.initLayerShell(win, "glassosd-notifications", 1 | 8, 0, 0, 0, 0, false, 0,
+                               Appearance.notifyLayer)
         Surface.setInputFollowsPanels(win, true)
         Surface.setOutput(win, Appearance.output)
     }
