@@ -24,10 +24,17 @@ Window {
         /* Anchored on all four sides so the surface covers the screen: the
            panel takes the right-hand strip and the rest is a click-away
            catcher. Top layer, so screenshot selectors stay above us. */
+        /* keyboardFocus starts false and is raised only while the panel is
+           actually open. This surface is anchored on all four sides, so it
+           covers the whole screen; holding keyboard focus while hidden meant
+           it swallowed every global shortcut — Alt+Tab included — with
+           nothing visible on screen to explain why. */
         Surface.initLayerShell(win, "glassosd-history", 1 | 2 | 4 | 8,
-                               0, 0, 0, 0, true, 0)
+                               0, 0, 0, 0, false, 0)
         Surface.setOutput(win, Appearance.output)
     }
+
+    onVisibleChanged: Surface.setKeyboardFocus(win, visible)
 
     MouseArea {
         anchors.fill: parent
