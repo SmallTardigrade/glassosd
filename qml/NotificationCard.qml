@@ -119,24 +119,41 @@ Item {
                 Layout.fillWidth: true
                 spacing: 7
 
-                /* Same squircle container as the OSD chip, so "icon in a
-                   badge" is one shape language across the whole system. */
+                /* The squircle container is for *symbolic* glyphs, which need
+                   something to sit in. An application icon is already a
+                   designed shape — very often a rounded square itself — and
+                   putting one inside our squircle gives a squircle within a
+                   squircle at two different radii, which reads as a mistake.
+                   macOS and Windows both show app icons bare for this reason.
+                   Full-colour artwork with its own silhouette therefore gets
+                   no container; only our own monochrome glyphs do. */
                 Rectangle {
                     Layout.preferredWidth: Style.notifyIconSize + 8
                     Layout.preferredHeight: Style.notifyIconSize + 8
                     visible: root.entry.iconSource !== ""
                     radius: width * Style.chipRadiusRatio
-                    color: Style.chipIdle
+                    color: appIcon.isSymbolic ? Style.chipIdle : "transparent"
 
                     Image {
+                        id: appIcon
                         anchors.centerIn: parent
-                        width: Style.notifyIconSize
-                        height: Style.notifyIconSize
+                        /* Bare app icons render a touch larger, because they
+                           are no longer inset within a container. */
+                        width: isSymbolic ? Style.notifyIconSize
+                                          : Style.notifyIconSize + 6
+                        height: width
                         source: root.entry.iconSource
                         sourceSize: Qt.size(Style.notifyIconSize * 3, Style.notifyIconSize * 3)
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                         mipmap: true
+
+                        /* Our own glyphs are drawn white-on-nothing and need a
+                           container to read against the card; anything from an
+                           icon theme is artwork and does not. */
+                        readonly property bool isSymbolic:
+                            Icons.isCustom(root.entry.iconSource)
+                            || String(root.entry.iconSource).indexOf("symbolic") !== -1
                     }
                 }
 
