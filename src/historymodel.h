@@ -52,6 +52,7 @@ public:
         GroupKeyRole,
         GroupCountRole,
         CollapsedRole,
+        HeaderIconRole,
     };
     Q_ENUM(Roles)
 
@@ -113,6 +114,7 @@ private:
         bool header = false;
         QString groupKey;
         QString appName;
+        QString icon;
         int count = 0;
         bool collapsed = false;
         Notification entry;

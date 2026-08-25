@@ -374,6 +374,22 @@ Window {
                                     }
                                 }
 
+                                /* The app's icon beside its name. A collapsed
+                                   group is otherwise a bare word, and a column
+                                   of bare words is far slower to scan than a
+                                   column of icons — which is the whole point
+                                   of collapsing in the first place. */
+                                Image {
+                                    Layout.preferredWidth: 16
+                                    Layout.preferredHeight: 16
+                                    visible: model.headerIcon !== ""
+                                    source: model.headerIcon
+                                    sourceSize: Qt.size(48, 48)
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    mipmap: true
+                                }
+
                                 Text {
                                     text: model.appName
                                     color: Style.foregroundMuted

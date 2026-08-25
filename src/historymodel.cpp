@@ -130,6 +130,10 @@ QVariant HistoryModel::data(const QModelIndex &index, int role) const
     case GroupCountRole: return r.count;
     case CollapsedRole:  return r.collapsed;
     case AppNameRole:    return r.header ? r.appName : r.entry.appName;
+    /* Must be answered here: header rows return early below, so a case in
+       the entry switch is unreachable for exactly the rows that need it. */
+    case HeaderIconRole:
+        return r.icon.isEmpty() ? QString() : QStringLiteral("image://icon/") + r.icon;
     default:
         break;
     }
@@ -162,6 +166,7 @@ QHash<int, QByteArray> HistoryModel::roleNames() const
         {SummaryRole, "summary"},
         {BodyRole, "body"},
         {IconSourceRole, "iconSource"},
+        {HeaderIconRole, "headerIcon"},
         {UrgencyRole, "urgency"},
         {WhenRole, "when"},
         {IsHeaderRole, "isHeader"},
@@ -294,15 +299,30 @@ void HistoryModel::rebuild()
         const QList<Notification> &items = byGroup.value(key);
         const bool collapsed = isCollapsed(key, items.size());
 
+        /* The newest member of the group. items are in display order, which
+           is oldest-first when the newest is being shown at the bottom. */
+        const Notification &newest = m_newestFirst ? items.first() : items.last();
+
         Row header;
         header.header = true;
         header.groupKey = key;
-        header.appName = items.first().appName;   // same app throughout the group
+        header.appName = newest.appName;          // same app throughout the group
+        header.icon = newest.appIcon;             // so a collapsed group is scannable
         header.count = items.size();
         header.collapsed = collapsed;
         m_rows.append(header);
 
+        /* A collapsed group still shows its newest entry rather than nothing.
+           Hiding every entry turned the centre into a list of app names with
+           no content — a table of contents, not history. Showing the latest
+           one keeps a busy day readable without making a quiet one look
+           collapsed at all, which is what macOS does with a notification
+           stack. The header's count and chevron still reveal the rest. */
         if (collapsed) {
+            Row row;
+            row.groupKey = key;
+            row.entry = newest;
+            m_rows.append(row);
             continue;
         }
         for (const Notification &n : items) {
