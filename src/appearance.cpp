@@ -8,6 +8,7 @@
 #include <KConfigGroup>
 
 #include <QDebug>
+#include <QHash>
 
 #include <cmath>
 #include <utility>
@@ -106,6 +107,53 @@ void Appearance::reload()
 
     const QString layer = g.readEntry("NotifyLayer", QStringLiteral("top")).toLower();
     m_notifyLayer = (layer == QLatin1String("overlay")) ? 3 : 2;
+
+    /* Where popups appear. Both spellings of centre are accepted — the config
+       should not be the place a user finds out which side of the Atlantic the
+       author was on. */
+    {
+        QString pos = g.readEntry("NotifyPosition", QStringLiteral("top-right"))
+                          .trimmed().toLower();
+        pos.replace(QLatin1String("center"), QLatin1String("centre"));
+
+        static const QHash<QString, int> anchorFor{
+            {QStringLiteral("top-left"),      1 | 4},
+            {QStringLiteral("top-centre"),    1},
+            {QStringLiteral("top-right"),     1 | 8},
+            {QStringLiteral("bottom-left"),   2 | 4},
+            {QStringLiteral("bottom-centre"), 2},
+            {QStringLiteral("bottom-right"),  2 | 8},
+        };
+        const auto it = anchorFor.constFind(pos);
+        if (it == anchorFor.cend()) {
+            qWarning("glassosd: unknown [Appearance] NotifyPosition '%s' — "
+                     "using top-right. Known: top-left top-centre top-right "
+                     "bottom-left bottom-centre bottom-right",
+                     qUtf8Printable(pos));
+            m_notifyPosition = QStringLiteral("top-right");
+            m_notifyAnchors = 1 | 8;
+        } else {
+            m_notifyPosition = pos;
+            m_notifyAnchors = it.value();
+        }
+    }
+
+    /* Bounded well short of a screen dimension: a margin large enough to push
+       every popup off the display is a typo, and the symptom — notifications
+       that arrive and are never seen — gives no hint of the cause. */
+    m_notifyMarginX = qBound(0, g.readEntry("NotifyMarginX", 0), 2000);
+    m_notifyMarginY = qBound(0, g.readEntry("NotifyMarginY", 0), 2000);
+
+    /* swaync's positionX, same name in the config, same two values. */
+    const QString side = g.readEntry("CentrePosition", QStringLiteral("right"))
+                             .trimmed().toLower();
+    m_centreSide = (side == QLatin1String("left")) ? 4 : 8;
+
+    const QString osd = g.readEntry("OsdPosition", QStringLiteral("top"))
+                            .trimmed().toLower();
+    m_osdAnchor = (osd == QLatin1String("bottom")) ? 2
+                : (osd == QLatin1String("centre") || osd == QLatin1String("center")) ? 0
+                : 1;
 
     /* The canonical order, and the default. Every widget the centre can draw
        appears here exactly once; the configured list is an ordering of these

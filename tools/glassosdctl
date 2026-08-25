@@ -29,6 +29,14 @@ cfg_read() { # group key
         ing && index($0,k"=")==1 {print substr($0,length(k)+2)}' "$CONF" 2>/dev/null
   fi
 }
+# cfg_read cannot fail — kreadconfig6 is wrapped in `|| true` so that a missing
+# key is not an error — so `$(cfg_read ...) || echo default` never fired and
+# every unset setting printed as a blank instead of as its default. Test the
+# value, not the exit status.
+cfg_or() { # group key default
+  v=$(cfg_read "$1" "$2")
+  [ -n "$v" ] && printf '%s' "$v" || printf '%s' "$3"
+}
 cfg_write() { # group key value
   if have kwriteconfig6; then
     kwriteconfig6 --notify --file "$RC" --group "$1" --key "$2" "$3"
@@ -110,6 +118,16 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  position [where]       Which corner or edge popups appear at:
+                         top-left, top-centre, top-right (default),
+                         bottom-left, bottom-centre, bottom-right.
+  offset [X] [Y]         Extra clearance from the anchored screen edges, in
+                         logical px. 0 is not flush — the shadow already
+                         insets the cards. Use it to clear something with no
+                         exclusive zone of its own, such as a browser's tab
+                         strip. One number sets both.
+  centre-position [l|r]  Which side the notification centre slides in from
+  osd-position [where]   top (default), centre or bottom
   widgets [list]         Which widgets the centre shows, and in what order.
                          Comma-separated, swaync's names: title, mpris, volume,
                          dnd, notifications, backlight, buttons-grid. A list
@@ -228,19 +246,38 @@ case "$cmd" in
             org.freedesktop.DBus GetConnectionUnixProcessID s org.freedesktop.Notifications 2>/dev/null | awk '{print $2}')
     printf 'notifications: owned by %s\n' "$(ps -o comm= -p "${owner:-0}" 2>/dev/null || echo 'nobody')"
     echo
+    # "key<TAB>default" — status printed a blank for anything the user had not
+    # explicitly set, which reads as "unset and therefore off" when in fact
+    # every one of these has a working default. Show the default, and say so.
     echo "settings:"
-    for k in Enabled Limit IndicateHidden CoalesceThreshold CoalesceWindowMs DoNotDisturb AutoCollapseOver HistoryLength IdleThresholdMs HoverPause; do
-      printf '  %-18s %s\n' "$k" "$(cfg_read $G "$k")"
-    done
+    printf '%s\n' \
+      "Enabled|true" "Limit|4" "IndicateHidden|true" "CoalesceThreshold|3" \
+      "CoalesceWindowMs|20000" "DoNotDisturb|false" "AutoCollapseOver|3" \
+      "HistoryLength|200" "IdleThresholdMs|120000" "HoverPause|true" \
+    | while IFS='|' read -r k d; do
+        v=$(cfg_read $G "$k")
+        if [ -n "$v" ]; then printf '  %-18s %s\n' "$k" "$v"
+        else printf '  %-18s %s (default)\n' "$k" "$d"; fi
+      done
     echo
     echo "appearance:"
-    for k in Theme ThemeFile AccentColor LevelStyle Output Scale FontSize BodyLines CentreBodyLines NotifyWidth Solidity Blur NotifyLayer Widgets; do
-      printf '  %-18s %s\n' "$k" "$(cfg_read Appearance "$k")"
-    done
+    printf '%s\n' \
+      "Theme|dark" "ThemeFile|(built-in)" "AccentColor|#3daee9" \
+      "LevelStyle|segmented" "Output|current" "Scale|1.0" \
+      "FontSize|auto (from scale)" "BodyLines|4" "CentreBodyLines|3" \
+      "NotifyWidth|380" "Solidity|0.0" "Blur|auto" "NotifyLayer|top" \
+      "NotifyPosition|top-right" "NotifyMarginX|0" "NotifyMarginY|0" \
+      "CentrePosition|right" "OsdPosition|top" \
+      "Widgets|title,mpris,volume,dnd,notifications,backlight,buttons-grid" \
+    | while IFS='|' read -r k d; do
+        v=$(cfg_read Appearance "$k")
+        if [ -n "$v" ]; then printf '  %-18s %s\n' "$k" "$v"
+        else printf '  %-18s %s (default)\n' "$k" "$d"; fi
+      done
     echo
     echo "modules:"
     for k in Notifications NotificationCentre Osd LockKeys; do
-      printf '  %-18s %s\n' "$k" "$(cfg_read Modules "$k" || echo true)"
+      printf '  %-18s %s\n' "$k" "$(cfg_or Modules "$k" true)"
     done
     echo
     echo "rules:"
@@ -298,10 +335,10 @@ case "$cmd" in
       for f in "$d"/*.json; do [ -e "$f" ] && echo "      $(basename "${f%.json}")"; done
     done
     echo
-    echo "current: $(cfg_read Appearance ThemeFile || echo '(built-in)')" ;;
+    echo "current: $(cfg_or Appearance ThemeFile '(built-in)')" ;;
   theme-file)
     case "${1:-}" in
-      "")     echo "theme-file: $(cfg_read Appearance ThemeFile || echo '(built-in)')" ;;
+      "")     echo "theme-file: $(cfg_or Appearance ThemeFile '(built-in)')" ;;
       none|default|reset)
         # Deleting the key rather than blanking it: an empty value still
         # counts as "set" to some INI readers, and a theme file that was
@@ -316,7 +353,7 @@ case "$cmd" in
   edit-theme)
     dest="${XDG_CONFIG_HOME:-$HOME/.config}/glassosd/themes"
     mkdir -p "$dest"
-    cur=$(cfg_read Appearance ThemeFile || echo glass-dark)
+    cur=$(cfg_or Appearance ThemeFile glass-dark)
     [ -n "$cur" ] || cur=glass-dark
     if [ ! -f "$dest/$cur.json" ]; then
       for d in "$HOME/.local/share/glassosd/themes" /usr/share/glassosd/themes "$SELF_DIR/../themes"; do
@@ -336,12 +373,12 @@ case "$cmd" in
       lockkeys)      key=LockKeys ;;
       "")  echo "modules:"
            for k in Notifications NotificationCentre Osd LockKeys; do
-             printf '''  %-20s %s\n''' "$k" "$(cfg_read Modules "$k" || echo true)"
+             printf '''  %-20s %s\n''' "$k" "$(cfg_or Modules "$k" true)"
            done
            exit 0 ;;
       *)   echo "unknown module: $name (notifications, centre, osd, lockkeys)" >&2; exit 1 ;;
     esac
-    if [ -z "$val" ]; then echo "$key: $(cfg_read Modules "$key" || echo true)"
+    if [ -z "$val" ]; then echo "$key: $(cfg_or Modules "$key" true)"
     else
       case "$val" in on|true) v=true ;; off|false) v=false ;; *) echo "use on or off" >&2; exit 1 ;; esac
       cfg_write Modules "$key" "$v"
@@ -351,12 +388,12 @@ case "$cmd" in
   theme)
     case "${1:-}" in
       dark|light) cfg_write Appearance Theme "$1"; echo "theme = $1" ;;
-      "")  echo "theme: $(cfg_read Appearance Theme || echo dark)" ;;
+      "")  echo "theme: $(cfg_or Appearance Theme dark)" ;;
       *)   echo "usage: glassosdctl theme [dark|light]" >&2; exit 1 ;;
     esac ;;
   accent)
     if [ -z "${1:-}" ]; then
-      echo "accent: $(cfg_read Appearance AccentColor || echo '#3daee9')"
+      echo "accent: $(cfg_or Appearance AccentColor '#3daee9')"
     else
       case "$1" in
         \#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]*) ;;
@@ -368,36 +405,72 @@ case "$cmd" in
     case "${1:-}" in
       top|overlay) cfg_write Appearance NotifyLayer "$1"; echo "layer = $1"
                    echo "run: glassosdctl restart" ;;
-      "")  echo "layer: $(cfg_read Appearance NotifyLayer || echo top)" ;;
+      "")  echo "layer: $(cfg_or Appearance NotifyLayer top)" ;;
       *)   echo "usage: glassosdctl layer [top|overlay]" >&2; exit 1 ;;
     esac ;;
   blur)
     case "${1:-}" in
       auto|on|off) cfg_write Appearance Blur "$1"; echo "blur = $1"
                    echo "blur is read at startup — run: glassosdctl restart" ;;
-      "")  echo "blur: $(cfg_read Appearance Blur || echo auto)" ;;
+      "")  echo "blur: $(cfg_or Appearance Blur auto)" ;;
       *)   echo "usage: glassosdctl blur [auto|on|off]" >&2; exit 1 ;;
     esac ;;
   solidity)
-    if [ -z "${1:-}" ]; then echo "solidity: $(cfg_read Appearance Solidity || echo 0.0)"
+    if [ -z "${1:-}" ]; then echo "solidity: $(cfg_or Appearance Solidity 0.0)"
     else cfg_write Appearance Solidity "$1"; echo "solidity = $1"; fi ;;
   font)
     case "${1:-}" in
-      "")        echo "font: $(cfg_read Appearance FontSize || echo 'auto (from scale)')" ;;
+      "")        echo "font: $(cfg_or Appearance FontSize 'auto (from scale)')" ;;
       auto|0)    cfg_write Appearance FontSize 0; echo "font = auto (from scale)" ;;
       *)         cfg_write Appearance FontSize "$1"; echo "font = $1" ;;
     esac ;;
   lines)
-    if [ -z "${1:-}" ]; then echo "lines: $(cfg_read Appearance BodyLines || echo 4)"
+    if [ -z "${1:-}" ]; then echo "lines: $(cfg_or Appearance BodyLines 4)"
     else cfg_write Appearance BodyLines "$1"; echo "lines = $1"; fi ;;
   centre-lines|center-lines)
-    if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_read Appearance CentreBodyLines || echo 3)"
+    if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  position)
+    known="top-left top-centre top-right bottom-left bottom-centre bottom-right"
+    if [ -z "${1:-}" ]; then
+      echo "position: $(cfg_or Appearance NotifyPosition top-right)"
+      echo "  known:  $known"
+      echo "  offset: x=$(cfg_or Appearance NotifyMarginX 0) y=$(cfg_or Appearance NotifyMarginY 0)"
+    else
+      # US spelling in, UK spelling stored; the daemon accepts either, but
+      # keeping one form in the file means `position` reads back what you typed.
+      want=$(echo "$1" | sed 's/center/centre/')
+      case " $known " in
+        *" $want "*) cfg_write Appearance NotifyPosition "$want"; echo "position = $want" ;;
+        *) echo "unknown position '$1'; known: $known" >&2; exit 1 ;;
+      esac
+    fi ;;
+  offset)
+    if [ -z "${1:-}" ]; then
+      echo "offset: x=$(cfg_or Appearance NotifyMarginX 0) y=$(cfg_or Appearance NotifyMarginY 0)"
+    else
+      cfg_write Appearance NotifyMarginX "$1"
+      cfg_write Appearance NotifyMarginY "${2:-$1}"
+      echo "offset = x=$1 y=${2:-$1}"
+    fi ;;
+  centre-position|center-position)
+    case "${1:-}" in
+      "")         echo "centre-position: $(cfg_or Appearance CentrePosition right)" ;;
+      left|right) cfg_write Appearance CentrePosition "$1"; echo "centre-position = $1" ;;
+      *)          echo "centre-position takes 'left' or 'right'" >&2; exit 1 ;;
+    esac ;;
+  osd-position)
+    case "${1:-}" in
+      "")                    echo "osd-position: $(cfg_or Appearance OsdPosition top)" ;;
+      top|bottom)            cfg_write Appearance OsdPosition "$1"; echo "osd-position = $1" ;;
+      centre|center)         cfg_write Appearance OsdPosition centre; echo "osd-position = centre" ;;
+      *) echo "osd-position takes 'top', 'centre' or 'bottom'" >&2; exit 1 ;;
+    esac ;;
   widgets)
     known="title mpris volume dnd notifications backlight buttons-grid"
     case "${1:-}" in
       "")
-        cur=$(cfg_read Appearance Widgets || echo "$known" | tr ' ' ,)
+        cur=$(cfg_or Appearance Widgets "$(echo "$known" | tr ' ' ,)")
         echo "widgets: $cur"
         case ",$cur," in
           *,notifications,*) echo "  (an order — the centre lays them out like this)" ;;
@@ -422,20 +495,20 @@ case "$cmd" in
         cfg_write Appearance Widgets "$1"; echo "widgets = $1" ;;
     esac ;;
   scale)
-    if [ -z "${1:-}" ]; then echo "scale: $(cfg_read Appearance Scale || echo 1.0)"
+    if [ -z "${1:-}" ]; then echo "scale: $(cfg_or Appearance Scale 1.0)"
     else cfg_write Appearance Scale "$1"; echo "scale = $1"; fi ;;
   width)
-    if [ -z "${1:-}" ]; then echo "width: $(cfg_read Appearance NotifyWidth || echo 380)"
+    if [ -z "${1:-}" ]; then echo "width: $(cfg_or Appearance NotifyWidth 380)"
     else cfg_write Appearance NotifyWidth "$1"; echo "width = $1"; fi ;;
   output)
     if [ -z "${1:-}" ]; then
-      echo "output: $(cfg_read Appearance Output || echo current)"
+      echo "output: $(cfg_or Appearance Output current)"
       echo "available:"; outputs
     else cfg_write Appearance Output "$1"; echo "output = $1"; fi ;;
   level)
     case "${1:-}" in
       segmented|bar) cfg_write Appearance LevelStyle "$1"; echo "level = $1" ;;
-      "")  echo "level: $(cfg_read Appearance LevelStyle || echo segmented)" ;;
+      "")  echo "level: $(cfg_or Appearance LevelStyle segmented)" ;;
       *)   echo "usage: glassosdctl level [segmented|bar]" >&2; exit 1 ;;
     esac ;;
   test)

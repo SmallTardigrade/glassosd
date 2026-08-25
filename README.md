@@ -34,6 +34,7 @@ glassosdctl theme-file material-dark   # or nord, frosted, rose, glass-dark
 - [Setup](#setup)
   - [The portal problem](#sandboxed-apps-the-portal-problem)
 - [Configuration](#configuration)
+  - [Position](#position)
 - [Theming](#theming)
 - [Widgets](#widgets)
 - [Compositor support](#compositor-support)
@@ -265,6 +266,31 @@ glassosdctl scale 1.2           # everything, proportionally
 glassosdctl level bar           # or segmented
 glassosdctl test                # fire the demo sequence
 ```
+
+### Position
+
+```bash
+glassosdctl position bottom-right   # top-left|top-centre|top-right|
+                                    # bottom-left|bottom-centre|bottom-right
+glassosdctl offset 0 160            # extra clearance from the anchored edges
+glassosdctl centre-position left    # which side the control centre opens on
+glassosdctl osd-position centre     # top (default), centre or bottom
+```
+
+Popups sit clear of your panel or taskbar automatically, whatever thickness
+and whichever edge it is on: glassosd requests no exclusive zone of its own
+but respects everyone else's, so the compositor keeps it out of the way.
+Nothing to configure, and it follows the panel if you move it.
+
+`offset` is for the things that panel-awareness cannot cover — a browser's tab
+strip, a video player's controls, a game's HUD. None of those reserve an
+exclusive zone, so nothing tells the compositor they are there. Two numbers, X
+then Y, in logical pixels, applied only to the edges you are anchored to. One
+number sets both. Zero is not flush against the screen edge: the card shadow
+already insets the stack.
+
+The stack always grows *away* from its anchor, so the newest notification is
+the one nearest the corner you chose whichever corner that is.
 
 ### Modules
 

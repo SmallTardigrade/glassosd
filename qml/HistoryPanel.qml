@@ -111,7 +111,11 @@ Window {
 
     GlassPanel {
         id: panel
-        anchors.right: parent.right
+        /* Which side the centre lives on — swaync's positionX, and the same
+           two values. The surface itself covers the whole screen either way;
+           only this strip and the click-away area either side of it move. */
+        anchors.right: Appearance.centreSide === 8 ? parent.right : undefined
+        anchors.left: Appearance.centreSide === 4 ? parent.left : undefined
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.margins: Style.notifyMargin

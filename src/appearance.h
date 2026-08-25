@@ -40,6 +40,29 @@ class Appearance : public QObject
        friends do not blur at all, and unblurred translucency over a busy
        wallpaper is unreadable. 0 keeps the glass, 1 makes it solid. */
     Q_PROPERTY(qreal solidity READ solidity NOTIFY changed)
+    /* Which corner or edge popups appear at, as a layer-shell anchor mask
+       (1 Top, 2 Bottom, 4 Left, 8 Right). A centred position anchors to one
+       edge only and lets the compositor centre us along it.
+
+       The stack needs no reordering to follow: new notifications are appended,
+       so the column grows away from whichever edge it is anchored to and the
+       newest always ends up nearest that edge. */
+    Q_PROPERTY(int notifyAnchors READ notifyAnchors NOTIFY changed)
+    /* The name behind notifyAnchors, for anything that wants to show it. */
+    Q_PROPERTY(QString notifyPosition READ notifyPosition NOTIFY changed)
+    /* Extra clearance from the anchored screen edges. The default 0 is not
+       "flush against the edge" — Style.shadowPad already insets the cards by
+       the shadow's falloff. This is for pushing popups clear of something
+       that is not a panel and so has no exclusive zone for us to respect: a
+       browser's tab strip, a full-screen video's controls. */
+    Q_PROPERTY(int notifyMarginX READ notifyMarginX NOTIFY changed)
+    Q_PROPERTY(int notifyMarginY READ notifyMarginY NOTIFY changed)
+    /* Which side the notification centre slides in from: 4 = Left, 8 = Right.
+       swaync calls this positionX and so do we, in the config. */
+    Q_PROPERTY(int centreSide READ centreSide NOTIFY changed)
+    /* Where the OSD sits vertically: 1 = Top, 0 = centred, 2 = Bottom. */
+    Q_PROPERTY(int osdAnchor READ osdAnchor NOTIFY changed)
+
     /* wlr-layer-shell layer for notification popups: 2 = Top, 3 = Overlay.
        There is no value between them — fullscreen surfaces sit in the gap —
        so this is an either/or the user has to pick. */
@@ -74,6 +97,12 @@ public:
     int notifyWidth() const { return m_notifyWidth; }
     qreal solidity() const { return m_solidity; }
     int notifyLayer() const { return m_notifyLayer; }
+    int notifyAnchors() const { return m_notifyAnchors; }
+    QString notifyPosition() const { return m_notifyPosition; }
+    int notifyMarginX() const { return m_notifyMarginX; }
+    int notifyMarginY() const { return m_notifyMarginY; }
+    int centreSide() const { return m_centreSide; }
+    int osdAnchor() const { return m_osdAnchor; }
     int bodyLines() const { return m_bodyLines; }
     int centreBodyLines() const { return m_centreBodyLines; }
     int fontSize() const { return m_fontSize; }
@@ -96,6 +125,12 @@ private:
     int m_notifyWidth = 380;
     qreal m_solidity = 0.0;
     int m_notifyLayer = 2;
+    int m_notifyAnchors = 1 | 8;   // Top|Right
+    QString m_notifyPosition = QStringLiteral("top-right");
+    int m_notifyMarginX = 0;
+    int m_notifyMarginY = 0;
+    int m_centreSide = 8;          // Right
+    int m_osdAnchor = 1;           // Top
     int m_bodyLines = 4;
     int m_centreBodyLines = 3;
     int m_fontSize = 0;   // 0 = derive from Scale

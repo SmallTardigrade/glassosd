@@ -9,8 +9,13 @@ import QtQuick.Layouts
 import org.glassosd.ui
 
 /*
-    Notification popups: top-right, newest at the top, capped by
-    NotificationModel with the remainder queued behind a "+N more" row.
+    Notification popups. Position comes from [Appearance] NotifyPosition;
+    top-right by default. Capped by NotificationModel, with the remainder
+    queued behind a "+N more" row.
+
+    New notifications are appended, so the column grows away from whichever
+    edge it is anchored to and the newest card is always the one nearest that
+    edge — no reordering needed when the anchor moves to the bottom.
 */
 Window {
     id: win
@@ -24,19 +29,44 @@ Window {
     visible: Modules.notifications && (list.count > 0 || NotificationModel.hiddenCount > 0)
 
     Component.onCompleted: {
-        /* anchors 1|8 == Top|Right. exclusiveZone 0 reserves nothing of our
-           own but respects the panel's, so we sit clear of it whatever
-           thickness it is configured to. */
-        /* Margins are 0 because shadowPad already provides the visual inset;
-           adding both would push the stack too far from the corner. */
-        /* OnDemand keyboard focus so an inline reply field can actually be
-           typed into; it is only taken when the surface is clicked. */
+        /* Anchors come from [Appearance] NotifyPosition — Top|Right by
+           default. exclusiveZone 0 reserves nothing of our own but respects
+           the panel's, so we sit clear of it whatever thickness and whichever
+           edge it is configured on. */
+        /* The base margin is 0 because shadowPad already provides the visual
+           inset; adding both would push the stack too far from the corner.
+           NotifyMarginX/Y are added on top for clearing things that are not
+           panels and so have no exclusive zone — a browser's tab strip, a
+           video player's controls. Only the anchored edges get the margin;
+           on an unanchored edge it would fight the compositor's centring. */
         /* keyboardFocus false: a notification must never steal the next
            click. It is raised to OnDemand only while a reply field exists. */
-        Surface.initLayerShell(win, "glassosd-notifications", 1 | 8, 0, 0, 0, 0, false, 0,
-                               Appearance.notifyLayer)
+        const a = Appearance.notifyAnchors
+        Surface.initLayerShell(win, "glassosd-notifications", a,
+                               (a & 1) ? Appearance.notifyMarginY : 0,
+                               (a & 8) ? Appearance.notifyMarginX : 0,
+                               (a & 2) ? Appearance.notifyMarginY : 0,
+                               (a & 4) ? Appearance.notifyMarginX : 0,
+                               false, 0, Appearance.notifyLayer)
         Surface.setInputFollowsPanels(win, true)
         Surface.setOutput(win, Appearance.output)
+    }
+
+    /* Follow a position change made while the daemon is running. Without
+       this, `glassosdctl position bottom-left` would look like it had done
+       nothing until the next restart. */
+    function applyPosition() {
+        const a = Appearance.notifyAnchors
+        Surface.setPosition(win, a,
+                            (a & 1) ? Appearance.notifyMarginY : 0,
+                            (a & 8) ? Appearance.notifyMarginX : 0,
+                            (a & 2) ? Appearance.notifyMarginY : 0,
+                            (a & 4) ? Appearance.notifyMarginX : 0)
+    }
+
+    Connections {
+        target: Appearance
+        function onChanged() { win.applyPosition() }
     }
 
     /* Only a card offering inline reply needs the keyboard. Anything else

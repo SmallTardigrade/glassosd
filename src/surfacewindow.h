@@ -58,6 +58,16 @@ public:
                                     int exclusiveZone = -1,
                                     int layer = 2);
 
+    /* Move an already-mapped surface. initLayerShell must run before the
+       window is first shown, so it cannot answer a position change made while
+       the daemon is running; this can, and takes the same anchor bits. */
+    Q_INVOKABLE void setPosition(QQuickWindow *window,
+                                 int anchors,
+                                 int marginTop = 0,
+                                 int marginRight = 0,
+                                 int marginBottom = 0,
+                                 int marginLeft = 0);
+
     /* Legacy single-panel helper, kept for surfaces that own their window
        outright. rect is in logical pixels, which is what
        KWindowEffects::enableBlurBehind() expects. Passing device pixels is

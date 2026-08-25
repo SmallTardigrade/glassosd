@@ -27,12 +27,31 @@ Window {
     visible: Modules.osd && (OsdModel.active || panel.opacity > 0.001)
 
     Component.onCompleted: {
-        // anchors: 1 == Top. No keyboard focus: this must never steal input.
+        /* Anchor from [Appearance] OsdPosition: Top (1), Bottom (2), or 0 for
+           no vertical anchor at all, which leaves the compositor to centre us.
+           No keyboard focus: this must never steal input. */
+        /* osdTopMargin only applies when anchored to an edge — against a
+           centred OSD it would be an offset from the middle, which is not
+           what anybody setting a "top margin" is asking for. */
         /* Overlay (3), unlike the notification stack. Transient feedback must be
            visible even over a fullscreen video or game — Top sits *below*
            fullscreen windows and the OSD would simply never appear. */
-        Surface.initLayerShell(win, "glassosd-osd", 1, Style.osdTopMargin, 0, 0, 0, false, -1, 3)
+        const a = Appearance.osdAnchor
+        Surface.initLayerShell(win, "glassosd-osd", a,
+                               a === 1 ? Style.osdTopMargin : 0, 0,
+                               a === 2 ? Style.osdTopMargin : 0, 0,
+                               false, -1, 3)
         Surface.setOutput(win, Appearance.output)
+    }
+
+    Connections {
+        target: Appearance
+        function onChanged() {
+            const a = Appearance.osdAnchor
+            Surface.setPosition(win, a,
+                                a === 1 ? Style.osdTopMargin : 0, 0,
+                                a === 2 ? Style.osdTopMargin : 0, 0)
+        }
     }
 
     Connections {

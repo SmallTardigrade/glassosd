@@ -106,6 +106,34 @@ void Surface::initLayerShell(QQuickWindow *window,
                                         : LayerShellQt::Window::KeyboardInteractivityNone);
 }
 
+void Surface::setPosition(QQuickWindow *window,
+                          int anchors,
+                          int marginTop,
+                          int marginRight,
+                          int marginBottom,
+                          int marginLeft)
+{
+    if (!window) {
+        return;
+    }
+    auto *layerWindow = LayerShellQt::Window::get(window);
+    if (!layerWindow) {
+        return;
+    }
+
+    layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchors>(anchors));
+    layerWindow->setMargins(QMargins(marginLeft, marginTop, marginRight, marginBottom));
+
+    /* Anchors and margins are sent with the next surface commit, and a window
+       that is currently hidden — which the popup stack is, most of the time —
+       will not commit until it has something to show. Asking for an update
+       makes the move take effect now rather than on the next notification,
+       which otherwise arrives in the old corner. */
+    if (window->isVisible()) {
+        window->requestUpdate();
+    }
+}
+
 void Surface::setPanelRegion(QQuickWindow *window, QObject *panel, const QRectF &rect, qreal radius)
 {
     if (!window || !panel || rect.isEmpty()) {
