@@ -91,6 +91,7 @@ install -Dpm0755 tools/stress-test.sh        %{buildroot}%{_datadir}/%{name}/str
 %{_bindir}/glassosd
 %{_bindir}/glassosdctl
 %{_userunitdir}/glassosd.service
+%{_datadir}/dbus-1/services/org.freedesktop.Notifications.service
 %dir %{_datadir}/%{name}
 %{_datadir}/%{name}/demo-notifications.sh
 %{_datadir}/%{name}/stress-test.sh
@@ -98,17 +99,20 @@ install -Dpm0755 tools/stress-test.sh        %{buildroot}%{_datadir}/%{name}/str
 %post
 cat <<'EOF'
 
-glassosd is installed but not started. It does not take over your desktop
-uninvited — enable it deliberately:
+glassosd is installed. It is D-Bus activated, so the next application to post
+a notification will start it — but for the OSD and the notification centre you
+want it running for the whole session:
 
     systemctl --user enable --now glassosd.service
-    glassosdctl set Enabled true
 
 On Plasma, turn off the built-in popups so they do not double up:
     kwriteconfig6 --file plasmarc --group OSD --key Enabled false
 
+To keep your existing notification daemon and use glassosd for the OSD only:
+    glassosdctl set Enabled false
+
 EOF
 
 %changelog
-* Mon Aug 25 2026 glassosd contributors - 0.1.0-1
+* Tue Aug 25 2026 glassosd contributors - 0.1.0-1
 - First release.

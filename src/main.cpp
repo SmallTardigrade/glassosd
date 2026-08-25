@@ -106,9 +106,11 @@ int main(int argc, char *argv[])
     QObject::connect(&app, &QCoreApplication::aboutToQuit, history, [history] { history->save(); });
 
     auto *server = new NotificationServer(notifications, history, &app);
-    /* Off by default: claiming org.freedesktop.Notifications takes it from
-       whatever daemon currently holds it, and losing real messages during
-       development is not an acceptable failure mode. Flip at cutover. */
+    /* On by default now that we ship a D-Bus activation file. An app that
+       posts a notification starts us on demand, and a daemon that starts and
+       then declines to claim the name would swallow the message that woke it.
+       Set [Notifications] Enabled=false to run the OSD only and leave your
+       existing notification daemon alone. */
     server->loadRules(cfg);
 
     /* Settings changes reload the rules in-process; no need to wait for the
@@ -133,11 +135,11 @@ int main(int argc, char *argv[])
                          appearance->reload();
                          server->loadRules(cfg);
                      });
-    if (notifyCfg.readEntry("Enabled", false)) {
+    if (notifyCfg.readEntry("Enabled", true)) {
         server->start();
     } else {
-        qWarning("glassosd: notification server disabled "
-                 "(set [Notifications] Enabled=true in glassosdrc)");
+        qInfo("glassosd: notification server disabled by config — OSD only "
+              "(set [Notifications] Enabled=true in glassosdrc to serve notifications)");
     }
 
     /* Do Not Disturb persists: a setting you toggle with a shortcut and then

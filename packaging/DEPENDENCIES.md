@@ -63,6 +63,46 @@ layer-shell-qt-devel dbus-devel
 menu. Dropping the context menu would remove that dependency, at the cost of
 losing right-click actions on the tray icon.
 
+## Other distributions
+
+Everything glassosd needs is a normal KDE Frameworks 6 / Qt 6 package, so no
+distribution needs anything vendored. Package names differ:
+
+| | Fedora | Arch | Debian/Ubuntu | openSUSE |
+|---|---|---|---|---|
+| layer-shell-qt | `layer-shell-qt-devel` | `layer-shell-qt` | `liblayershellqtinterface-dev` | `layer-shell-qt6-devel` |
+| Qt base | `qt6-qtbase-devel` | `qt6-base` | `qt6-base-dev` | `qt6-base-devel` |
+| Qt declarative | `qt6-qtdeclarative-devel` | `qt6-declarative` | `qt6-declarative-dev` | `qt6-declarative-devel` |
+| ECM | `extra-cmake-modules` | `extra-cmake-modules` | `extra-cmake-modules` | `extra-cmake-modules` |
+| KWindowSystem | `kf6-kwindowsystem-devel` | `kwindowsystem` | `libkf6windowsystem-dev` | `kf6-kwindowsystem-devel` |
+| KGuiAddons | `kf6-kguiaddons-devel` | `kguiaddons` | `libkf6guiaddons-dev` | `kf6-kguiaddons-devel` |
+| KConfig | `kf6-kconfig-devel` | `kconfig` | `libkf6config-dev` | `kf6-kconfig-devel` |
+| KI18n | `kf6-ki18n-devel` | `ki18n` | `libkf6i18n-dev` | `kf6-ki18n-devel` |
+| KGlobalAccel | `kf6-kglobalaccel-devel` | `kglobalaccel` | `libkf6globalaccel-dev` | `kf6-kglobalaccel-devel` |
+| KStatusNotifierItem | `kf6-kstatusnotifieritem-devel` | `kstatusnotifieritem` | `libkf6statusnotifieritem-dev` | `kf6-kstatusnotifieritem-devel` |
+| KIdleTime | `kf6-kidletime-devel` | `kidletime` | `libkf6idletime-dev` | `kf6-kidletime-devel` |
+| libdbus | `dbus-devel` | `dbus` | `libdbus-1-dev` | `dbus-1-devel` |
+
+Fedora and Arch names are verified against the live package databases; the
+Debian and openSUSE columns follow each distribution's naming convention and
+are unverified — check before relying on them.
+
+On Arch these are all in `extra`, which makes a PKGBUILD the shortest path for
+Hyprland users:
+
+```bash
+# PKGBUILD (sketch)
+depends=(qt6-base qt6-declarative layer-shell-qt kwindowsystem kguiaddons
+         kconfig ki18n kglobalaccel kstatusnotifieritem kidletime dbus)
+makedepends=(cmake extra-cmake-modules ninja)
+build()   { cmake -B build -S "$pkgname-$pkgver" -DCMAKE_INSTALL_PREFIX=/usr \
+                 -DCMAKE_BUILD_TYPE=Release; cmake --build build; }
+package() { DESTDIR="$pkgdir" cmake --install build; }
+```
+
+Note the KDE Frameworks packages are libraries, not a desktop: installing
+`kwindowsystem` on Hyprland pulls in no part of Plasma.
+
 ## Bundling
 
 Binary is ~2.2 MB in Release. Three sensible routes:

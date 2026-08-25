@@ -110,6 +110,12 @@ include(GNUInstallDirs)
 configure_file(data/glassosd.service.in
                ${CMAKE_CURRENT_BINARY_DIR}/glassosd.service @ONLY)
 
+# D-Bus activation, the same way dunst/mako/swaync do it: an app that posts a
+# notification when nothing is running starts us on demand rather than having
+# the message vanish.
+configure_file(data/org.freedesktop.Notifications.service.in
+               ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service @ONLY)
+
 # systemd user units live under prefix/lib, never lib64 — ask systemd itself
 # rather than reusing CMAKE_INSTALL_LIBDIR, which is lib64 on Fedora.
 pkg_get_variable(SYSTEMD_USER_UNIT_DIR systemd systemduserunitdir)
@@ -121,3 +127,5 @@ install(TARGETS glassosd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(PROGRAMS tools/glassosdctl DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/glassosd.service
         DESTINATION ${SYSTEMD_USER_UNIT_DIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)

@@ -150,16 +150,20 @@ Arch, Debian and openSUSE package names are listed in
 
 ### Then
 
-Installing does not start anything. Turn it on deliberately:
-
 ```bash
 systemctl --user enable --now glassosd.service
-glassosdctl set Enabled true
 ```
 
-`Enabled true` is what makes glassosd claim `org.freedesktop.Notifications`.
-Until then it renders its own OSDs but leaves your existing notification
-daemon alone, so you can try it without committing.
+glassosd is also D-Bus activated, so the next application to post a
+notification would start it anyway — but the OSD and the notification centre
+need it running for the whole session.
+
+To keep the notification daemon you already have and use glassosd only for the
+OSD:
+
+```bash
+glassosdctl set Enabled false
+```
 
 ---
 

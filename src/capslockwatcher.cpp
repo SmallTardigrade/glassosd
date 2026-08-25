@@ -25,12 +25,21 @@ CapsLockWatcher::CapsLockWatcher(QObject *parent)
 
     /* knowsKey is the honest health check for the provider: false means the
        org_kde_kwin_keystate binding never came up, which isKeyLocked() alone
-       cannot distinguish from "caps lock is simply off". */
-    qWarning("glassosd: capslock known=%s locked=%s | numlock known=%s locked=%s",
-             m_info.knowsKey(Qt::Key_CapsLock) ? "yes" : "no",
-             m_state[Qt::Key_CapsLock] ? "yes" : "no",
-             m_info.knowsKey(Qt::Key_NumLock) ? "yes" : "no",
-             m_state[Qt::Key_NumLock] ? "yes" : "no");
+       cannot distinguish from "caps lock is simply off".
+
+       Off KWin that is expected, not a fault — no other compositor implements
+       org_kde_kwin_keystate and there is no portable replacement, so say so
+       once at info level rather than warning about it. */
+    if (m_info.knowsKey(Qt::Key_CapsLock) || m_info.knowsKey(Qt::Key_NumLock)) {
+        qInfo("glassosd: lock keys: capslock known=%s locked=%s | numlock known=%s locked=%s",
+              m_info.knowsKey(Qt::Key_CapsLock) ? "yes" : "no",
+              m_state[Qt::Key_CapsLock] ? "yes" : "no",
+              m_info.knowsKey(Qt::Key_NumLock) ? "yes" : "no",
+              m_state[Qt::Key_NumLock] ? "yes" : "no");
+    } else {
+        qInfo("glassosd: no lock-key provider (org_kde_kwin_keystate is KWin-only) — "
+              "caps/num lock OSDs unavailable on this compositor");
+    }
 
     connect(&m_info, &KModifierKeyInfo::keyLocked, this, [this](Qt::Key key, bool locked) {
         if (key != Qt::Key_CapsLock && key != Qt::Key_NumLock) {
