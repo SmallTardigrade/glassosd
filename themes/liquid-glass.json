@@ -38,8 +38,8 @@
 
   "_blur_strength": "How hard the blur is is NOT set here and cannot be — ext-background-effect-v1 lets a client name the region to blur, not the radius. That is the compositor's setting: on KWin, System Settings > Desktop Effects > Blur, or kwriteconfig6 --file kwinrc --group Effect-blur --key BlurStrength <1-15>. Note a stronger blur samples a wider area, so over a bright window it pulls that brightness in and the surface goes lighter as well as hazier.",
 
-  "_blur": "Saturation carries the material. At 1.0 a translucent surface reads as grey haze; the chroma coming through is what makes it glass rather than fog. 2.0 was too much — it tinted neutral backdrops.",
-  "blur.saturation": 1.85,
+  "_blur": "Saturation carries the material — at 1.0 a translucent surface reads as grey haze. But it is also what fringes the edge: the outermost pixel of the card is only partly opaque, so a boosted backdrop shows through it as colour, cyan over a blue banner. 1.25 keeps the chroma without the fringe. 1.85 and above fringe visibly.",
+  "blur.saturation": 1.25,
   "blur.contrast": 0.34,
   "blur.intensity": 0.90,
 

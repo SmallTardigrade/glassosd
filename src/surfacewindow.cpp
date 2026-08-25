@@ -239,39 +239,24 @@ void Surface::recompute(QQuickWindow *window)
     if (it == m_regions.constEnd()) {
         return;
     }
-    /* The effect region is inset one pixel from the painted surface.
+    /* The effect region matches the painted surface exactly — no inset.
 
-       The card's rounded edge is anti-aliased, so its outermost pixel is only
-       partly opaque, while the effect region is a hard-edged QRegion covering
-       it fully — with saturation above 1.0 the backdrop showing through that
-       pixel fringes visibly, cyan over a blue banner.
+       wl_region is integer rectangles by definition, so the region's rounded
+       corners are stair-stepped and no antialiasing is available at the
+       protocol level. Where that step lands is therefore the only thing we
+       control. Insetting pushes it *inside* the card, where a translucent
+       theme shows it plainly as jaggies on the corner. Matching the card
+       exactly puts it at the edge, underneath the card's own anti-aliased
+       falloff, which is the best available hiding place.
 
-       The inset has to be applied to the *rectangle*, before the rounded
-       region is derived from it. Insetting the finished region instead
-       deletes the corners outright: roundedRegion builds them from
-       one-pixel-tall strips, and adjusting each by a pixel vertically
-       collapses every strip to zero height. That took the whole rounded top
-       off the blur region and left a hard horizontal seam across the card,
-       sharp above and blurred below. */
+       The coloured fringe this inset was originally added to fix came from
+       saturation above 1.0 boosting the backdrop in that same edge pixel.
+       That belongs to the theme's blur.saturation, not to the region. */
     QRegion combined;
-    QRegion effectRegion;
     for (const Contribution &c : *it) {
-        const QRect r = c.rect.toAlignedRect();
-        const int radius = qRound(c.radius);
-        combined += roundedRegion(r, radius);
-        /* Two pixels, not one. The region's rounded corners are built from
-           integer strips, so its boundary is stair-stepped; the card's own
-           corner is anti-aliased over roughly two pixels and is not opaque
-           enough there to hide a stepped edge underneath it. At one pixel the
-           steps show as visible jaggies on the corner. */
-        const QRect inner = r.adjusted(2, 2, -2, -2);
-        if (inner.isValid()) {
-            effectRegion += roundedRegion(inner, radius);
-        }
+        combined += roundedRegion(c.rect.toAlignedRect(), qRound(c.radius));
     }
-    if (effectRegion.isEmpty()) {
-        effectRegion = combined;
-    }
+    const QRegion &effectRegion = combined;
     if (combined.isEmpty()) {
         return;
     }

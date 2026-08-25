@@ -303,6 +303,20 @@ void HistoryModel::rebuild()
            is oldest-first when the newest is being shown at the bottom. */
         const Notification &newest = m_newestFirst ? items.first() : items.last();
 
+        /* A group of one gets no header. The header exists to say "these N
+           belong together and here is how to collapse them"; with a single
+           entry it says nothing the entry does not already say, and a column
+           of one-item headers is most of the panel's vertical space spent on
+           repeating each app's name directly above itself. The entry still
+           carries the app icon, so nothing is lost. */
+        if (items.size() == 1) {
+            Row row;
+            row.groupKey = key;
+            row.entry = items.first();
+            m_rows.append(row);
+            continue;
+        }
+
         Row header;
         header.header = true;
         header.groupKey = key;
