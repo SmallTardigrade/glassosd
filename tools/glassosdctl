@@ -262,8 +262,19 @@ case "$cmd" in
     echo
     echo "current: $(cfg_read Appearance ThemeFile || echo '(built-in)')" ;;
   theme-file)
-    if [ -z "${1:-}" ]; then echo "theme-file: $(cfg_read Appearance ThemeFile || echo '(built-in)')"
-    else cfg_write Appearance ThemeFile "$1"; echo "theme-file = $1"; fi ;;
+    case "${1:-}" in
+      "")     echo "theme-file: $(cfg_read Appearance ThemeFile || echo '(built-in)')" ;;
+      none|default|reset)
+        # Deleting the key rather than blanking it: an empty value still
+        # counts as "set" to some INI readers, and a theme file that was
+        # renamed or removed would otherwise keep being looked up and keep
+        # logging a load failure on every reload.
+        if have kwriteconfig6; then
+          kwriteconfig6 --notify --file $RC --group Appearance --key ThemeFile --delete
+        else cfg_write Appearance ThemeFile ""; fi
+        echo "theme-file = (built-in)" ;;
+      *)      cfg_write Appearance ThemeFile "$1"; echo "theme-file = $1" ;;
+    esac ;;
   edit-theme)
     dest="${XDG_CONFIG_HOME:-$HOME/.config}/glassosd/themes"
     mkdir -p "$dest"

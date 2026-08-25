@@ -38,7 +38,16 @@ QtObject {
         "media-play":          "icons/media-play.svg",
         "media-pause":         "icons/media-pause.svg",
         "media-next":          "icons/media-next.svg",
-        "media-prev":          "icons/media-prev.svg"
+        "media-prev":          "icons/media-prev.svg",
+        /* Quick-action grid. Drawn rather than taken from the icon theme so
+           the grid matches the rest of the surfaces; without an entry here
+           source() falls through to image://icon/<name>, and a theme that
+           has no such name silently returns a generic placeholder. */
+        "wifi":                "icons/wifi.svg",
+        "bluetooth":           "icons/bluetooth.svg",
+        "lock":                "icons/lock.svg",
+        "power":               "icons/power.svg",
+        "reboot":              "icons/reboot.svg"
     })
 
     /* Our own glyphs are monochrome white and must be tinted to the current
