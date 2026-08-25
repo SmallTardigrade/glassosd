@@ -40,15 +40,29 @@ Surface::Surface(QObject *parent)
 
 bool Surface::blurAvailable() const
 {
-    /* KWindowEffects::isEffectAvailable() is an X11-atom-era API and returns
-       false on Wayland even when blur works perfectly. Verified here: with it
-       used as a gate the panel fell back to opaque, and with the gate removed
-       KWin blurred the surface correctly through ext_background_effect_v1.
-       So never gate on it under Wayland — only trust it on X11. */
-    if (QGuiApplication::platformName().startsWith(QLatin1String("wayland"))) {
-        return true;
-    }
-    return KWindowEffects::isEffectAvailable(KWindowEffects::BlurBehind);
+    /* This used to return true unconditionally on Wayland, on the theory that
+       isEffectAvailable() is an X11-era API that lies there. It does not lie
+       any more: KWin 6.7 answers it from ext_background_effect_manager_v1,
+       and returning true regardless meant translucent surfaces were drawn on
+       systems where nothing was ever going to blur behind them. Unblurred
+       translucency over a busy backdrop is unreadable, and the failure looked
+       like a theming bug rather than a missing compositor effect.
+
+       A compositor with the blur effect switched off answers the protocol
+       with capabilities(0) — confirmed on a machine using a third-party blur
+       effect in place of KWin's own, where the trace read:
+           ext_background_effect_manager_v1#48.capabilities(0) */
+    static const bool available = [] {
+        const bool ok = KWindowEffects::isEffectAvailable(KWindowEffects::BlurBehind);
+        if (!ok) {
+            qInfo("glassosd: the compositor offers no background blur — surfaces "
+                  "will be drawn solid. On KWin check that the Blur desktop effect "
+                  "is enabled; third-party blur effects do not implement "
+                  "ext_background_effect_manager_v1 and cannot serve app-requested blur.");
+        }
+        return ok;
+    }();
+    return available;
 }
 
 void Surface::initLayerShell(QQuickWindow *window,

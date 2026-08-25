@@ -1,0 +1,50 @@
+{
+  "_comment": "Properly translucent, leaning on the compositor's blur to stay readable. The built-in look sits at 0.975 on cards because it must survive a compositor that does not blur at all; this one assumes blur is on and trades that safety for actual glass. If text behind the card becomes readable, your compositor is not blurring — use glass-dark instead.",
+
+  "accent": "rgba(61, 174, 233, 1.0)",
+
+  "text.primary": "rgba(250, 251, 253, 1.0)",
+  "text.muted": "rgba(248, 250, 252, 0.92)",
+  "text.secondary": "rgba(246, 249, 252, 0.70)",
+
+  "_alpha": "Cards drop from 0.975 to 0.72 — the single change that makes blur visible at all. The panel and OSD follow.",
+  "card.background": "rgba(20, 23, 28, 0.72)",
+  "panel.background": "rgba(18, 21, 26, 0.74)",
+  "osd.background": "rgba(20, 23, 28, 0.66)",
+
+  "_content": "Rows stay noticeably more solid than the sheet they sit on. Translucent content over translucent glass is where legibility actually breaks.",
+  "entry.background": "rgba(48, 55, 66, 0.88)",
+  "entry.backgroundHover": "rgba(62, 70, 82, 0.94)",
+  "entry.edge": "rgba(255, 255, 255, 0.10)",
+
+  "_edge": "A brighter lit edge than the default: at low alpha the surface loses its boundary and stops reading as a distinct sheet.",
+  "glass.edge": "rgba(255, 255, 255, 0.34)",
+  "glass.sheen": "rgba(255, 255, 255, 0.11)",
+  "card.sheen": "rgba(255, 255, 255, 0.07)",
+  "edge.outer": "rgba(255, 255, 255, 0.16)",
+  "edge.width": 1,
+
+  "control.fill": "rgba(255, 255, 255, 0.16)",
+  "control.fillHover": "rgba(255, 255, 255, 0.26)",
+  "control.edge": "rgba(255, 255, 255, 0.20)",
+
+  "slider.track": "rgba(255, 255, 255, 0.18)",
+  "chip.idle": "rgba(255, 255, 255, 0.10)",
+  "urgency.critical": "#ff5f6d",
+
+  "radius.card": 18,
+  "radius.chipRatio": 0.34,
+
+  "_blur": "Saturation carries the material. At 1.0 a translucent surface reads as grey haze; the chroma coming through is what makes it look like glass rather than fog.",
+  "blur.saturation": 2.0,
+  "blur.contrast": 0.38,
+  "blur.intensity": 0.88,
+
+  "_depth": "A wider, softer shadow: at low alpha the surface needs the shadow to separate it from the desktop, because the fill no longer does it.",
+  "shadow.opacity": 0.58,
+  "shadow.blur": 52,
+  "shadow.offsetY": 10,
+
+  "motion.in": 160,
+  "motion.out": 200
+}

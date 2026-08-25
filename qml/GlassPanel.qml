@@ -48,7 +48,14 @@ Rectangle {
         shadowVerticalOffset: Style.shadowYOffset
         autoPaddingEnabled: true
     }
-    color: glass && Surface.blurAvailable ? surfaceColor : Style.solidSurface
+    /* Always the surface colour. This used to fall back to Style.solidSurface
+       unless `glass` was set, which meant a notification card — which never
+       set it — was painted an opaque hardcoded value and threw its themed
+       colour away. A theme could set card.background to anything at all and
+       nothing changed. If a caller wants an opaque surface it should say so
+       in surfaceColor; `glass` decides the *edge* and whether the backdrop
+       effect is requested, not whether the theme is honoured. */
+    color: surfaceColor
     radius: Style.pill ? height / 2 : 16
     border.color: glass ? Style.glassEdge : Style.edgeOuter
     border.width: Style.edgeWidth

@@ -23,7 +23,13 @@ QtObject {
        without blur over a photo wallpaper is simply unreadable. `Solidity`
        lerps each glass surface toward opaque; 0 keeps the tuned glass. */
     function glass(c) {
-        return Qt.rgba(c.r, c.g, c.b, c.a + (1.0 - c.a) * Appearance.solidity)
+        /* With no compositor blur, translucency is just see-through, and text
+           behind the surface reads straight through it. Rather than ship an
+           illegible surface, close most of the gap automatically and leave
+           Solidity as the manual override on top. */
+        const floor = Surface.blurAvailable ? 0.0 : 0.90
+        const s = Math.max(floor, Appearance.solidity)
+        return Qt.rgba(c.r, c.g, c.b, c.a + (1.0 - c.a) * s)
     }
 
     // ---- Geometry ------------------------------------------------------

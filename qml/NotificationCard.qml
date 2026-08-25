@@ -77,6 +77,10 @@ Item {
         width: parent.width
         radius: Style.cardRadius
         surfaceColor: Style.cardBackground
+        /* Cards are glass too. At the default 0.975 alpha the backdrop effect
+           is imperceptible, but a theme that lowers card.background needs the
+           blur behind it or the card is merely see-through. */
+        glass: true
         shadow: true
         implicitHeight: body.implicitHeight + Style.padding * 2
 
