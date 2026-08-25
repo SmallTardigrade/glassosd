@@ -74,9 +74,13 @@ Item {
                     height: parent.height
                     radius: height / 2
                     color: root.muted ? Style.foregroundDim : Style.accent
+                    /* Short, and linear-ish. Values now arrive within about
+                       40ms of a keypress, so a long ease reads as lag rather
+                       than as polish — the bar is still gliding to the last
+                       value when the next keypress lands. */
                     Behavior on width {
                         enabled: !drag.pressed
-                        NumberAnimation { duration: Style.animIn; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 90; easing.type: Easing.OutQuad }
                     }
                 }
             }
@@ -94,7 +98,7 @@ Item {
                 Behavior on scale { NumberAnimation { duration: 90 } }
                 Behavior on x {
                     enabled: !drag.pressed
-                    NumberAnimation { duration: Style.animIn; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: 90; easing.type: Easing.OutQuad }
                 }
             }
 

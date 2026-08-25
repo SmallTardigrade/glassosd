@@ -22,6 +22,8 @@
 #include <QQmlEngine>
 #include <QTimer>
 
+class QProcess;
+
 class SystemControls : public QObject
 {
     Q_OBJECT
@@ -60,8 +62,18 @@ Q_SIGNALS:
 private:
     QString run(const QString &cmd) const;
     void detect();
+    void startSubscription();
+
+    /* `pactl subscribe` streams a line whenever a sink or source changes, so
+       the slider can follow a volume key instantly instead of waiting for the
+       next poll tick. Polling stays as a fallback for the brightness path and
+       for systems without pactl, but at a lazy interval — a poll fast enough
+       to feel instant would mean spawning subprocesses several times a
+       second for as long as the centre is open. */
+    QProcess *m_subscription = nullptr;
 
     QTimer m_poll;
+    QTimer m_debounce;
     QString m_volumeTool;      // "wpctl", "pactl" or empty
     QString m_brightnessTool;  // "brightnessctl" or empty
     qreal m_volume = 0;

@@ -34,7 +34,17 @@ Window {
         Surface.setOutput(win, Appearance.output)
     }
 
-    onVisibleChanged: Surface.setKeyboardFocus(win, visible)
+    onVisibleChanged: {
+        Surface.setKeyboardFocus(win, visible)
+        /* wpctl and brightnessctl are only queried while the centre is open;
+           polling them for a panel nobody is looking at is waste.
+
+           This has to hang off the *window*. The GlassPanel inside is always
+           visible, so the earlier version — bound to the panel's own visible
+           — never fired at all, and the volume and brightness sliders never
+           moved when the keys were pressed. */
+        SystemControls.setPolling(visible)
+    }
 
     MouseArea {
         anchors.fill: parent
@@ -55,9 +65,6 @@ Window {
 
         Component.onCompleted: refreshBlur()
 
-        /* wpctl and brightnessctl are only queried while the centre is open;
-           polling them for a panel nobody is looking at is pure waste. */
-        onVisibleChanged: SystemControls.setPolling(visible)
         Keys.onEscapePressed: HistoryModel.panelOpen = false
 
         MouseArea { anchors.fill: parent; onClicked: {} }

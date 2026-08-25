@@ -15,8 +15,17 @@ SystemControls::SystemControls(QObject *parent)
 {
     detect();
 
-    m_poll.setInterval(1000);
+    /* Slow: this is the fallback. Real responsiveness comes from the
+       subscription below. */
+    m_poll.setInterval(1500);
     connect(&m_poll, &QTimer::timeout, this, &SystemControls::refresh);
+
+    /* A single volume keypress produces several change events in a row.
+       Coalescing them keeps this to one wpctl call per burst. */
+    m_debounce.setSingleShot(true);
+    m_debounce.setInterval(40);
+    connect(&m_debounce, &QTimer::timeout, this, &SystemControls::refresh);
+
     refresh();
 }
 
@@ -55,13 +64,38 @@ QString SystemControls::run(const QString &cmd) const
     return QString::fromUtf8(p.readAllStandardOutput()).trimmed();
 }
 
+void SystemControls::startSubscription()
+{
+    if (m_subscription || QStandardPaths::findExecutable(QStringLiteral("pactl")).isEmpty()) {
+        return;
+    }
+    m_subscription = new QProcess(this);
+    connect(m_subscription, &QProcess::readyReadStandardOutput, this, [this] {
+        const QByteArray out = m_subscription->readAllStandardOutput();
+        /* Sink events cover volume and mute; source events cover the mic. */
+        if (out.contains("on sink") || out.contains("on source")) {
+            m_debounce.start();
+        }
+    });
+    m_subscription->start(QStringLiteral("pactl"), {QStringLiteral("subscribe")});
+}
+
 void SystemControls::setPolling(bool on)
 {
     if (on) {
         refresh();
+        startSubscription();
         m_poll.start();
     } else {
         m_poll.stop();
+        if (m_subscription) {
+            m_subscription->terminate();
+            if (!m_subscription->waitForFinished(200)) {
+                m_subscription->kill();
+            }
+            delete m_subscription;
+            m_subscription = nullptr;
+        }
     }
 }
 
