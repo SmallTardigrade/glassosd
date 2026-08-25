@@ -22,6 +22,17 @@ Item {
 
     property var entry            // the model row
     property int stackDepth: 0    // how many edges to peek out below
+
+    /* The ListView moves this delegate when a card above it goes away. The
+       GlassPanel inside does not move relative to *us*, so none of its own
+       geometry handlers fire, and the input region it registered — which is
+       in window coordinates — keeps describing where the card used to be.
+       The compositor is then left with a hole in the mask exactly where the
+       card now is, so clicks fall through to the window behind and nothing
+       even highlights on hover. Binding through mapToItem() does not help:
+       QML does not re-evaluate it when an ancestor moves. The delegate's own
+       y is the thing that actually changes, so drive it from here. */
+    onYChanged: card.refreshBlur()
     signal dismissed()
     signal settingsRequested()
     signal moreRequested()

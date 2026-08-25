@@ -96,11 +96,13 @@ Rectangle {
         }
     }
 
+    /* Note: binding to mapToItem(null, 0, 0) does NOT work as a way to track
+       absolute position — QML will not re-evaluate it when an ancestor moves.
+       Whoever owns the moving item has to call refreshBlur(); see the
+       onYChanged in NotificationCard. */
     Component.onCompleted: refreshBlur()
     onWidthChanged: refreshBlur()
     onHeightChanged: refreshBlur()
     onRadiusChanged: refreshBlur()
-    onXChanged: refreshBlur()
-    onYChanged: refreshBlur()
     Component.onDestruction: if (Window.window) Surface.clearPanelRegion(Window.window, root)
 }

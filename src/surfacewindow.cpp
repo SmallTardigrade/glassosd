@@ -220,6 +220,11 @@ void Surface::recompute(QQuickWindow *window)
         return;
     }
     if (m_maskedWindows.contains(window)) {
+        qDebug("glassosd: mask for %p -> %d rect(s), bounds %d,%d %dx%d (window %dx%d)",
+               (void *)window, int(combined.rectCount()),
+               combined.boundingRect().x(), combined.boundingRect().y(),
+               combined.boundingRect().width(), combined.boundingRect().height(),
+               window->width(), window->height());
         /* Grown slightly so the rounded corners stay comfortably clickable. */
         window->setMask(combined.boundingRect().isEmpty() ? QRegion() : combined);
     }
