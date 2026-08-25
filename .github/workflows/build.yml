@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 glassosd contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Catches the failure mode that matters most: someone adds a dependency and
+  # only discovers it is missing when a user tries to build.
+  compile:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            cmake gcc-c++ ninja-build extra-cmake-modules dbus-devel \
+            qt6-qtbase-devel qt6-qtdeclarative-devel layer-shell-qt-devel \
+            kf6-kwindowsystem-devel kf6-kguiaddons-devel kf6-kconfig-devel \
+            kf6-ki18n-devel kf6-kglobalaccel-devel \
+            kf6-kstatusnotifieritem-devel kf6-kidletime-devel \
+            systemd-devel
+
+      - name: Configure
+        run: cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Install into a staging root
+        run: DESTDIR=$PWD/stage cmake --install build
+
+      - name: Check the expected files landed
+        run: |
+          set -e
+          test -x stage/usr/local/bin/glassosd
+          test -x stage/usr/local/bin/glassosdctl
+          find stage -name 'glassosd.service' | grep -q .
+          # The unit must not point at a path CMake did not install to.
+          unit=$(find stage -name glassosd.service)
+          grep -q 'ExecStart=/usr/local/bin/glassosd' "$unit"
+          echo "install layout OK"
+
+  rpm:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packaging tools
+        run: dnf install -y rpm-build rpmdevtools dnf5-plugins git make
+
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$PWD"
+
+      - name: Build the SRPM the same way COPR does
+        run: make -f .copr/Makefile srpm outdir=$PWD/srpm
+
+      - name: Install build dependencies from the spec
+        run: dnf builddep -y srpm/*.src.rpm
+
+      - name: Build the binary RPM
+        run: rpmbuild --rebuild srpm/*.src.rpm --define "_topdir $PWD/rpmbuild"
+
+      - name: Inspect the result
+        run: |
+          rpm -qlp rpmbuild/RPMS/*/*.rpm
+          rpm -qpR rpmbuild/RPMS/*/*.rpm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: rpmbuild/RPMS/*/*.rpm
+
+  reuse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: fsfe/reuse-action@v5

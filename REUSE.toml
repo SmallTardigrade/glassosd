@@ -1,0 +1,18 @@
+version = 1
+SPDX-PackageName = "glassosd"
+SPDX-PackageSupplier = "glassosd contributors"
+SPDX-PackageDownloadLocation = "https://github.com/glassosd/glassosd"
+
+# The icon set is drawn for this project. CC0 so anyone can lift it into a
+# theme, a bar, or another shell without inheriting the GPL.
+[[annotations]]
+path = "qml/icons/**.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 glassosd contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["data/**", "packaging/**", "README.md", ".gitignore", "screenshots/**", "screenshots-v2/**", "screenshots-v3/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 glassosd contributors"
+SPDX-License-Identifier = "GPL-2.0-or-later"

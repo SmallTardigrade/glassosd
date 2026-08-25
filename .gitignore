@@ -1,0 +1,12 @@
+build/
+build-*/
+*.user
+compile_commands.json
+.cache/
+.vscode/
+.idea/
+
+# rpmbuild scratch
+*.rpm
+*.tar.gz
+rpmbuild/

@@ -1,0 +1,278 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: 2026 glassosd contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Command-line control for glassosd.
+# Settings live in ~/.config/glassosdrc and are applied live — no restart.
+#
+# Everything here goes through org.glassosd.Control on the session bus, so it
+# works the same on Plasma, Hyprland, sway, river or anything else with
+# wlr-layer-shell. Nothing in this script needs KDE.
+set -euo pipefail
+RC=glassosdrc
+G=Notifications
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+BUS=org.glassosd.Daemon
+OBJ=/Control
+IFACE=org.glassosd.Control
+
+# kreadconfig6/kwriteconfig6 are KDE tools. They are only a convenient INI
+# editor here, so fall back to doing it by hand when they are absent.
+have() { command -v "$1" >/dev/null 2>&1; }
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/$RC"
+
+cfg_read() { # group key
+  if have kreadconfig6; then kreadconfig6 --file "$RC" --group "$1" --key "$2" || true
+  else awk -v g="[$1]" -v k="$2" '
+        $0==g{ing=1;next} /^\[/{ing=0}
+        ing && index($0,k"=")==1 {print substr($0,length(k)+2)}' "$CONF" 2>/dev/null
+  fi
+}
+cfg_write() { # group key value
+  if have kwriteconfig6; then kwriteconfig6 --notify --file "$RC" --group "$1" --key "$2" "$3"
+  else
+    python3 - "$CONF" "$1" "$2" "$3" <<'PY'
+import sys, configparser, os
+path, group, key, val = sys.argv[1:5]
+c = configparser.RawConfigParser(); c.optionxform = str
+c.read(path)
+if not c.has_section(group): c.add_section(group)
+c.set(group, key, val)
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path, 'w') as f: c.write(f, space_around_delimiters=False)
+PY
+    # KConfigWatcher only fires for writes that emit the change signal, so a
+    # hand-edited file needs a nudge.
+    call Reload 2>/dev/null || true
+  fi
+}
+
+call() { # Method [signature value ...]
+  busctl --user call "$BUS" "$OBJ" "$IFACE" "$@" 2>/dev/null
+}
+running() { busctl --user status "$BUS" >/dev/null 2>&1; }
+
+usage() {
+cat <<'USAGE'
+glassosdctl <command>
+
+  status                 Show daemon state and current settings
+  version                Daemon version
+  get <key>              Read a Notifications setting
+  set <key> <value>      Write a Notifications setting (applied immediately)
+
+  dnd [on|off|toggle]    Do Not Disturb (no argument prints current state)
+  history [show|hide]    Open/close the notification centre
+
+  osd volume [raise|lower|mute|<0-100>]
+  osd mic [mute|<0-100>]
+  osd brightness [raise|lower|<0-100>]
+  osd text <icon> <text> Show an arbitrary OSD
+                         Bind these to your compositor's media keys when you
+                         are not on Plasma. On Plasma the OSD is driven
+                         automatically and you do not need them.
+
+  rules                  List notification rules
+  rule-set <name> <k=v>… Create or update a rule
+  rule-del <name>        Delete a rule
+
+  theme [dark|light]     Light/dark palette (no argument prints current)
+  accent [#rrggbb]       Accent colour (no argument prints current)
+  level [segmented|bar]  Volume/brightness indicator style
+  output [current|primary|NAME]
+                         Which screen surfaces appear on
+  widgets [list]         Centre widgets, comma separated (media,dnd)
+  scale [0.6-2.0]        Size multiplier for all text and spacing
+  width [240-900]        Notification popup width in logical px
+  solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
+                         raise it on compositors that do not blur (sway, river)
+
+  test                   Fire the full demo sequence
+  restart                Restart the daemon
+  log                    Follow the daemon log
+
+Settings keys:  Enabled, Limit, IndicateHidden, CoalesceThreshold,
+                CoalesceWindowMs, DoNotDisturb, AutoCollapseOver,
+                HistoryLength, IdleThresholdMs
+Rule keys:      appname, summary, body, category, desktop_entry,
+                match_urgency, set_stack_tag, timeout, set_urgency,
+                skip_display, history_ignore
+USAGE
+}
+
+# ---- volume/brightness helpers, only used by the `osd` subcommand ----------
+
+vol_get() {
+  if have wpctl; then
+    wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null \
+      | awk '{ v=$2*100; if ($3=="[MUTED]") v=0; printf "%d", v+0.5 }'
+  elif have pactl; then
+    if [ "$(pactl get-sink-mute @DEFAULT_SINK@ | awk '{print $2}')" = yes ]; then echo 0
+    else pactl get-sink-volume @DEFAULT_SINK@ | grep -oP '\d+(?=%)' | head -1; fi
+  else echo 0; fi
+}
+vol_set() { # raise|lower|mute|N
+  if have wpctl; then
+    case "$1" in
+      raise) wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+      lower) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
+      mute)  wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+      *)     wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ "$1%" ;;
+    esac
+  elif have pactl; then
+    case "$1" in
+      raise) pactl set-sink-mute @DEFAULT_SINK@ 0; pactl set-sink-volume @DEFAULT_SINK@ +5% ;;
+      lower) pactl set-sink-volume @DEFAULT_SINK@ -5% ;;
+      mute)  pactl set-sink-mute @DEFAULT_SINK@ toggle ;;
+      *)     pactl set-sink-mute @DEFAULT_SINK@ 0; pactl set-sink-volume @DEFAULT_SINK@ "$1%" ;;
+    esac
+  else echo "no wpctl or pactl found" >&2; exit 1; fi
+}
+mic_get() {
+  have wpctl && wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null \
+    | awk '{ v=$2*100; if ($3=="[MUTED]") v=0; printf "%d", v+0.5 }' && return
+  echo 0
+}
+mic_set() {
+  have wpctl || { echo "no wpctl found" >&2; exit 1; }
+  case "$1" in
+    mute) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle ;;
+    *)    wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0; wpctl set-volume @DEFAULT_AUDIO_SOURCE@ "$1%" ;;
+  esac
+}
+bri_get() {
+  have brightnessctl && echo $(( $(brightnessctl g) * 100 / $(brightnessctl m) )) && return
+  echo 0
+}
+bri_set() {
+  have brightnessctl || { echo "brightnessctl not found" >&2; exit 1; }
+  case "$1" in
+    raise) brightnessctl -q set 5%+ ;;
+    lower) brightnessctl -q set 5%- ;;
+    *)     brightnessctl -q set "$1%" ;;
+  esac
+}
+
+outputs() {
+  if have kscreen-doctor; then
+    kscreen-doctor -o 2>/dev/null | grep -oE '^Output: [0-9]+ [A-Za-z0-9-]+' | awk '{print "  "$3}'
+  elif have hyprctl; then
+    hyprctl monitors -j 2>/dev/null | grep -oP '"name":\s*"\K[^"]+' | sed 's/^/  /'
+  elif have wlr-randr; then
+    wlr-randr 2>/dev/null | grep -oE '^[A-Za-z0-9-]+' | sed 's/^/  /'
+  else echo "  (no kscreen-doctor, hyprctl or wlr-randr found)"; fi
+}
+
+cmd=${1:-status}; shift || true
+case "$cmd" in
+  status)
+    if have systemctl; then printf 'daemon:        %s\n' "$(systemctl --user is-active glassosd.service 2>/dev/null || echo unknown)"; fi
+    printf 'control bus:   %s\n' "$(running && echo 'org.glassosd.Daemon (up)' || echo 'not responding')"
+    owner=$(busctl --user call org.freedesktop.DBus /org/freedesktop/DBus \
+            org.freedesktop.DBus GetConnectionUnixProcessID s org.freedesktop.Notifications 2>/dev/null | awk '{print $2}')
+    printf 'notifications: owned by %s\n' "$(ps -o comm= -p "${owner:-0}" 2>/dev/null || echo 'nobody')"
+    echo
+    echo "settings:"
+    for k in Enabled Limit IndicateHidden CoalesceThreshold CoalesceWindowMs DoNotDisturb AutoCollapseOver HistoryLength IdleThresholdMs; do
+      printf '  %-18s %s\n' "$k" "$(cfg_read $G "$k")"
+    done
+    echo
+    echo "appearance:"
+    for k in Theme AccentColor LevelStyle Output Scale NotifyWidth Solidity Widgets; do
+      printf '  %-18s %s\n' "$k" "$(cfg_read Appearance "$k")"
+    done
+    echo
+    echo "rules:"
+    grep -o '^\[Rule .*\]$' "$CONF" 2>/dev/null | sed 's/^\[Rule /  /; s/\]$//' || echo "  (none)"
+    ;;
+  version)
+    running || { echo "daemon not running" >&2; exit 1; }
+    call Version | sed 's/^s //; s/"//g' ;;
+  get) cfg_read $G "$1" ;;
+  set) cfg_write $G "$1" "$2"; echo "$1 = $2 (applied live)" ;;
+  dnd)
+    case "${1:-}" in
+      on)     call SetDoNotDisturb b true  >/dev/null; echo "DND on" ;;
+      off)    call SetDoNotDisturb b false >/dev/null; echo "DND off" ;;
+      toggle) call ToggleDoNotDisturb | grep -q true && echo "DND on" || echo "DND off" ;;
+      "")     call DoNotDisturb | grep -q true && echo "DND: on" || echo "DND: off" ;;
+      *)      echo "usage: glassosdctl dnd [on|off|toggle]" >&2; exit 1 ;;
+    esac ;;
+  history)
+    case "${1:-}" in
+      show) call ShowHistory   >/dev/null ;;
+      hide) call HideHistory   >/dev/null ;;
+      *)    call ToggleHistory >/dev/null ;;
+    esac ;;
+  osd)
+    kind=${1:-}; arg=${2:-}
+    case "$kind" in
+      volume)     vol_set "${arg:-raise}"; call VolumeChanged ii "$(vol_get)" 100 >/dev/null ;;
+      mic)        mic_set "${arg:-mute}";  call MicrophoneVolumeChanged i "$(mic_get)" >/dev/null ;;
+      brightness) bri_set "${arg:-raise}"; call BrightnessChanged i "$(bri_get)" >/dev/null ;;
+      text)       call ShowText ss "${2:-}" "${3:-}" >/dev/null ;;
+      *) echo "usage: glassosdctl osd volume|mic|brightness|text …" >&2; exit 1 ;;
+    esac ;;
+  rules)
+    if grep -q '^\[Rule ' "$CONF" 2>/dev/null; then
+      awk '/^\[Rule /{n=$0; sub(/^\[Rule /,"",n); sub(/\]$/,"",n); print "\n" n ":"; next}
+           /^\[/{inr=0} NF && n {print "  " $0}' "$CONF"
+    else echo "(no rules)"; fi ;;
+  rule-set)
+    name=$1; shift
+    for kv in "$@"; do cfg_write "Rule $name" "${kv%%=*}" "${kv#*=}"; done
+    echo "rule '$name' saved (applied live)" ;;
+  rule-del)
+    have kwriteconfig6 || { echo "rule-del needs kwriteconfig6; edit $CONF by hand" >&2; exit 1; }
+    kwriteconfig6 --notify --file $RC --group "Rule $1" --delete-group; echo "rule '$1' deleted" ;;
+  theme)
+    case "${1:-}" in
+      dark|light) cfg_write Appearance Theme "$1"; echo "theme = $1" ;;
+      "")  echo "theme: $(cfg_read Appearance Theme || echo dark)" ;;
+      *)   echo "usage: glassosdctl theme [dark|light]" >&2; exit 1 ;;
+    esac ;;
+  accent)
+    if [ -z "${1:-}" ]; then
+      echo "accent: $(cfg_read Appearance AccentColor || echo '#3daee9')"
+    else
+      case "$1" in
+        \#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]*) ;;
+        *) echo "accent must be a hex colour, e.g. #d95f02" >&2; exit 1 ;;
+      esac
+      cfg_write Appearance AccentColor "$1"; echo "accent = $1"
+    fi ;;
+  widgets)
+    if [ -z "${1:-}" ]; then
+      echo "widgets: $(cfg_read Appearance Widgets || echo 'media,dnd')"
+      echo "available: media, dnd"
+    else cfg_write Appearance Widgets "$1"; echo "widgets = $1"; fi ;;
+  solidity)
+    if [ -z "${1:-}" ]; then echo "solidity: $(cfg_read Appearance Solidity || echo 0.0)"
+    else cfg_write Appearance Solidity "$1"; echo "solidity = $1"; fi ;;
+  scale)
+    if [ -z "${1:-}" ]; then echo "scale: $(cfg_read Appearance Scale || echo 1.0)"
+    else cfg_write Appearance Scale "$1"; echo "scale = $1"; fi ;;
+  width)
+    if [ -z "${1:-}" ]; then echo "width: $(cfg_read Appearance NotifyWidth || echo 380)"
+    else cfg_write Appearance NotifyWidth "$1"; echo "width = $1"; fi ;;
+  output)
+    if [ -z "${1:-}" ]; then
+      echo "output: $(cfg_read Appearance Output || echo current)"
+      echo "available:"; outputs
+    else cfg_write Appearance Output "$1"; echo "output = $1"; fi ;;
+  level)
+    case "${1:-}" in
+      segmented|bar) cfg_write Appearance LevelStyle "$1"; echo "level = $1" ;;
+      "")  echo "level: $(cfg_read Appearance LevelStyle || echo segmented)" ;;
+      *)   echo "usage: glassosdctl level [segmented|bar]" >&2; exit 1 ;;
+    esac ;;
+  test)
+    if [ -x "$SELF_DIR/demo-notifications.sh" ]; then exec "$SELF_DIR/demo-notifications.sh"
+    elif [ -x /usr/share/glassosd/demo-notifications.sh ]; then exec /usr/share/glassosd/demo-notifications.sh
+    else echo "demo script not found" >&2; exit 1; fi ;;
+  restart) systemctl --user restart glassosd.service; echo "restarted" ;;
+  log) exec journalctl --user -u glassosd -f ;;
+  -h|--help|help) usage ;;
+  *) echo "unknown command: $cmd" >&2; usage; exit 1 ;;
+esac
