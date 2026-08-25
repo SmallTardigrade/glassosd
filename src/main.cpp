@@ -40,6 +40,43 @@
 
 int main(int argc, char *argv[])
 {
+    /* --help and --version answer before anything else, and in particular
+       before the display guard below. Someone who has just installed the
+       package and typed `glassosd --help` to find out what they got is not in
+       a Wayland session — they are in a terminal, possibly over ssh — and
+       being told "no WAYLAND_DISPLAY, not starting" answers a question they
+       did not ask. Everything the daemon can be told at runtime goes through
+       glassosdctl, so this is deliberately short and points there. */
+    for (int i = 1; i < argc; ++i) {
+        const QLatin1String arg(argv[i]);
+        if (arg == QLatin1String("--help") || arg == QLatin1String("-h")) {
+            printf("glassosd %s — notification daemon, OSD and notification centre\n"
+                   "\n"
+                   "Usage: glassosd\n"
+                   "\n"
+                   "Takes no options. It is a session daemon: start it with\n"
+                   "    systemctl --user enable --now glassosd.service\n"
+                   "or let D-Bus activate it when the first notification arrives.\n"
+                   "\n"
+                   "Everything configurable is reachable through glassosdctl:\n"
+                   "    glassosdctl status        what the daemon is doing now\n"
+                   "    glassosdctl --help        the full command list\n"
+                   "    glassosd-setup            first-run checks and fixes\n"
+                   "\n"
+                   "Config:  ~/.config/glassosdrc\n"
+                   "Themes:  ~/.config/glassosd/themes, /usr/share/glassosd/themes\n"
+                   "Docs:    https://github.com/SmallTardigrade/glassosd\n",
+                   GLASSOSD_VERSION);
+            return 0;
+        }
+        if (arg == QLatin1String("--version") || arg == QLatin1String("-v")) {
+            printf("glassosd %s\n", GLASSOSD_VERSION);
+            return 0;
+        }
+        fprintf(stderr, "glassosd: unrecognised option '%s' — try --help\n", argv[i]);
+        return 2;
+    }
+
     /* Exit quietly when there is no display to draw on.
 
        systemd restarts this daemon while a session is tearing down, at which

@@ -122,6 +122,10 @@ sudo dnf copr enable smalltardigrade/glassosd
 sudo dnf install glassosd
 ```
 
+Built for Fedora 43, 44 and Rawhide (x86_64). `glassosd --help` and
+`glassosdctl --help` both work without a session, so you can check what you
+got before logging in to a desktop.
+
 ### Arch
 
 Every dependency is in `extra`. A PKGBUILD sketch is in
