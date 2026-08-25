@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/SmallTardigrade/glassosd/discussions
+    about: Questions, theme sharing and open-ended ideas belong in Discussions.
+  - name: Notifications from one app never arrive
+    url: https://github.com/SmallTardigrade/glassosd#sandboxed-apps-the-portal-problem
+    about: Almost always the xdg-desktop-portal notification backend. Read this first.
+  - name: Security vulnerability
+    url: https://github.com/SmallTardigrade/glassosd/security/advisories/new
+    about: Please report privately, not as a public issue.

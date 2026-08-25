@@ -1,0 +1,65 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if notifications from **one particular app** never
+        arrive, check the [portal problem](https://github.com/SmallTardigrade/glassosd#sandboxed-apps-the-portal-problem)
+        first. It accounts for most "app X is ignored" reports and is not a
+        glassosd bug.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations: {required: true}
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      placeholder: |
+        1. glassosdctl theme-file nord
+        2. notify-send "test" "body"
+        3. …
+    validations: {required: true}
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Paste the output of these commands.
+      value: |
+        <details>
+
+        ```
+        $ glassosdctl version
+
+        $ glassosdctl status
+
+        $ echo "$XDG_CURRENT_DESKTOP / $XDG_SESSION_TYPE"
+
+        ```
+        </details>
+      render: markdown
+    validations: {required: true}
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: "`journalctl --user -u glassosd -n 100 --no-pager`"
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: |
+        Screenshots help for a rendering problem — please check them for
+        anything private first. For a problem with one app's notifications,
+        `dbus-monitor --session "interface='org.freedesktop.Notifications'"`
+        shows exactly what it sends.

@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 glassosd contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Worth having here specifically because glassosd parses untrusted input: any
+# application on the session bus can hand it arbitrary strings, raw image
+# buffers and D-Bus structures, and the OSD monitor talks to libdbus in C.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "27 4 * * 1"
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    container: fedora:44
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            cmake gcc-c++ ninja-build extra-cmake-modules dbus-devel \
+            qt6-qtbase-devel qt6-qtdeclarative-devel layer-shell-qt-devel \
+            kf6-kwindowsystem-devel kf6-kguiaddons-devel kf6-kconfig-devel \
+            kf6-ki18n-devel kf6-kglobalaccel-devel \
+            kf6-kstatusnotifieritem-devel kf6-kidletime-devel \
+            systemd-devel git nodejs
+
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          queries: security-and-quality
+
+      - name: Build
+        run: |
+          cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j$(nproc)
+
+      - uses: github/codeql-action/analyze@v3
