@@ -239,27 +239,34 @@ void Surface::recompute(QQuickWindow *window)
     if (it == m_regions.constEnd()) {
         return;
     }
+    /* The effect region is inset one pixel from the painted surface.
+
+       The card's rounded edge is anti-aliased, so its outermost pixel is only
+       partly opaque, while the effect region is a hard-edged QRegion covering
+       it fully — with saturation above 1.0 the backdrop showing through that
+       pixel fringes visibly, cyan over a blue banner.
+
+       The inset has to be applied to the *rectangle*, before the rounded
+       region is derived from it. Insetting the finished region instead
+       deletes the corners outright: roundedRegion builds them from
+       one-pixel-tall strips, and adjusting each by a pixel vertically
+       collapses every strip to zero height. That took the whole rounded top
+       off the blur region and left a hard horizontal seam across the card,
+       sharp above and blurred below. */
     QRegion combined;
+    QRegion effectRegion;
     for (const Contribution &c : *it) {
-        combined += roundedRegion(c.rect.toAlignedRect(), qRound(c.radius));
-    }
-
-    /* The blur and background-contrast regions are inset by a pixel relative
-       to the painted surface.
-
-       The card's rounded edge is anti-aliased, so along the outermost pixel
-       the fill is only partly opaque. The effect region, being a hard-edged
-       QRegion, covers that pixel completely — and with saturation at 180% the
-       backdrop showing through it is visibly wrong: over a blue banner the
-       fringe reads as cyan. Pulling the effect in by one pixel keeps it
-       entirely underneath fully-opaque fill, where it belongs. */
-    const QRegion effectRegion = [&combined] {
-        QRegion inset;
-        for (const QRect &r : combined) {
-            inset += r.adjusted(1, 1, -1, -1);
+        const QRect r = c.rect.toAlignedRect();
+        const int radius = qRound(c.radius);
+        combined += roundedRegion(r, radius);
+        const QRect inner = r.adjusted(1, 1, -1, -1);
+        if (inner.isValid()) {
+            effectRegion += roundedRegion(inner, radius);
         }
-        return inset.isEmpty() ? combined : inset;
-    }();
+    }
+    if (effectRegion.isEmpty()) {
+        effectRegion = combined;
+    }
     if (combined.isEmpty()) {
         return;
     }
