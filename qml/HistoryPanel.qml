@@ -530,7 +530,7 @@ Window {
                                         font.family: Style.fontFamily
                                         font.pointSize: Style.fontSize - 2
                                         wrapMode: Text.WordWrap
-                                        maximumLineCount: 3
+                                        maximumLineCount: Appearance.centreBodyLines
                                         elide: Text.ElideRight
                                     }
                                 }

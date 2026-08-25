@@ -93,6 +93,14 @@ void Appearance::reload()
        not the desktop rather than restacking, and layer-shell offers a client
        no way to opt out. Any layer-shell notification daemon has this — dunst
        and swaync included — so switching layer will not fix it. */
+    /* 1 is a legitimate choice — a one-line popup is a real preference —
+       but 0 would hide the body entirely, which is a typo, not a choice. */
+    m_bodyLines = qBound(1, g.readEntry("BodyLines", 4), 20);
+    m_centreBodyLines = qBound(1, g.readEntry("CentreBodyLines", 3), 20);
+    /* 0 means "derive from Scale"; anything else is an explicit point size. */
+    const int fs = g.readEntry("FontSize", 0);
+    m_fontSize = (fs == 0) ? 0 : qBound(6, fs, 32);
+
     const QString layer = g.readEntry("NotifyLayer", QStringLiteral("top")).toLower();
     m_notifyLayer = (layer == QLatin1String("overlay")) ? 3 : 2;
 

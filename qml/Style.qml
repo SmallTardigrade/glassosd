@@ -198,7 +198,12 @@ QtObject {
     readonly property real iconDimmedOpacity: Theme.num("icon.dimmedOpacity", 0.32)
 
     readonly property string fontFamily: Theme.str("font.family", "Noto Sans")
-    readonly property int fontSize: Math.round(Theme.num("font.size", Math.max(7, Math.round(11 * s))))
+    /* Appearance.fontSize wins when set; otherwise the theme's font.size;
+       otherwise derived from Scale. Scale grows padding and icons too, so an
+       explicit size is the way to get bigger text in the same layout. */
+    readonly property int fontSize: Appearance.fontSize > 0
+        ? Appearance.fontSize
+        : Math.round(Theme.num("font.size", Math.max(7, Math.round(11 * s))))
 
     // ---- Depth ------------------------------------------------------------
     /* Apple separates cards from the desktop with a soft shadow rather than an

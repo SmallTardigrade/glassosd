@@ -213,7 +213,7 @@ Item {
                 font.family: Style.fontFamily
                 font.pointSize: Style.fontSize - 1
                 wrapMode: Text.WordWrap
-                maximumLineCount: 4
+                maximumLineCount: Appearance.bodyLines
                 elide: Text.ElideRight
                 textFormat: Text.StyledText
             }

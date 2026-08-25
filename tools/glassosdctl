@@ -106,6 +106,11 @@ glassosdctl <command>
   edit-theme             Copy the current theme to ~/.config/glassosd/ and open it
   module <name> [on|off] Toggle a half of the daemon on its own:
                          notifications, centre, osd, lockkeys
+  font [6-32]            Text point size. Independent of scale, which also
+                         grows padding and icons; use this for bigger text in
+                         the same layout. 0 or 'auto' derives it from scale.
+  lines [1-20]           Body lines a popup shows before eliding (default 4)
+  centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
   scale [0.6-2.0]        Size multiplier for all text and spacing
   width [240-900]        Notification popup width in logical px
   solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
@@ -217,7 +222,7 @@ case "$cmd" in
     done
     echo
     echo "appearance:"
-    for k in Theme ThemeFile AccentColor LevelStyle Output Scale NotifyWidth Solidity Widgets; do
+    for k in Theme ThemeFile AccentColor LevelStyle Output Scale FontSize BodyLines CentreBodyLines NotifyWidth Solidity Blur NotifyLayer Widgets; do
       printf '  %-18s %s\n' "$k" "$(cfg_read Appearance "$k")"
     done
     echo
@@ -369,6 +374,18 @@ case "$cmd" in
   solidity)
     if [ -z "${1:-}" ]; then echo "solidity: $(cfg_read Appearance Solidity || echo 0.0)"
     else cfg_write Appearance Solidity "$1"; echo "solidity = $1"; fi ;;
+  font)
+    case "${1:-}" in
+      "")        echo "font: $(cfg_read Appearance FontSize || echo 'auto (from scale)')" ;;
+      auto|0)    cfg_write Appearance FontSize 0; echo "font = auto (from scale)" ;;
+      *)         cfg_write Appearance FontSize "$1"; echo "font = $1" ;;
+    esac ;;
+  lines)
+    if [ -z "${1:-}" ]; then echo "lines: $(cfg_read Appearance BodyLines || echo 4)"
+    else cfg_write Appearance BodyLines "$1"; echo "lines = $1"; fi ;;
+  centre-lines|center-lines)
+    if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_read Appearance CentreBodyLines || echo 3)"
+    else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
   scale)
     if [ -z "${1:-}" ]; then echo "scale: $(cfg_read Appearance Scale || echo 1.0)"
     else cfg_write Appearance Scale "$1"; echo "scale = $1"; fi ;;

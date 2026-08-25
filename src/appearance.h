@@ -44,6 +44,14 @@ class Appearance : public QObject
        There is no value between them — fullscreen surfaces sit in the gap —
        so this is an either/or the user has to pick. */
     Q_PROPERTY(int notifyLayer READ notifyLayer NOTIFY changed)
+    /* How many lines of body text a popup shows before eliding, and the same
+       for an entry in the centre. Separate values because a popup is glanced
+       at and the centre is read. */
+    Q_PROPERTY(int bodyLines READ bodyLines NOTIFY changed)
+    Q_PROPERTY(int centreBodyLines READ centreBodyLines NOTIFY changed)
+    /* Point size, overriding the value derived from Scale. Set it when you
+       want bigger text without bigger padding, which is what Scale does. */
+    Q_PROPERTY(int fontSize READ fontSize NOTIFY changed)
     /* Which widgets the centre shows — swaync's `widgets` list, and the
        same names, so a config written for swaync reads the same here.
 
@@ -65,6 +73,9 @@ public:
     int notifyWidth() const { return m_notifyWidth; }
     qreal solidity() const { return m_solidity; }
     int notifyLayer() const { return m_notifyLayer; }
+    int bodyLines() const { return m_bodyLines; }
+    int centreBodyLines() const { return m_centreBodyLines; }
+    int fontSize() const { return m_fontSize; }
     QStringList widgets() const { return m_widgets; }
     Q_INVOKABLE bool hasWidget(const QString &name) const { return m_widgets.contains(name); }
     Q_INVOKABLE int widgetOrder(const QString &name) const { return m_widgets.indexOf(name); }
@@ -84,5 +95,8 @@ private:
     int m_notifyWidth = 380;
     qreal m_solidity = 0.0;
     int m_notifyLayer = 2;
+    int m_bodyLines = 4;
+    int m_centreBodyLines = 3;
+    int m_fontSize = 0;   // 0 = derive from Scale
     QStringList m_widgets;
 };
