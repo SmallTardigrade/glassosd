@@ -38,6 +38,26 @@
 
 int main(int argc, char *argv[])
 {
+    /* Exit quietly when there is no display to draw on.
+
+       systemd restarts this daemon while a session is tearing down, at which
+       point WAYLAND_DISPLAY is gone. Qt then tries the xcb plugin, fails to
+       find one, and calls qFatal — which aborts and dumps core. The user gets
+       an "Oops, glassosd crashed" report from abrt on every single logout,
+       which is a terrible thing for a notification daemon to do. There is no
+       fault here, so do not report one.
+
+       Checked before QApplication is constructed, because the abort happens
+       inside its constructor. */
+    if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY") && qEnvironmentVariableIsEmpty("DISPLAY")) {
+        fprintf(stderr, "glassosd: no WAYLAND_DISPLAY or DISPLAY — not starting\n");
+        return 0;
+    }
+    /* glassosd is Wayland-only: it needs wlr-layer-shell, which has no X11
+       equivalent. Pinning the platform stops Qt falling back to xcb and
+       aborting with a confusing "xcb-cursor0 is needed" message. */
+    qputenv("QT_QPA_PLATFORM", "wayland");
+
     /* No LayerShellQt::Shell::useLayerShell() call: deprecated since 6.6 and
        unnecessary since Qt 6.5, which wires the platform integration up on
        demand when a Window is given layer-shell properties. */
@@ -101,6 +121,9 @@ int main(int argc, char *argv[])
         notifications->setCoalesce(g.readEntry("CoalesceThreshold", 3),
                                    g.readEntry("CoalesceWindowMs", 20000));
         notifications->setDoNotDisturb(g.readEntry("DoNotDisturb", false));
+        notifications->setTimeouts(g.readEntry("TimeoutLow", 4000),
+                                   g.readEntry("Timeout", 6000),
+                                   g.readEntry("TimeoutCritical", 0));
         notifications->setHoverPause(g.readEntry("HoverPause", true));
     };
     applySettings();

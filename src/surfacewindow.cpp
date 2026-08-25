@@ -11,6 +11,8 @@
 #include <QRegion>
 
 #include <KWindowEffects>
+#include <KConfigGroup>
+#include <KSharedConfig>
 #include <LayerShellQt/Window>
 
 namespace
@@ -40,27 +42,37 @@ Surface::Surface(QObject *parent)
 
 bool Surface::blurAvailable() const
 {
-    /* This used to return true unconditionally on Wayland, on the theory that
-       isEffectAvailable() is an X11-era API that lies there. It does not lie
-       any more: KWin 6.7 answers it from ext_background_effect_manager_v1,
-       and returning true regardless meant translucent surfaces were drawn on
-       systems where nothing was ever going to blur behind them. Unblurred
-       translucency over a busy backdrop is unreadable, and the failure looked
-       like a theming bug rather than a missing compositor effect.
+    /* Not auto-detected, because nothing reliable exists to detect it with.
 
-       A compositor with the blur effect switched off answers the protocol
-       with capabilities(0) — confirmed on a machine using a third-party blur
-       effect in place of KWin's own, where the trace read:
-           ext_background_effect_manager_v1#48.capabilities(0) */
+       KWindowEffects::isEffectAvailable(BlurBehind) cannot be trusted on
+       Wayland in either direction: measured on KWin 6.7 with the Blur effect
+       loaded and the protocol reporting
+           ext_background_effect_manager_v1#46.capabilities(1)
+       it still returned false. Gating on it therefore disables glass on
+       systems where blur works perfectly. The capability is only visible in
+       the ext-background-effect-v1 handshake, which would mean binding the
+       protocol ourselves.
+
+       So it is a setting. `auto` assumes blur is present on Wayland, which is
+       right for KWin and Hyprland; sway, river and labwc have no blur at all
+       and should set it to off, which also closes the translucency up so the
+       surfaces stay readable. */
     static const bool available = [] {
-        const bool ok = KWindowEffects::isEffectAvailable(KWindowEffects::BlurBehind);
-        if (!ok) {
-            qInfo("glassosd: the compositor offers no background blur — surfaces "
-                  "will be drawn solid. On KWin check that the Blur desktop effect "
-                  "is enabled; third-party blur effects do not implement "
-                  "ext_background_effect_manager_v1 and cannot serve app-requested blur.");
+        const QString mode = KSharedConfig::openConfig(QStringLiteral("glassosdrc"))
+                                 ->group(QStringLiteral("Appearance"))
+                                 .readEntry("Blur", QStringLiteral("auto"))
+                                 .toLower();
+        if (mode == QLatin1String("on")) {
+            return true;
         }
-        return ok;
+        if (mode == QLatin1String("off")) {
+            qInfo("glassosd: blur disabled by config — surfaces drawn solid");
+            return false;
+        }
+        if (QGuiApplication::platformName().startsWith(QLatin1String("wayland"))) {
+            return true;
+        }
+        return KWindowEffects::isEffectAvailable(KWindowEffects::BlurBehind);
     }();
     return available;
 }
@@ -108,6 +120,7 @@ void Surface::setPanelRegion(QQuickWindow *window, QObject *panel, const QRectF 
         connect(window, &QObject::destroyed, this, [this, window]() {
             m_regions.remove(window);
             m_maskedWindows.remove(window);
+            m_lastMask.remove(window);
         });
     }
 
@@ -240,7 +253,20 @@ void Surface::recompute(QQuickWindow *window)
                combined.boundingRect().width(), combined.boundingRect().height(),
                window->width(), window->height());
         /* Grown slightly so the rounded corners stay comfortably clickable. */
-        window->setMask(combined.boundingRect().isEmpty() ? QRegion() : combined);
+        const QRegion mask = combined.boundingRect().isEmpty() ? QRegion() : combined;
+        if (mask != m_lastMask.value(window)) {
+            m_lastMask[window] = mask;
+            window->setMask(mask);
+            /* Qt only forwards the mask to wl_surface.set_input_region on a
+               commit. Without nudging one, the region is sent once when the
+               window first appears and never updated — measured in a protocol
+               trace as exactly one set_input_region call for the whole
+               session, while the blur region beside it updated every time.
+               The input region then describes the first card's geometry
+               forever: later cards cannot be clicked, and the stale rects go
+               on swallowing clicks in the gap where nothing is drawn. */
+            window->requestUpdate();
+        }
     }
     KWindowEffects::enableBlurBehind(window, true, combined);
     KWindowEffects::enableBackgroundContrast(window, true,

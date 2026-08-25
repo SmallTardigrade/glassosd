@@ -110,6 +110,9 @@ glassosdctl <command>
   width [240-900]        Notification popup width in logical px
   solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
                          raise it on compositors that do not blur (sway, river)
+  blur [auto|on|off]     Whether the compositor can blur behind us. auto
+                         assumes yes on Wayland; set off on sway/river/labwc,
+                         which have no blur and would render unreadable glass
 
   test                   Fire the full demo sequence
   restart                Restart the daemon
@@ -117,7 +120,14 @@ glassosdctl <command>
 
 Settings keys:  Enabled, Limit, IndicateHidden, CoalesceThreshold,
                 CoalesceWindowMs, DoNotDisturb, AutoCollapseOver,
-                HistoryLength, IdleThresholdMs, HoverPause
+                HistoryLength, IdleThresholdMs, HoverPause, NewestFirst,
+                Timeout, TimeoutLow, TimeoutCritical
+
+How long popups stay (ms; 0 = until dismissed). An app's own
+expire_timeout still wins; these apply when it sends -1:
+    glassosdctl set Timeout 12000        # normal urgency, default 6000
+    glassosdctl set TimeoutLow 8000      # low, default 4000
+    glassosdctl set TimeoutCritical 0    # critical, default 0 = never, HoverPause
 Rule keys:      appname, summary, body, category, desktop_entry,
                 match_urgency, set_stack_tag, timeout, set_urgency,
                 skip_display, history_ignore
@@ -337,6 +347,13 @@ case "$cmd" in
       echo "widgets: $(cfg_read Appearance Widgets || echo 'media,dnd')"
       echo "available: media, dnd"
     else cfg_write Appearance Widgets "$1"; echo "widgets = $1"; fi ;;
+  blur)
+    case "${1:-}" in
+      auto|on|off) cfg_write Appearance Blur "$1"; echo "blur = $1"
+                   echo "blur is read at startup — run: glassosdctl restart" ;;
+      "")  echo "blur: $(cfg_read Appearance Blur || echo auto)" ;;
+      *)   echo "usage: glassosdctl blur [auto|on|off]" >&2; exit 1 ;;
+    esac ;;
   solidity)
     if [ -z "${1:-}" ]; then echo "solidity: $(cfg_read Appearance Solidity || echo 0.0)"
     else cfg_write Appearance Solidity "$1"; echo "solidity = $1"; fi ;;

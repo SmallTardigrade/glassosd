@@ -125,6 +125,7 @@ private:
     };
     QHash<QQuickWindow *, QHash<QObject *, Contribution>> m_regions;
     QSet<QQuickWindow *> m_maskedWindows;
+    QHash<QQuickWindow *, QRegion> m_lastMask;
 
     qreal m_contrast = 0.32;
     qreal m_intensity = 0.92;

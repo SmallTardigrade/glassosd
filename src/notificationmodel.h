@@ -70,6 +70,16 @@ public:
        in a config file and would make effectiveLimit() negative, so update()
        would promote nothing and every notification would queue forever with
        no popup and no error. */
+    /* Per-urgency dwell time in ms. 0 means never expire, which is what the
+       spec mandates for critical. Apps that send their own expire_timeout
+       still win; these are the fallback when they send -1. */
+    void setTimeouts(int low, int normal, int critical)
+    {
+        m_timeoutLow = qMax(0, low);
+        m_timeoutNormal = qMax(0, normal);
+        m_timeoutCritical = qMax(0, critical);
+    }
+
     void setLimit(int limit) { m_limit = qMax(0, limit); update(); }
     void setIndicateHidden(bool on) { m_indicateHidden = on; update(); }
     /* dunst's idle_threshold: while the session has been idle longer than
@@ -138,6 +148,9 @@ private:
     QList<Notification> m_waiting;
 
     int m_limit = 4;
+    int m_timeoutLow = 4000;
+    int m_timeoutNormal = 6000;
+    int m_timeoutCritical = 0;
     bool m_indicateHidden = true;
     bool m_dnd = false;
     int m_lastHiddenCount = 0;

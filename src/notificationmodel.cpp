@@ -161,10 +161,10 @@ int NotificationModel::defaultTimeoutFor(Urgency u) const
 {
     /* Mirrors the timeouts already tuned in the existing dunstrc. */
     switch (u) {
-    case Urgency::Low:      return 4000;
-    case Urgency::Critical: return 0;   // never expires
+    case Urgency::Low:      return m_timeoutLow;
+    case Urgency::Critical: return m_timeoutCritical;   // 0 = never expires
     case Urgency::Normal:
-    default:                return 6000;
+    default:                return m_timeoutNormal;
     }
 }
 

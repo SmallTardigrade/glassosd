@@ -8,6 +8,8 @@ After=graphical-session.target
 Type=simple
 ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/glassosd
 Restart=on-failure
+# Exit 0 when there is no display; never restart-loop into a teardown.
+RestartPreventExitStatus=0
 RestartSec=2
 Slice=background.slice
 
