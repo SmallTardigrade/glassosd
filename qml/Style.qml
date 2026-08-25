@@ -69,28 +69,15 @@ QtObject {
     /* Peeking card edges for a grouped stack. */
     readonly property int stackOffset: Math.round(Theme.num("stack.offset", 9))
     readonly property int stackInset: Math.round(Theme.num("stack.inset", 8))
-    /* Each peeking edge is lighter than the card in front so the layers read
-       as separate sheets; matching the card colour made the stack invisible.
-       A dark seam along the bottom of each edge is what separates one sheet
-       from the next — without it the tones merge into a single soft blob.
+    /* The seam along the bottom of each sheet is what separates one from the
+       next.
 
-       Derived from the card rather than hardcoded. The old constant was a
-       fixed grey that took no notice of card.background, so a theme could
-       recolour its cards completely and the sheets behind them stayed the
-       same — which showed up as a stack in the wrong colour family rather
-       than as anything obviously wrong, so it went unnoticed.
-
-       The card's own alpha is kept, so a glass card gets glass sheets. That
-       only works because each sliver registers its own backdrop region; see
-       the Repeater in NotificationCard.qml. */
-    /* Qt.lighter() forces alpha to 1, so the factor has to be applied to an
-       opaque copy and the original alpha put back afterwards. */
-    function shade(c, factor) {
-        const lit = Qt.lighter(Qt.rgba(c.r, c.g, c.b, 1.0), factor)
-        return Qt.rgba(lit.r, lit.g, lit.b, c.a)
-    }
-    readonly property color cardStackEdge: Theme.color("card.stackEdge",
-                                                       shade(cardBackground, dark ? 1.9 : 0.94))
+       Defaults to the card's own colour, alpha included. A sheet with a
+       colour of its own cannot track a glass card, whose appearance is
+       whatever the backdrop makes it — see the Repeater in
+       NotificationCard.qml. Depth comes from the card's shadow falling across
+       the sliver and from the seam, not from the fill. */
+    readonly property color cardStackEdge: Theme.color("card.stackEdge", cardBackground)
     readonly property color cardStackSeam: Theme.color("card.stackSeam", dark ? Qt.rgba(0,0,0,0.55) : Qt.rgba(0,0,0,0.18))
     readonly property int cardRadius: Math.round(Theme.num("radius.card", px(16)))
 

@@ -341,7 +341,11 @@ Window {
                        glassosdctl manipulate exactly the same mechanism. */
                     Rectangle {
                         Layout.fillWidth: true
-                        visible: HistoryModel.groupFilter !== ""
+                        /* Only when the gear asked for it. Drilling in to read
+                           the rest of a group used to put a settings panel
+                           above the entries you had come to read, every
+                           time. */
+                        visible: HistoryModel.groupFilter !== "" && HistoryModel.appSettingsVisible
                         Layout.preferredHeight: visible ? appSettingsCol.implicitHeight + 20 : 0
                         radius: 12
                         color: Style.entryCard
@@ -640,7 +644,7 @@ Window {
                                            itself, not only from a live popup. */
                                         CardButton {
                                             icon: "settings"
-                                            onActivated: HistoryModel.groupFilter = model.groupKey
+                                            onActivated: HistoryModel.showGroup(model.groupKey, true)
                                         }
 
                                         CardButton {

@@ -5,6 +5,8 @@
 */
 #include "surfacewindow.h"
 
+#include <cmath>
+
 #include <QGuiApplication>
 #include <QQuickWindow>
 #include <QScreen>
@@ -32,13 +34,46 @@ QRegion roundedRegion(const QRect &r, int radius)
     if (radius <= 0) {
         return QRegion(r);
     }
-    const int d = radius * 2;
-    QRegion region(r.adjusted(radius, 0, -radius, 0));
-    region += QRegion(r.adjusted(0, radius, 0, -radius));
-    region += QRegion(r.left(), r.top(), d, d, QRegion::Ellipse);
-    region += QRegion(r.right() - d + 1, r.top(), d, d, QRegion::Ellipse);
-    region += QRegion(r.left(), r.bottom() - d + 1, d, d, QRegion::Ellipse);
-    region += QRegion(r.right() - d + 1, r.bottom() - d + 1, d, d, QRegion::Ellipse);
+
+    /* The corners are built a scanline at a time and rounded so the region is
+       strictly *inscribed* — never a pixel outside the rounded rectangle the
+       card actually paints.
+
+       This is the whole point, and it is why QRegion::Ellipse is not used
+       here. A region is integer rectangles by definition, so its corner is a
+       staircase whatever we do; the question is only which side of the true
+       arc the steps fall on. Ellipse approximates the curve, so the staircase
+       crosses it and lands outside on some rows. Those rows are backdrop that
+       KWin blurs and contrast-adjusts while the card does not paint over
+       them, so against a coloured background they show up as a stepped halo
+       clinging to the corner — the corner reads as pixelated even though Qt
+       drew the card's own arc perfectly smoothly.
+
+       Inscribed, every step is underneath the card. What is left is a thin
+       crescent at the very edge that is painted but not blurred, and that
+       falls under the card's border stroke, where a one-pixel difference in
+       backdrop sharpness is not something the eye has anything to compare
+       against.
+
+       Note this cannot be fixed by making the region smoother: it is handed
+       over in logical pixels, so on a 1.75x display each step is 1.75 device
+       pixels whatever we compute. Putting the steps on the right side of the
+       arc is the only lever there is. */
+    QRegion region(r.adjusted(0, radius, 0, -radius));
+    const qreal rr = qreal(radius) * radius;
+    for (int i = 0; i < radius; ++i) {
+        /* Row centres, so a row counts as covered when its middle is inside
+           the arc rather than when its top edge is. */
+        const qreal dy = radius - i - 0.5;
+        const qreal half = std::sqrt(qMax(qreal(0), rr - dy * dy));
+        const int inset = int(std::ceil(radius - half));
+        const int w = r.width() - 2 * inset;
+        if (w <= 0) {
+            continue;
+        }
+        region += QRect(r.left() + inset, r.top() + i, w, 1);
+        region += QRect(r.left() + inset, r.bottom() - i, w, 1);
+    }
     return region;
 }
 } // namespace

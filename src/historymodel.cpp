@@ -228,6 +228,26 @@ void HistoryModel::setGroupFilter(const QString &key)
     rebuild();   // rebuild() resolves the label, so it stays correct as entries arrive
 }
 
+void HistoryModel::showGroup(const QString &key, bool withSettings)
+{
+    if (key.isEmpty()) {
+        return;
+    }
+    m_appSettingsVisible = withSettings;
+
+    /* Expanded, always. "Show more" that lands you on a collapsed header is
+       asking you to click twice to do the thing you already asked for, and
+       auto-collapse or an always_collapsed rule would otherwise fold exactly
+       the group you opened deliberately. */
+    m_expanded.insert(key);
+    m_collapsed.remove(key);
+
+    m_filter = key;
+    rebuild();            // resolves the label and applies the expand
+    setPanelOpen(true);
+    Q_EMIT changed();
+}
+
 void HistoryModel::setPanelOpen(bool open)
 {
     if (m_panelOpen == open) {
@@ -236,8 +256,10 @@ void HistoryModel::setPanelOpen(bool open)
     m_panelOpen = open;
     if (!open) {
         /* Reopening should show everything, not silently still be filtered to
-           whichever app was drilled into last time. */
+           whichever app was drilled into last time, and not still showing a
+           settings panel opened three drill-ins ago. */
         setGroupFilter({});
+        m_appSettingsVisible = false;
 
         /* "Always collapsed" has to mean every time the panel opens, not just
            the first. Expanding one of these groups is a look inside, not a

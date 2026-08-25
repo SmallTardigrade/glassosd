@@ -35,9 +35,8 @@ Item {
        y is the thing that actually changes, so drive it from here. */
     onYChanged: {
         card.refreshBlur()
-        /* The sheets are registered in window coordinates too, so they go
-           stale for exactly the same reason the card does when the ListView
-           moves this delegate. */
+        /* The sheets register in window coordinates too, so they go stale for
+           the same reason the card does when the ListView moves us. */
         for (let i = 0; i < sheets.count; ++i) {
             const s = sheets.itemAt(i)
             if (s) s.refreshSheet()
@@ -67,12 +66,21 @@ Item {
        Clipping to the sliver means the sheet never covers any part of the
        card, so the glass is glass the whole way down. The visible result is
        unchanged for an opaque theme, which is what this looked like when it
-       was written. */
+       was written.
+
+       The sheets are the card's own material — same fill, same alpha, same
+       backdrop region — rather than a colour of their own. That is not
+       tidiness, it is the only thing that works: a glass card's *appearance*
+       is whatever the backdrop makes it, so no fixed sheet colour relates to
+       it. Opaque went black against a white page while the card sat at
+       mid-grey; lightened-and-translucent washed out to a pale band. Sharing
+       the material means both are lit by the same backdrop and cannot drift
+       apart, and the card's own drop shadow falling across the slivers is
+       what separates the layers. */
     Repeater {
         id: sheets
         model: root.stackDepth
         delegate: Item {
-            id: sheet
             required property int index
             z: -1 - index
             anchors.horizontalCenter: parent.horizontalCenter
@@ -81,20 +89,21 @@ Item {
             height: (index + 1) * Style.stackOffset
             clip: true
 
-            /* The sliver gets the card's backdrop treatment too. Without it
-               the sheet is the only opaque thing on a glass card, so it
-               tracked nothing: over a dark wallpaper it read as a lighter
-               sheet behind, and over a bright one — a white page in a browser
-               — the card composited to mid-grey while the sheet stayed near
-               black, and the stack looked like a bar of shadow rather than a
-               card. Registering it means both are lit by the same backdrop
-               and the relationship holds whatever is behind the window. */
+            /* The region has to describe the *painted* rectangle, not the clip
+               band: the band is only stackOffset tall, so the radius gets
+               clamped to half of that and the region comes out near-square
+               while the sheet is painted with the card's full radius. That
+               left blurred backdrop showing outside the sheet's corners, which
+               reads as square corners with lines running off the ends. The
+               card-sized rectangle inside the clip is the real shape; its
+               upper part lands inside the card's own region, which costs
+               nothing because regions are unioned. */
             function refreshSheet() {
                 if (!Window.window)
                     return
-                const p = mapToItem(null, 0, 0)
-                const r = Qt.rect(p.x, p.y, width, height)
-                Surface.setPanelRegion(Window.window, sheet, r, Style.cardRadius)
+                const p = mapToItem(null, 0, height - card.height)
+                const r = Qt.rect(p.x, p.y, width, card.height)
+                Surface.setPanelRegion(Window.window, sheetRect, r, Style.cardRadius)
                 if (card.glass) {
                     Surface.applyContrast(Window.window, r, Style.cardRadius,
                                           Style.bgContrast, Style.bgIntensity,
@@ -105,13 +114,15 @@ Item {
             onYChanged: refreshSheet()
             onWidthChanged: refreshSheet()
             onHeightChanged: refreshSheet()
-            Component.onDestruction: if (Window.window) Surface.clearPanelRegion(Window.window, sheet)
+            Component.onDestruction: if (Window.window) Surface.clearPanelRegion(Window.window, sheetRect)
+
 
             /* Card-sized and bottom-aligned inside the clip, so the corners
                that show are the same radius as the card's own. Drawing a
                short rounded rect instead would round the top corners too and
                read as a separate pill rather than as a sheet behind. */
             Rectangle {
+                id: sheetRect
                 width: parent.width
                 height: card.height
                 y: parent.height - height

@@ -117,14 +117,11 @@ Window {
                 onActivated: NotificationModel.activate(win, model.notifId, "default")
                 onActionTriggered: key => NotificationModel.activate(win, model.notifId, key)
                 onReplySent: text => NotificationModel.sendReply(model.notifId, text)
-                onMoreRequested: {
-                    HistoryModel.groupFilter = model.groupKey
-                    HistoryModel.panelOpen = true
-                }
-                onSettingsRequested: {
-                    HistoryModel.groupFilter = model.groupKey
-                    HistoryModel.panelOpen = true
-                }
+                /* These two did the same thing, which is why "N more
+                   notifications" opened the settings panel: it was the gear's
+                   behaviour, and the group stayed folded on top of that. */
+                onMoreRequested: HistoryModel.showGroup(model.groupKey, false)
+                onSettingsRequested: HistoryModel.showGroup(model.groupKey, true)
             }
         }
 

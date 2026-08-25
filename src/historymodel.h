@@ -32,6 +32,8 @@ class HistoryModel : public QAbstractListModel
        "+N more from <App>" line opens into. Empty shows everything. */
     Q_PROPERTY(QString groupFilter READ groupFilter WRITE setGroupFilter NOTIFY changed)
     Q_PROPERTY(QString groupFilterLabel READ groupFilterLabel NOTIFY changed)
+    /* Whether the drill-in should also show the per-app settings panel. */
+    Q_PROPERTY(bool appSettingsVisible READ appSettingsVisible NOTIFY changed)
     Q_PROPERTY(bool panelOpen READ panelOpen WRITE setPanelOpen NOTIFY panelOpenChanged)
     Q_PROPERTY(bool newestFirst READ newestFirst NOTIFY changed)
 
@@ -93,6 +95,15 @@ public:
     Q_INVOKABLE void removeAt(int row);
     Q_INVOKABLE void clearAll();
     Q_INVOKABLE void clearFilter() { setGroupFilter({}); }
+
+    /* Open the centre on one app's notifications.
+
+       withSettings decides which question is being asked. The gear asks "how
+       should this app behave"; "N more notifications" asks "what were the
+       other four" — and answering the second with the settings panel, folded,
+       is why that button felt like it went somewhere else entirely. */
+    Q_INVOKABLE void showGroup(const QString &key, bool withSettings);
+    bool appSettingsVisible() const { return m_appSettingsVisible; }
     /* Clicking an entry in the centre. Tries the original notification's
        default action first — that only lands if the notification is still
        live — and otherwise launches the application it came from, which is
@@ -143,6 +154,7 @@ private:
     mutable QTimer m_saveTimer;
     bool m_panelOpen = false;
     bool m_newestFirst = true;
+    bool m_appSettingsVisible = false;
     uint m_maxLoadedId = 0;
     /* Two sets, not one: a group is collapsed by default once it grows past
        the threshold, but an explicit expand has to survive rebuilds — and an
