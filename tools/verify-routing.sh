@@ -109,7 +109,10 @@ trap 'rm -f "$tmp"' EXIT
 timeout "$SECS" dbus-monitor --session \
   "interface='org.freedesktop.Notifications',member='Notify'" > "$tmp" 2>/dev/null
 
-count=$(grep -c "member=Notify" "$tmp" 2>/dev/null || echo 0)
+# grep -c prints 0 *and* exits 1 when it matches nothing, so a `|| echo 0`
+# here appends a second zero and the arithmetic test then chokes on "0\n0".
+count=$(grep -c "member=Notify" "$tmp" 2>/dev/null)
+count=${count:-0}
 echo
 if [ "$count" -gt 0 ]; then
   ok "$count notification(s) reached the bus:"
