@@ -7,7 +7,10 @@
 
 #include <KConfigGroup>
 
+#include <QDebug>
+
 #include <cmath>
+#include <utility>
 
 namespace
 {
@@ -104,9 +107,68 @@ void Appearance::reload()
     const QString layer = g.readEntry("NotifyLayer", QStringLiteral("top")).toLower();
     m_notifyLayer = (layer == QLatin1String("overlay")) ? 3 : 2;
 
-    /* Default order mirrors swaync's: media, then DND, then the list. */
-    m_widgets = g.readEntry("Widgets", QStringList{QStringLiteral("media"),
-                                                   QStringLiteral("dnd")});
+    /* The canonical order, and the default. Every widget the centre can draw
+       appears here exactly once; the configured list is an ordering of these
+       names, swaync-style. */
+    static const QStringList canonical{
+        QStringLiteral("title"),   QStringLiteral("mpris"),
+        QStringLiteral("volume"),  QStringLiteral("dnd"),
+        QStringLiteral("notifications"), QStringLiteral("backlight"),
+        QStringLiteral("buttons-grid"),
+    };
+
+    QStringList wanted = g.readEntry("Widgets", canonical);
+    /* swaync calls the media widget "mpris"; earlier versions of this config
+       accepted "media". Normalise so both spellings order identically. */
+    for (QString &w : wanted) {
+        w = w.trimmed().toLower();
+        if (w == QLatin1String("media")) {
+            w = QStringLiteral("mpris");
+        }
+    }
+
+    /* Until now this key was a *set*: it decided which widgets appeared and
+       the centre laid them out in a fixed sequence regardless. Reading an old
+       config as an order would be a disaster rather than a change — a list
+       like "mpris,volume,dnd" never mentioned the notification list, so
+       honouring it literally would produce a notification centre with no
+       notifications in it.
+
+       So: naming `notifications` is how you opt in to ordering. A list
+       without it is read the old way — the canonical order, filtered to what
+       was asked for, with the structural widgets kept whatever happens. Any
+       config copied from swaync names it (swaync's own default is
+       "title,dnd,notifications"), so nothing has to be migrated by hand. */
+    if (wanted.contains(QLatin1String("notifications"))) {
+        m_widgets.clear();
+        for (const QString &w : std::as_const(wanted)) {
+            /* Silently dropping a typo would present as a widget that will
+               not appear however the user sets it. */
+            if (!canonical.contains(w)) {
+                qWarning("glassosd: unknown widget '%s' in [Appearance] Widgets — "
+                         "known names are %s",
+                         qUtf8Printable(w), qUtf8Printable(canonical.join(QLatin1Char(' '))));
+                continue;
+            }
+            if (!m_widgets.contains(w)) {   // a repeat would draw it twice
+                m_widgets.append(w);
+            }
+        }
+    } else {
+        m_widgets.clear();
+        for (const QString &w : canonical) {
+            const bool structural = w == QLatin1String("title")
+                                 || w == QLatin1String("notifications");
+            if (structural || wanted.contains(w)) {
+                m_widgets.append(w);
+            }
+        }
+        if (g.hasKey("Widgets")) {
+            qWarning("glassosd: [Appearance] Widgets does not list 'notifications', "
+                     "so it is being read as a set in the built-in order. Add "
+                     "'notifications' to the list to control the order yourself.");
+        }
+    }
 
     Q_EMIT changed();
 }

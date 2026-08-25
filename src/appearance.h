@@ -52,14 +52,15 @@ class Appearance : public QObject
     /* Point size, overriding the value derived from Scale. Set it when you
        want bigger text without bigger padding, which is what Scale does. */
     Q_PROPERTY(int fontSize READ fontSize NOTIFY changed)
-    /* Which widgets the centre shows — swaync's `widgets` list, and the
-       same names, so a config written for swaync reads the same here.
+    /* Which widgets the centre shows and in what order — swaync's `widgets`
+       list, and the same names, so a config written for swaync reads the same
+       here. Known names: title, mpris, volume, dnd, notifications, backlight,
+       buttons-grid.
 
-       Note this is a *set*, not an order: the centre lays its widgets out in
-       a fixed sequence and this decides which of them appear. swaync treats
-       the list as an order too. Matching that means every widget moving into
-       its own Component behind a Repeater, which is a real refactor of
-       HistoryPanel rather than a config change. */
+       A list that does not name `notifications` is read as a plain set in the
+       built-in order instead, because that is what this key used to mean and
+       obeying such a list literally would give a notification centre with no
+       notifications in it. Appearance::reload() has the detail. */
     Q_PROPERTY(QStringList widgets READ widgets NOTIFY changed)
 
 public:

@@ -100,7 +100,6 @@ glassosdctl <command>
   level [segmented|bar]  Volume/brightness indicator style
   output [current|primary|NAME]
                          Which screen surfaces appear on
-  widgets [list]         Centre widgets, comma separated
   theme-file [name]      Load a JSON theme (no argument prints current)
   themes                 List available themes and where they live
   edit-theme             Copy the current theme to ~/.config/glassosd/ and open it
@@ -111,6 +110,13 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  widgets [list]         Which widgets the centre shows, and in what order.
+                         Comma-separated, swaync's names: title, mpris, volume,
+                         dnd, notifications, backlight, buttons-grid. A list
+                         that does not name 'notifications' is read as a plain
+                         set in the built-in order, because that is what this
+                         key used to mean. 'default' restores the full order.
+                             glassosdctl widgets title,notifications,dnd
   scale [0.6-2.0]        Size multiplier for all text and spacing
   width [240-900]        Notification popup width in logical px
   solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
@@ -358,11 +364,6 @@ case "$cmd" in
       esac
       cfg_write Appearance AccentColor "$1"; echo "accent = $1"
     fi ;;
-  widgets)
-    if [ -z "${1:-}" ]; then
-      echo "widgets: $(cfg_read Appearance Widgets || echo 'media,dnd')"
-      echo "available: media, dnd"
-    else cfg_write Appearance Widgets "$1"; echo "widgets = $1"; fi ;;
   layer)
     case "${1:-}" in
       top|overlay) cfg_write Appearance NotifyLayer "$1"; echo "layer = $1"
@@ -392,6 +393,34 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_read Appearance CentreBodyLines || echo 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  widgets)
+    known="title mpris volume dnd notifications backlight buttons-grid"
+    case "${1:-}" in
+      "")
+        cur=$(cfg_read Appearance Widgets || echo "$known" | tr ' ' ,)
+        echo "widgets: $cur"
+        case ",$cur," in
+          *,notifications,*) echo "  (an order — the centre lays them out like this)" ;;
+          *) echo "  (a set — add 'notifications' to control the order)" ;;
+        esac
+        echo "  known:   $known" ;;
+      default|reset)
+        cfg_write Appearance Widgets "$(echo "$known" | tr ' ' ,)"
+        echo "widgets = $(echo "$known" | tr ' ' ,)" ;;
+      *)
+        # Reject a typo here rather than let it vanish silently in the daemon.
+        for w in $(echo "$1" | tr , ' '); do
+          case " $known " in
+            *" $w "*) ;;
+            *) echo "unknown widget '$w'; known: $known" >&2; exit 1 ;;
+          esac
+        done
+        case ",$1," in
+          *,notifications,*) ;;
+          *) echo "note: no 'notifications' in the list, so it is read as a set" >&2 ;;
+        esac
+        cfg_write Appearance Widgets "$1"; echo "widgets = $1" ;;
+    esac ;;
   scale)
     if [ -z "${1:-}" ]; then echo "scale: $(cfg_read Appearance Scale || echo 1.0)"
     else cfg_write Appearance Scale "$1"; echo "scale = $1"; fi ;;

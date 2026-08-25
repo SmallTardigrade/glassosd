@@ -458,18 +458,37 @@ The control centre's contents are a list, using swaync's widget names so a
 config you are migrating reads the same way.
 
 ```bash
-glassosdctl widgets "mpris,volume,backlight,dnd,buttons-grid"
+glassosdctl widgets "title,mpris,volume,dnd,notifications,backlight,buttons-grid"
+glassosdctl widgets              # show the current list
+glassosdctl widgets default      # back to the built-in order
 ```
 
 | Widget | What it is |
 |---|---|
+| `title` | the "Notifications" heading and the Clear button |
 | `mpris` | media player: art, title, artist, transport controls |
 | `volume` | volume slider, click the icon to mute |
-| `backlight` | brightness slider (needs `brightnessctl`) |
 | `dnd` | Do Not Disturb toggle row |
+| `notifications` | the grouped list, its empty state, and the per-app settings panel |
+| `backlight` | brightness slider (needs `brightnessctl`) |
 | `buttons-grid` | the quick-action grid |
 
-Order in the list is the order on screen. Anything omitted is not built.
+Order in the list is the order on screen, and anything omitted is not built —
+`notifications` included, so you can have a control centre with no notification
+list in it if that is what you want.
+
+That last part is why there is one special case. Before this key was an order
+it was a plain *set*, and no such list ever named `notifications`. Reading an
+old config literally would produce a centre with no notifications in it, which
+would look like a bad bug rather than a setting. So **a list that does not name
+`notifications` is read the old way**: the built-in order, filtered to what you
+asked for, with `title` and `notifications` kept regardless. Naming
+`notifications` is how you opt in to ordering — and every swaync config already
+does, since swaync's own default is `title,dnd,notifications`.
+
+`glassosdctl widgets` tells you which of the two you are getting. An unknown
+name is rejected by the CLI and skipped with a warning by the daemon, rather
+than silently becoming a widget that never appears.
 
 ### The button grid
 
