@@ -51,10 +51,13 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora:44
     steps:
-      - uses: actions/checkout@v4
-
+      # Before checkout, not after: without git in the container,
+      # actions/checkout silently downloads a tarball instead of cloning, and
+      # `git archive` in .copr/Makefile then has no repository to read.
       - name: Install packaging tools
         run: dnf install -y rpm-build rpmdevtools dnf5-plugins git make
+
+      - uses: actions/checkout@v4
 
       - name: Trust the checkout
         run: git config --global --add safe.directory "$PWD"
