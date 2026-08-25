@@ -141,8 +141,9 @@ void Theme::reload()
         m_name = QFileInfo(path).completeBaseName();
         m_loaded = true;
         watchFile(path);
-        qInfo("glassosd: theme '%s' loaded from %s (%d keys)",
-              qUtf8Printable(m_name), qUtf8Printable(path), m_values.size());
+        qInfo("glassosd: theme '%s' loaded from %s (%lld keys)",
+              qUtf8Printable(m_name), qUtf8Printable(path),
+              static_cast<long long>(m_values.size()));
         break;
     }
 

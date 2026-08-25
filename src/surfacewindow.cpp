@@ -243,6 +243,23 @@ void Surface::recompute(QQuickWindow *window)
     for (const Contribution &c : *it) {
         combined += roundedRegion(c.rect.toAlignedRect(), qRound(c.radius));
     }
+
+    /* The blur and background-contrast regions are inset by a pixel relative
+       to the painted surface.
+
+       The card's rounded edge is anti-aliased, so along the outermost pixel
+       the fill is only partly opaque. The effect region, being a hard-edged
+       QRegion, covers that pixel completely — and with saturation at 180% the
+       backdrop showing through it is visibly wrong: over a blue banner the
+       fringe reads as cyan. Pulling the effect in by one pixel keeps it
+       entirely underneath fully-opaque fill, where it belongs. */
+    const QRegion effectRegion = [&combined] {
+        QRegion inset;
+        for (const QRect &r : combined) {
+            inset += r.adjusted(1, 1, -1, -1);
+        }
+        return inset.isEmpty() ? combined : inset;
+    }();
     if (combined.isEmpty()) {
         return;
     }
@@ -268,10 +285,10 @@ void Surface::recompute(QQuickWindow *window)
             window->requestUpdate();
         }
     }
-    KWindowEffects::enableBlurBehind(window, true, combined);
+    KWindowEffects::enableBlurBehind(window, true, effectRegion);
     KWindowEffects::enableBackgroundContrast(window, true,
                                              m_contrast, m_intensity, m_saturation,
-                                             combined);
+                                             effectRegion);
 }
 
 void Surface::clearBlur(QQuickWindow *window)

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 glassosd contributors
+SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
 # After logging back in
 
 Run these in order. Each one answers a specific open question.
