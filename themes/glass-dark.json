@@ -1,0 +1,49 @@
+{
+  "_comment": "The built-in look, written out in full as a starting point to copy. Every key here is also the default, so deleting any line changes nothing.",
+
+  "accent": "rgba(61, 174, 233, 1.0)",
+
+  "text.primary": "rgba(244, 246, 248, 1.0)",
+  "text.muted": "rgba(244, 246, 248, 0.88)",
+  "text.secondary": "rgba(244, 246, 248, 0.60)",
+
+  "osd.background": "rgba(22, 25, 29, 0.84)",
+  "panel.background": "rgba(20, 23, 27, 0.93)",
+  "card.background": "rgba(22, 25, 29, 0.975)",
+
+  "entry.background": "rgba(40, 46, 54, 1.0)",
+  "entry.backgroundHover": "rgba(51, 58, 67, 1.0)",
+  "entry.edge": "rgba(255, 255, 255, 0.07)",
+
+  "glass.edge": "rgba(255, 255, 255, 0.22)",
+  "glass.sheen": "rgba(255, 255, 255, 0.07)",
+  "card.sheen": "rgba(255, 255, 255, 0.028)",
+  "edge.outer": "rgba(255, 255, 255, 0.09)",
+  "edge.width": 1,
+
+  "control.fill": "rgba(255, 255, 255, 0.13)",
+  "control.fillHover": "rgba(255, 255, 255, 0.22)",
+  "control.edge": "rgba(255, 255, 255, 0.14)",
+
+  "slider.track": "rgba(255, 255, 255, 0.15)",
+  "chip.idle": "rgba(255, 255, 255, 0.07)",
+  "urgency.critical": "#da4453",
+
+  "radius.card": 16,
+  "radius.chipRatio": 0.32,
+  "radius.pill": true,
+
+  "font.family": "Noto Sans",
+
+  "blur.saturation": 1.8,
+  "blur.contrast": 0.32,
+  "blur.intensity": 0.92,
+
+  "shadow.color": "#000000",
+  "shadow.opacity": 0.48,
+  "shadow.blur": 40,
+  "shadow.offsetY": 8,
+
+  "motion.in": 150,
+  "motion.out": 200
+}

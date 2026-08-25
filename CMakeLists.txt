@@ -43,6 +43,10 @@ qt_add_executable(glassosd
     src/historymodel.cpp
     src/surfacewindow.cpp
     src/controller.cpp
+    src/theme.cpp
+    src/modules.cpp
+    src/buttonsmodel.cpp
+    src/systemcontrols.cpp
 )
 
 target_compile_definitions(glassosd PRIVATE GLASSOSD_VERSION="${PROJECT_VERSION}")
@@ -65,6 +69,8 @@ qt_add_qml_module(glassosd
         qml/PanelButton.qml
         qml/Toggle.qml
         qml/CardButton.qml
+        qml/SliderRow.qml
+        qml/ButtonsGrid.qml
     RESOURCES
         qml/icons/volume-muted.svg
         qml/icons/volume-low.svg
@@ -85,6 +91,11 @@ qt_add_qml_module(glassosd
         qml/icons/media-pause.svg
         qml/icons/media-next.svg
         qml/icons/media-prev.svg
+        qml/icons/wifi.svg
+        qml/icons/bluetooth.svg
+        qml/icons/lock.svg
+        qml/icons/power.svg
+        qml/icons/reboot.svg
     SOURCES
         src/osdmodel.h
         src/surfacewindow.h
@@ -93,6 +104,10 @@ qt_add_qml_module(glassosd
         src/appsettings.h
         src/appearance.h
         src/mpriscontroller.h
+        src/theme.h
+        src/modules.h
+        src/buttonsmodel.h
+        src/systemcontrols.h
     RESOURCE_PREFIX /qt/qml
 )
 
@@ -132,3 +147,9 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/glassosd.service
         DESTINATION ${SYSTEMD_USER_UNIT_DIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service
         DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+
+# Themes are data, not resources: they must stay editable on disk so people
+# can copy one into ~/.config/glassosd/themes and change it.
+install(DIRECTORY themes/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/glassosd/themes
+        FILES_MATCHING PATTERN "*.json")

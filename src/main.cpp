@@ -7,6 +7,10 @@
 #include "appearance.h"
 #include "appsettings.h"
 #include "controller.h"
+#include "modules.h"
+#include "theme.h"
+#include "buttonsmodel.h"
+#include "systemcontrols.h"
 #include "trayicon.h"
 #include "historymodel.h"
 #include "notificationmodel.h"
@@ -57,10 +61,16 @@ int main(int argc, char *argv[])
     auto *model = engine.singletonInstance<OsdModel *>(QStringLiteral("org.glassosd.ui"),
                                                        QStringLiteral("OsdModel"));
 
-    auto *monitor = new OsdMonitor(&app);
-    if (monitor->start()) {
+    auto *modules = engine.singletonInstance<Modules *>(QStringLiteral("org.glassosd.ui"),
+                                                       QStringLiteral("Modules"));
+
+    /* Constructed only when the module is on. A disabled module owns no bus
+       name, no Wayland surface and no watcher — "off" has to mean absent, or
+       the two halves still interfere with whatever the user runs instead. */
+    OsdMonitor *monitor = modules->osd() ? new OsdMonitor(&app) : nullptr;
+    if (monitor && monitor->start()) {
         QObject::connect(monitor, &OsdMonitor::osdCall, model, &OsdModel::onOsdCall);
-    } else {
+    } else if (monitor) {
         /* Expected off Plasma: there is no org.kde.osdService to monitor. The
            OSD still works — the compositor's own volume/brightness keybinds
            call glassosdctl, which drives the same OsdModel over D-Bus. */
@@ -68,8 +78,10 @@ int main(int argc, char *argv[])
               "route your volume/brightness keys through `glassosdctl osd`");
     }
 
-    auto *caps = new CapsLockWatcher(&app);
-    QObject::connect(caps, &CapsLockWatcher::lockChanged, model, &OsdModel::onLockChanged);
+    if (modules->lockKeys()) {
+        auto *caps = new CapsLockWatcher(&app);
+        QObject::connect(caps, &CapsLockWatcher::lockChanged, model, &OsdModel::onLockChanged);
+    }
 
     auto *notifications = engine.singletonInstance<NotificationModel *>(
         QStringLiteral("org.glassosd.ui"), QStringLiteral("NotificationModel"));
@@ -119,6 +131,9 @@ int main(int argc, char *argv[])
     auto *appearance = engine.singletonInstance<Appearance *>(
         QStringLiteral("org.glassosd.ui"), QStringLiteral("Appearance"));
 
+    auto *theme = engine.singletonInstance<Theme *>(QStringLiteral("org.glassosd.ui"),
+                                                   QStringLiteral("Theme"));
+
     auto *appSettings = engine.singletonInstance<AppSettings *>(
         QStringLiteral("org.glassosd.ui"), QStringLiteral("AppSettings"));
     QObject::connect(appSettings, &AppSettings::rulesChanged, &app, [=]() mutable {
@@ -133,13 +148,17 @@ int main(int argc, char *argv[])
                      [=](const KConfigGroup &, const QByteArrayList &) mutable {
                          applySettings();
                          appearance->reload();
+                         /* ThemeFile lives in the same config, and Theme's own
+                            file watcher only knows about the file it already
+                            loaded — switching themes has to come through here. */
+                         theme->reload();
                          server->loadRules(cfg);
                      });
-    if (notifyCfg.readEntry("Enabled", true)) {
+    if (modules->notifications() && notifyCfg.readEntry("Enabled", true)) {
         server->start();
     } else {
-        qInfo("glassosd: notification server disabled by config — OSD only "
-              "(set [Notifications] Enabled=true in glassosdrc to serve notifications)");
+        qInfo("glassosd: not serving notifications — OSD only "
+              "([Modules] Notifications or [Notifications] Enabled is false)");
     }
 
     /* Do Not Disturb persists: a setting you toggle with a shortcut and then
@@ -166,6 +185,7 @@ int main(int argc, char *argv[])
     QObject::connect(control, &Controller::reloadRequested, &app, [=]() mutable {
         applySettings();
         appearance->reload();
+        theme->reload();
         server->loadRules(cfg);
     });
 
@@ -198,10 +218,23 @@ int main(int argc, char *argv[])
               "`glassosdctl history` and `glassosdctl dnd toggle` instead");
     }
 
-    new TrayIcon(notifications, history, &app);
+    if (modules->notificationCentre()) {
+        new TrayIcon(notifications, history, &app);
 
-    auto *fn = new FnLockWatcher(&app);
-    QObject::connect(fn, &FnLockWatcher::lockChanged, model, &OsdModel::onFnLockChanged);
+        /* The grid needs live DND state to render its toggle, and something
+           to hand clear-all to. */
+        auto *buttons = engine.singletonInstance<ButtonsModel *>(
+            QStringLiteral("org.glassosd.ui"), QStringLiteral("ButtonsModel"));
+        buttons->setTargets(notifications, history);
+        QObject::connect(appSettings, &AppSettings::rulesChanged, buttons, [buttons] {
+            buttons->load();
+        });
+    }
+
+    if (modules->lockKeys()) {
+        auto *fn = new FnLockWatcher(&app);
+        QObject::connect(fn, &FnLockWatcher::lockChanged, model, &OsdModel::onFnLockChanged);
+    }
 
     engine.loadFromModule(QStringLiteral("org.glassosd.ui"), QStringLiteral("Main"));
     if (engine.rootObjects().isEmpty()) {

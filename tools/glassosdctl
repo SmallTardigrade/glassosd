@@ -97,7 +97,12 @@ glassosdctl <command>
   level [segmented|bar]  Volume/brightness indicator style
   output [current|primary|NAME]
                          Which screen surfaces appear on
-  widgets [list]         Centre widgets, comma separated (media,dnd)
+  widgets [list]         Centre widgets, comma separated
+  theme-file [name]      Load a JSON theme (no argument prints current)
+  themes                 List available themes and where they live
+  edit-theme             Copy the current theme to ~/.config/glassosd/ and open it
+  module <name> [on|off] Toggle a half of the daemon on its own:
+                         notifications, centre, osd, lockkeys
   scale [0.6-2.0]        Size multiplier for all text and spacing
   width [240-900]        Notification popup width in logical px
   solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
@@ -194,8 +199,13 @@ case "$cmd" in
     done
     echo
     echo "appearance:"
-    for k in Theme AccentColor LevelStyle Output Scale NotifyWidth Solidity Widgets; do
+    for k in Theme ThemeFile AccentColor LevelStyle Output Scale NotifyWidth Solidity Widgets; do
       printf '  %-18s %s\n' "$k" "$(cfg_read Appearance "$k")"
+    done
+    echo
+    echo "modules:"
+    for k in Notifications NotificationCentre Osd LockKeys; do
+      printf '  %-18s %s\n' "$k" "$(cfg_read Modules "$k" || echo true)"
     done
     echo
     echo "rules:"
@@ -241,6 +251,54 @@ case "$cmd" in
   rule-del)
     have kwriteconfig6 || { echo "rule-del needs kwriteconfig6; edit $CONF by hand" >&2; exit 1; }
     kwriteconfig6 --notify --file $RC --group "Rule $1" --delete-group; echo "rule '$1' deleted" ;;
+  themes)
+    echo "search path (first match wins):"
+    for d in "${XDG_CONFIG_HOME:-$HOME/.config}/glassosd/themes" \
+             "$HOME/.local/share/glassosd/themes" /usr/share/glassosd/themes; do
+      [ -d "$d" ] || continue
+      echo "  $d"
+      for f in "$d"/*.json; do [ -e "$f" ] && echo "      $(basename "${f%.json}")"; done
+    done
+    echo
+    echo "current: $(cfg_read Appearance ThemeFile || echo '(built-in)')" ;;
+  theme-file)
+    if [ -z "${1:-}" ]; then echo "theme-file: $(cfg_read Appearance ThemeFile || echo '(built-in)')"
+    else cfg_write Appearance ThemeFile "$1"; echo "theme-file = $1"; fi ;;
+  edit-theme)
+    dest="${XDG_CONFIG_HOME:-$HOME/.config}/glassosd/themes"
+    mkdir -p "$dest"
+    cur=$(cfg_read Appearance ThemeFile || echo glass-dark)
+    [ -n "$cur" ] || cur=glass-dark
+    if [ ! -f "$dest/$cur.json" ]; then
+      for d in "$HOME/.local/share/glassosd/themes" /usr/share/glassosd/themes "$SELF_DIR/../themes"; do
+        [ -f "$d/$cur.json" ] && cp "$d/$cur.json" "$dest/$cur.json" && break
+      done
+    fi
+    [ -f "$dest/$cur.json" ] || { echo "no theme '''$cur''' found to copy" >&2; exit 1; }
+    cfg_write Appearance ThemeFile "$cur"
+    echo "editing $dest/$cur.json (saves apply live)"
+    exec "${VISUAL:-${EDITOR:-nano}}" "$dest/$cur.json" ;;
+  module)
+    name=${1:-}; val=${2:-}
+    case "$name" in
+      notifications) key=Notifications ;;
+      centre|center) key=NotificationCentre ;;
+      osd)           key=Osd ;;
+      lockkeys)      key=LockKeys ;;
+      "")  echo "modules:"
+           for k in Notifications NotificationCentre Osd LockKeys; do
+             printf '''  %-20s %s\n''' "$k" "$(cfg_read Modules "$k" || echo true)"
+           done
+           exit 0 ;;
+      *)   echo "unknown module: $name (notifications, centre, osd, lockkeys)" >&2; exit 1 ;;
+    esac
+    if [ -z "$val" ]; then echo "$key: $(cfg_read Modules "$key" || echo true)"
+    else
+      case "$val" in on|true) v=true ;; off|false) v=false ;; *) echo "use on or off" >&2; exit 1 ;; esac
+      cfg_write Modules "$key" "$v"
+      echo "$key = $v"
+      echo "modules are read at startup — run: glassosdctl restart"
+    fi ;;
   theme)
     case "${1:-}" in
       dark|light) cfg_write Appearance Theme "$1"; echo "theme = $1" ;;

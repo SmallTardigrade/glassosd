@@ -1,0 +1,44 @@
+{
+  "_comment": "A port of the palette from iyiolacak's swaync glassmorphism config, key for key. Colder, more translucent and more heavily blurred than the built-in; wants a compositor that actually blurs.",
+  "_source": "https://github.com/iyiolacak/iyiolacak-swaync-config",
+
+  "accent": "rgba(10, 132, 255, 0.9)",
+
+  "text.primary": "rgba(248, 248, 252, 0.98)",
+  "text.muted": "rgba(230, 235, 240, 0.90)",
+  "text.secondary": "rgba(215, 220, 225, 0.78)",
+
+  "_note": "swaync's 0.22 panel alpha relies on GTK blur behind it. Ours is raised because the same value over an unblurred wallpaper failed contrast; drop it to 0.30 if your compositor blurs hard.",
+  "panel.background": "rgba(22, 22, 28, 0.88)",
+  "osd.background": "rgba(20, 25, 25, 0.80)",
+  "card.background": "rgba(20, 25, 25, 0.95)",
+
+  "entry.background": "rgba(20, 20, 20, 0.92)",
+  "entry.backgroundHover": "rgba(210, 215, 225, 0.35)",
+  "entry.edge": "rgba(255, 255, 255, 0.18)",
+
+  "glass.edge": "rgba(255, 255, 255, 0.18)",
+  "glass.sheen": "rgba(255, 255, 255, 0.06)",
+  "edge.outer": "rgba(0, 0, 0, 0.06)",
+
+  "control.fill": "rgba(130, 135, 145, 0.28)",
+  "control.fillHover": "rgba(150, 155, 165, 0.40)",
+  "control.edge": "rgba(255, 255, 255, 0.09)",
+
+  "slider.track": "rgba(50, 55, 65, 0.35)",
+  "chip.idle": "rgba(110, 110, 115, 0.15)",
+
+  "radius.card": 18,
+  "radius.chipRatio": 0.28,
+
+  "font.family": "Inter",
+
+  "blur.saturation": 1.9,
+  "blur.intensity": 0.88,
+
+  "shadow.opacity": 0.55,
+  "shadow.blur": 48,
+
+  "motion.in": 150,
+  "motion.out": 150
+}

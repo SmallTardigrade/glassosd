@@ -1,0 +1,31 @@
+{
+  "_comment": "Warm rose, in the vein of the pink Hyprland rice. Demonstrates @-references: set one accent and the chrome follows it.",
+
+  "accent": "rgba(244, 114, 182, 1.0)",
+
+  "text.primary": "rgba(253, 242, 248, 1.0)",
+  "text.muted": "rgba(250, 232, 242, 0.88)",
+  "text.secondary": "rgba(244, 214, 232, 0.62)",
+
+  "panel.background": "rgba(30, 18, 26, 0.93)",
+  "osd.background": "rgba(30, 18, 26, 0.85)",
+  "card.background": "rgba(32, 19, 28, 0.975)",
+
+  "entry.background": "rgba(56, 33, 48, 1.0)",
+  "entry.backgroundHover": "rgba(70, 42, 60, 1.0)",
+  "entry.edge": "rgba(244, 114, 182, 0.20)",
+
+  "glass.edge": "rgba(255, 214, 236, 0.24)",
+  "glass.sheen": "rgba(255, 214, 236, 0.08)",
+
+  "control.fill": "rgba(244, 114, 182, 0.16)",
+  "control.fillHover": "rgba(244, 114, 182, 0.30)",
+  "control.edge": "@glass.edge",
+
+  "slider.track": "rgba(244, 114, 182, 0.18)",
+  "chip.idle": "rgba(244, 114, 182, 0.12)",
+  "urgency.critical": "#ff5c8a",
+
+  "radius.card": 20,
+  "shadow.opacity": 0.5
+}

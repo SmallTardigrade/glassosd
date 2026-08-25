@@ -47,6 +47,10 @@ Window {
         shadow: true
 
         Component.onCompleted: refreshBlur()
+
+        /* wpctl and brightnessctl are only queried while the centre is open;
+           polling them for a panel nobody is looking at is pure waste. */
+        onVisibleChanged: SystemControls.setPolling(visible)
         Keys.onEscapePressed: HistoryModel.panelOpen = false
 
         MouseArea { anchors.fill: parent; onClicked: {} }
@@ -90,7 +94,7 @@ Window {
                when a player is actually on the bus. */
             Rectangle {
                 Layout.fillWidth: true
-                visible: MprisController.available && Appearance.hasWidget("media")
+                visible: MprisController.available && (Appearance.hasWidget("mpris") || Appearance.hasWidget("media"))
                 Layout.preferredHeight: visible ? 74 : 0
                 radius: 12
                 color: Style.entryCard
@@ -158,6 +162,49 @@ Window {
                         onActivated: MprisController.playPause()
                     }
                     CardButton { icon: "media-next";  onActivated: MprisController.next() }
+                }
+            }
+
+            // ---- volume ---------------------------------------------------
+            /* Wrapped in a card like every other widget rather than floating
+               on the panel: a bare slider on glass has nothing to sit on and
+               reads as an orphan control. */
+            Rectangle {
+                Layout.fillWidth: true
+                visible: Appearance.hasWidget("volume") && SystemControls.volumeAvailable
+                Layout.preferredHeight: visible ? Style.px(46) : 0
+                radius: 12
+                color: Style.entryCard
+
+                SliderRow {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 12
+                    iconName: SystemControls.muted ? "volume-muted"
+                            : SystemControls.volume <= 0.25 ? "volume-low"
+                            : SystemControls.volume <= 0.75 ? "volume-medium" : "volume-high"
+                    muted: SystemControls.muted
+                    value: SystemControls.volume
+                    onMoved: (v) => SystemControls.setVolume(v)
+                    onIconClicked: SystemControls.toggleMute()
+                }
+            }
+
+            // ---- brightness -----------------------------------------------
+            Rectangle {
+                Layout.fillWidth: true
+                visible: Appearance.hasWidget("backlight") && SystemControls.brightnessAvailable
+                Layout.preferredHeight: visible ? Style.px(46) : 0
+                radius: 12
+                color: Style.entryCard
+
+                SliderRow {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 12
+                    iconName: "brightness"
+                    value: SystemControls.brightness
+                    onMoved: (v) => SystemControls.setBrightness(v)
                 }
             }
 
@@ -465,6 +512,12 @@ Window {
             }
 
             Item { Layout.fillHeight: list.count === 0 }
+
+            // ---- quick actions --------------------------------------------
+            ButtonsGrid {
+                Layout.fillWidth: true
+                visible: Appearance.hasWidget("buttons-grid") && ButtonsModel.count > 0
+            }
         }
     }
 }
