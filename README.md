@@ -111,7 +111,7 @@ burst still drips through one at a time.
 ### Fedora
 
 ```bash
-sudo dnf copr enable SmallTardigrade/glassosd
+sudo dnf copr enable smalltardigrade/glassosd
 sudo dnf install glassosd
 ```
 

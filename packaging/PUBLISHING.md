@@ -63,7 +63,7 @@ copr-cli create glassosd \
   --chroot fedora-44-x86_64 \
   --chroot fedora-rawhide-x86_64 \
   --description "Glass notification daemon, OSD and notification centre for Wayland" \
-  --instructions "sudo dnf copr enable SmallTardigrade/glassosd && sudo dnf install glassosd"
+  --instructions "sudo dnf copr enable smalltardigrade/glassosd && sudo dnf install glassosd"
 ```
 
 Add `--chroot fedora-44-aarch64` if you want ARM. There is nothing
@@ -108,9 +108,14 @@ copr-cli watch-build <BUILD_ID>
 ### What users then run
 
 ```bash
-sudo dnf copr enable SmallTardigrade/glassosd
+sudo dnf copr enable smalltardigrade/glassosd
 sudo dnf install glassosd
 ```
+
+Note the COPR username is lower-case (`smalltardigrade`) even though the
+GitHub one is not (`SmallTardigrade`). COPR derives it from the Fedora
+account, and `dnf copr enable` is case-sensitive — the mixed-case form
+returns a 404.
 
 ---
 
