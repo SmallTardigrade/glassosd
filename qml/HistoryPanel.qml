@@ -197,23 +197,6 @@ Window {
                 }
             }
 
-            // ---- brightness -----------------------------------------------
-            Rectangle {
-                Layout.fillWidth: true
-                visible: Appearance.hasWidget("backlight") && SystemControls.brightnessAvailable
-                Layout.preferredHeight: visible ? Style.px(46) : 0
-                radius: 12
-                color: Style.entryCard
-
-                SliderRow {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 12
-                    iconName: "brightness"
-                    value: SystemControls.brightness
-                    onMoved: (v) => SystemControls.setBrightness(v)
-                }
-            }
 
             // ---- Do Not Disturb -----------------------------------------
             Rectangle {
@@ -539,6 +522,24 @@ Window {
             }
 
             Item { Layout.fillHeight: list.count === 0 }
+
+            // ---- brightness -----------------------------------------------
+            Rectangle {
+                Layout.fillWidth: true
+                visible: Appearance.hasWidget("backlight") && SystemControls.brightnessAvailable
+                Layout.preferredHeight: visible ? Style.px(46) : 0
+                radius: 12
+                color: Style.entryCard
+
+                SliderRow {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 12
+                    iconName: "brightness"
+                    value: SystemControls.brightness
+                    onMoved: (v) => SystemControls.setBrightness(v)
+                }
+            }
 
             // ---- quick actions --------------------------------------------
             ButtonsGrid {

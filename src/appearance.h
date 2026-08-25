@@ -44,8 +44,14 @@ class Appearance : public QObject
        There is no value between them — fullscreen surfaces sit in the gap —
        so this is an either/or the user has to pick. */
     Q_PROPERTY(int notifyLayer READ notifyLayer NOTIFY changed)
-    /* Which widgets the centre shows, and in what order — swaync's
-       `widgets` list. Unknown names are ignored rather than fatal. */
+    /* Which widgets the centre shows — swaync's `widgets` list, and the
+       same names, so a config written for swaync reads the same here.
+
+       Note this is a *set*, not an order: the centre lays its widgets out in
+       a fixed sequence and this decides which of them appear. swaync treats
+       the list as an order too. Matching that means every widget moving into
+       its own Component behind a Repeater, which is a real refactor of
+       HistoryPanel rather than a config change. */
     Q_PROPERTY(QStringList widgets READ widgets NOTIFY changed)
 
 public:
