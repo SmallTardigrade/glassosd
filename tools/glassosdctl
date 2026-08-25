@@ -127,7 +127,7 @@ How long popups stay (ms; 0 = until dismissed). An app's own
 expire_timeout still wins; these apply when it sends -1:
     glassosdctl set Timeout 12000        # normal urgency, default 6000
     glassosdctl set TimeoutLow 8000      # low, default 4000
-    glassosdctl set TimeoutCritical 0    # critical, default 0 = never, HoverPause
+    glassosdctl set TimeoutCritical 0    # critical, default 0 = never
 Rule keys:      appname, summary, body, category, desktop_entry,
                 match_urgency, set_stack_tag, timeout, set_urgency,
                 skip_display, history_ignore
