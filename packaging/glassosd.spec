@@ -86,6 +86,10 @@ manage their own keybindings.
 %cmake_install
 install -Dpm0755 tools/demo-notifications.sh %{buildroot}%{_datadir}/%{name}/demo-notifications.sh
 install -Dpm0755 tools/stress-test.sh        %{buildroot}%{_datadir}/%{name}/stress-test.sh
+%{_datadir}/%{name}/verify-routing.sh
+%{_datadir}/%{name}/input-audit.sh
+install -Dpm0755 tools/verify-routing.sh     %{buildroot}%{_datadir}/%{name}/verify-routing.sh
+install -Dpm0755 tools/input-audit.sh        %{buildroot}%{_datadir}/%{name}/input-audit.sh
 
 %files
 %license LICENSE LICENSES/CC0-1.0.txt
@@ -99,6 +103,8 @@ install -Dpm0755 tools/stress-test.sh        %{buildroot}%{_datadir}/%{name}/str
 %dir %{_datadir}/%{name}
 %{_datadir}/%{name}/demo-notifications.sh
 %{_datadir}/%{name}/stress-test.sh
+%{_datadir}/%{name}/verify-routing.sh
+%{_datadir}/%{name}/input-audit.sh
 
 %post
 cat <<'EOF'

@@ -206,6 +206,14 @@ journalctl --user -u xdg-desktop-portal -n 50 | grep -i notification
 
 `glassosd-setup` detects and offers to do this for you.
 
+To diagnose a specific app end to end — which daemon owns the name, which
+portal backend is live, whether the app's sandbox blocks the bus, and whether
+anything actually arrives while you trigger it:
+
+```bash
+verify-routing.sh me.proton.Mail
+```
+
 ### Apps that draw their own notifications
 
 Separately, an app whose sandbox blocks the notification bus *and* whose
