@@ -127,7 +127,7 @@ kwriteconfig6 --file plasmarc --group OSD --key Enabled false
 ### Fedora (COPR)
 
 ```bash
-sudo dnf copr enable YOURNAME/glassosd
+sudo dnf copr enable SmallTardigrade/glassosd
 sudo dnf install glassosd
 ```
 

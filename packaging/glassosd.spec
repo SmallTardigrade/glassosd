@@ -13,7 +13,7 @@ Summary:        Glass notification daemon, OSD and notification centre for Wayla
 # plasma-workspace shell/osd.cpp, which is GPL-2.0-or-later; that licence
 # governs the whole binary. The icon set in qml/icons is CC0-1.0.
 License:        GPL-2.0-or-later AND CC0-1.0
-URL:            https://github.com/glassosd/glassosd
+URL:            https://github.com/SmallTardigrade/glassosd
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires:  cmake >= 3.20

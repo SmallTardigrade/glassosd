@@ -30,22 +30,37 @@ cfg_read() { # group key
   fi
 }
 cfg_write() { # group key value
-  if have kwriteconfig6; then kwriteconfig6 --notify --file "$RC" --group "$1" --key "$2" "$3"
-  else
-    python3 - "$CONF" "$1" "$2" "$3" <<'PY'
-import sys, configparser, os
-path, group, key, val = sys.argv[1:5]
-c = configparser.RawConfigParser(); c.optionxform = str
-c.read(path)
-if not c.has_section(group): c.add_section(group)
-c.set(group, key, val)
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path, 'w') as f: c.write(f, space_around_delimiters=False)
-PY
-    # KConfigWatcher only fires for writes that emit the change signal, so a
-    # hand-edited file needs a nudge.
-    call Reload 2>/dev/null || true
+  if have kwriteconfig6; then
+    kwriteconfig6 --notify --file "$RC" --group "$1" --key "$2" "$3"
+    return
   fi
+  # No KDE, and no python either on a minimal system — edit the INI in awk.
+  mkdir -p "$(dirname "$CONF")"; : >> "$CONF"
+  awk -v g="[$1]" -v k="$2" -v v="$3" '
+    # Blank lines at the end of a group are held back rather than printed, so
+    # a new key lands against the last real entry instead of after the
+    # separator. Without this the file grows a blank line on every write.
+    function flush(  i) { for (i = 1; i <= nb; i++) print blanks[i]; nb = 0 }
+    BEGIN { ing = 0; done = 0; any = 0; nb = 0 }
+    {
+      any = 1
+      if ($0 == g)                       { flush(); ing = 1; print; next }
+      if (ing && /^\[/) {                              # leaving the group
+        if (!done) { print k "=" v; done = 1 }
+        flush(); ing = 0; print; next
+      }
+      if (ing && index($0, k "=") == 1)  { flush(); print k "=" v; done = 1; next }
+      if (ing && $0 ~ /^[[:space:]]*$/)  { blanks[++nb] = $0; next }
+      flush(); print
+    }
+    END {
+      if (ing && !done)  { print k "=" v; done = 1 }   # group ran to EOF
+      flush()
+      if (!done)         { if (any) print ""; print g; print k "=" v }
+    }' "$CONF" > "$CONF.new" && mv "$CONF.new" "$CONF"
+  # KConfigWatcher only fires for writes that emit the change signal, so a
+  # hand-edited file needs a nudge.
+  call Reload >/dev/null 2>&1 || true
 }
 
 call() { # Method [signature value ...]

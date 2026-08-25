@@ -1,6 +1,6 @@
 [Unit]
 Description=glassosd — glass notification daemon and OSD
-Documentation=https://github.com/glassosd/glassosd
+Documentation=https://github.com/SmallTardigrade/glassosd
 PartOf=graphical-session.target
 After=graphical-session.target
 

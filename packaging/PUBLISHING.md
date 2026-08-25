@@ -63,7 +63,7 @@ copr-cli create glassosd \
   --chroot fedora-44-x86_64 \
   --chroot fedora-rawhide-x86_64 \
   --description "Glass notification daemon, OSD and notification centre for Wayland" \
-  --instructions "sudo dnf copr enable YOURNAME/glassosd && sudo dnf install glassosd"
+  --instructions "sudo dnf copr enable SmallTardigrade/glassosd && sudo dnf install glassosd"
 ```
 
 Add `--chroot fedora-44-aarch64` if you want ARM. There is nothing
@@ -74,7 +74,7 @@ architecture-specific in the code.
 ```bash
 copr-cli add-package-scm glassosd \
   --name glassosd \
-  --clone-url https://github.com/YOURNAME/glassosd.git \
+  --clone-url https://github.com/SmallTardigrade/glassosd.git \
   --commit main \
   --spec packaging/glassosd.spec \
   --type git \
@@ -108,7 +108,7 @@ copr-cli watch-build <BUILD_ID>
 ### What users then run
 
 ```bash
-sudo dnf copr enable YOURNAME/glassosd
+sudo dnf copr enable SmallTardigrade/glassosd
 sudo dnf install glassosd
 ```
 
