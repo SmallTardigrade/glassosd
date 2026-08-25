@@ -34,6 +34,53 @@ Window {
         Surface.setOutput(win, Appearance.output)
     }
 
+    /* One row of the per-app settings panel: what the switch does, then why
+       you would want it, then the switch. The second line is not decoration —
+       "Ignore" and "Mute" are one word apart and four letters different, and
+       the difference between them (does a record survive?) is the entire
+       reason both exist. */
+    component SettingRow: RowLayout {
+        id: settingRow
+        property alias title: rowTitle.text
+        property alias detail: rowDetail.text
+        property bool checked: false
+        /* Held on with no way to turn it off — Mute while Ignore is set. */
+        property bool locked: false
+        signal toggled()
+
+        Layout.fillWidth: true
+        spacing: 10
+        opacity: locked ? 0.5 : 1.0
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 1
+            Text {
+                id: rowTitle
+                Layout.fillWidth: true
+                color: Style.foreground
+                font.family: Style.fontFamily
+                font.pointSize: Style.fontSize - 1
+                elide: Text.ElideRight
+            }
+            Text {
+                id: rowDetail
+                Layout.fillWidth: true
+                color: Style.foregroundDim
+                font.family: Style.fontFamily
+                font.pointSize: Style.fontSize - 3
+                wrapMode: Text.WordWrap
+            }
+        }
+
+        Toggle {
+            Layout.alignment: Qt.AlignVCenter
+            enabled: !settingRow.locked
+            checked: settingRow.checked
+            onToggled: settingRow.toggled()
+        }
+    }
+
     /* Close when the centre stops being the focused surface. Alt+Tab, or a
        click on another window, should dismiss it the way any other transient
        panel behaves — leaving it floating over whatever you switched to is
@@ -287,41 +334,95 @@ Window {
                         font.bold: true
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            Layout.fillWidth: true
-                            text: "Mute popups"
-                            color: Style.foreground
-                            font.family: Style.fontFamily
-                            font.pointSize: Style.fontSize - 1
+                    /* One place holding the four values, re-read from disk
+                       rather than bound. AppSettings' accessors are invokable
+                       methods, and a binding onto a method call is evaluated
+                       once and never again — the old panel bound to them and
+                       then assigned `checked` by hand afterwards, which meant
+                       the switches showed whatever the last click had been
+                       rather than what the config said. Reloading on the app
+                       changing and on the panel opening covers every way the
+                       file gets edited underneath us. */
+                    QtObject {
+                        id: appRules
+                        readonly property string app: HistoryModel.groupFilterLabel
+                        property bool muted: false
+                        property bool ignored: false
+                        property bool neverExpires: false
+                        property bool alwaysCollapsed: false
+
+                        function refresh() {
+                            if (app === "") return
+                            muted = AppSettings.muted(app)
+                            ignored = AppSettings.ignored(app)
+                            neverExpires = AppSettings.neverExpires(app)
+                            alwaysCollapsed = AppSettings.alwaysCollapsed(app)
                         }
-                        Toggle {
-                            id: muteToggle
-                            checked: AppSettings.muted(HistoryModel.groupFilterLabel)
-                            onToggled: {
-                                AppSettings.setMuted(HistoryModel.groupFilterLabel, !checked)
-                                checked = !checked
-                            }
+                        onAppChanged: refresh()
+                    }
+
+                    Connections {
+                        target: HistoryModel
+                        function onPanelOpenChanged() {
+                            if (HistoryModel.panelOpen) appRules.refresh()
                         }
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            Layout.fillWidth: true
-                            text: "Keep in history"
-                            color: Style.foreground
-                            font.family: Style.fontFamily
-                            font.pointSize: Style.fontSize - 1
+                    /* Four outcomes, not four rule keys. Each one is still a
+                       single key in glassosdrc — see AppSettings — so nothing
+                       here is doing anything a config file cannot say, but the
+                       panel asks the question in the form the user has, which
+                       is "what should this app be allowed to do", not "what
+                       should skip_display be set to".
+
+                       Read back from the config on every open rather than held
+                       in QML state: glassosdctl writes the same keys, and a
+                       switch showing what this panel last did rather than what
+                       the file says would be a lie the moment anyone used the
+                       command line. */
+                    SettingRow {
+                        id: muteRow
+                        title: "Mute"
+                        detail: locked ? "Held on while this app is ignored"
+                                       : "No popup, but still kept in history"
+                        locked: ignoreRow.checked
+                        checked: appRules.muted
+                        onToggled: {
+                            AppSettings.setMuted(appRules.app, !checked)
+                            appRules.refresh()
                         }
-                        Toggle {
-                            id: histToggle
-                            checked: !AppSettings.historyIgnored(HistoryModel.groupFilterLabel)
-                            onToggled: {
-                                AppSettings.setHistoryIgnored(HistoryModel.groupFilterLabel, checked)
-                                checked = !checked
-                            }
+                    }
+
+                    SettingRow {
+                        id: ignoreRow
+                        title: "Ignore"
+                        detail: "Dropped entirely — no popup and no record"
+                        checked: appRules.ignored
+                        onToggled: {
+                            AppSettings.setIgnored(appRules.app, !checked)
+                            appRules.refresh()
+                        }
+                    }
+
+                    SettingRow {
+                        id: expireRow
+                        title: "Never expire"
+                        detail: "Popups stay on screen until you dismiss them"
+                        checked: appRules.neverExpires
+                        onToggled: {
+                            AppSettings.setNeverExpires(appRules.app, !checked)
+                            appRules.refresh()
+                        }
+                    }
+
+                    SettingRow {
+                        id: collapseRow
+                        title: "Always collapsed"
+                        detail: "This app's group opens folded in the centre"
+                        checked: appRules.alwaysCollapsed
+                        onToggled: {
+                            AppSettings.setAlwaysCollapsed(appRules.app, !checked)
+                            appRules.refresh()
                         }
                     }
                 }

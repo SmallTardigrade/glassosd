@@ -166,7 +166,12 @@ int main(int argc, char *argv[])
         QStringLiteral("org.glassosd.ui"), QStringLiteral("AppSettings"));
     QObject::connect(appSettings, &AppSettings::rulesChanged, &app, [=]() mutable {
         server->loadRules(cfg);
+        /* always_collapsed is a display property of a group rather than of an
+           incoming notification, so the rules engine never sees it and the
+           history model has to be told separately. */
+        history->reloadRules();
     });
+    history->reloadRules();
 
     /* Hold the Ptr. KConfigWatcher::create() returns a shared pointer; taking
        .get() off the temporary let it be destroyed at the end of the statement
@@ -184,6 +189,7 @@ int main(int argc, char *argv[])
                             loaded — switching themes has to come through here. */
                          theme->reload();
                          server->loadRules(cfg);
+                         history->reloadRules();
                      });
     if (modules->notifications() && notifyCfg.readEntry("Enabled", true)) {
         server->start();

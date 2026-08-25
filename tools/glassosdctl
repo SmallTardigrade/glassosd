@@ -140,7 +140,13 @@ expire_timeout still wins; these apply when it sends -1:
     glassosdctl set TimeoutCritical 0    # critical, default 0 = never
 Rule keys:      appname, summary, body, category, desktop_entry,
                 match_urgency, set_stack_tag, timeout, set_urgency,
-                skip_display, history_ignore
+                skip_display, history_ignore, always_collapsed
+
+The centre's per-app settings panel writes these same rules:
+    Mute             skip_display=true
+    Ignore           history_ignore=true skip_display=true
+    Never expire     timeout=0
+    Always collapsed always_collapsed=true
 USAGE
 }
 

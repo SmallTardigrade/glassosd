@@ -291,7 +291,22 @@ glassosdctl rules
 
 Rule keys: `appname`, `summary`, `body`, `category`, `desktop_entry`,
 `match_urgency`, `set_stack_tag`, `timeout`, `set_urgency`, `skip_display`,
-`history_ignore`.
+`history_ignore`, `always_collapsed`.
+
+The same rules are what the notification centre's per-app settings panel
+writes — click the sliders icon on any group header. It offers four outcomes
+rather than the raw keys:
+
+| | What it sets |
+|---|---|
+| **Mute** | `skip_display` — no popup, still kept in history |
+| **Ignore** | `history_ignore` + `skip_display` — dropped entirely |
+| **Never expire** | `timeout=0` — popups stay until dismissed |
+| **Always collapsed** | `always_collapsed` — the group opens folded |
+
+Ignore holds Mute on for as long as it is set, because a notification kept
+nowhere but still flashing on screen is not what "ignore" means. Turning Ignore
+off clears both; set Mute again if that was what you wanted.
 
 ---
 

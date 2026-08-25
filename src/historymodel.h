@@ -103,8 +103,16 @@ public:
     Q_INVOKABLE void clearGroup(const QString &key);
     void setAutoCollapseOver(int n) { m_autoCollapseOver = qMax(0, n); rebuild(); }
 
+    /* Re-read the per-app "always collapsed" rules from glassosdrc. Called
+       whenever the settings panel or glassosdctl writes a rule. Only this one
+       rule action is a display property rather than a property of an incoming
+       notification, so it is read here rather than through Rules::apply. */
+    void reloadRules();
+
 private:
-    bool isCollapsed(const QString &key, int count) const;
+    /* appName, not groupKey: the rules engine matches on appname, and the
+       settings panel writes the rule under the app's name. */
+    bool isCollapsed(const QString &key, const QString &appName, int count) const;
 
 public:
 
@@ -141,5 +149,8 @@ private:
        explicit collapse has to survive a group shrinking below it. */
     QSet<QString> m_collapsed;   // explicitly collapsed by the user
     QSet<QString> m_expanded;    // explicitly expanded by the user
+    /* App names carrying always_collapsed. Cached rather than read per group
+       per rebuild, and refreshed by reloadRules(). */
+    QSet<QString> m_alwaysCollapsed;
     int m_autoCollapseOver = 3;
 };

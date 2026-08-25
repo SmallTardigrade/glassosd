@@ -5,6 +5,8 @@
 */
 #include "historymodel.h"
 
+#include <KConfigGroup>
+#include <KSharedConfig>
 #include <QDateTime>
 
 #include <algorithm>
@@ -236,6 +238,19 @@ void HistoryModel::setPanelOpen(bool open)
         /* Reopening should show everything, not silently still be filtered to
            whichever app was drilled into last time. */
         setGroupFilter({});
+
+        /* "Always collapsed" has to mean every time the panel opens, not just
+           the first. Expanding one of these groups is a look inside, not a
+           change of setting, so the expand is dropped on close. Groups without
+           the rule keep their expand — there the user is overriding an
+           automatic guess, and re-folding it each time would be a nuisance. */
+        if (!m_alwaysCollapsed.isEmpty()) {
+            for (const Notification &n : std::as_const(m_all)) {
+                if (m_alwaysCollapsed.contains(n.appName)) {
+                    m_expanded.remove(n.groupKey());
+                }
+            }
+        }
     }
     Q_EMIT panelOpenChanged();
 }
@@ -297,7 +312,7 @@ void HistoryModel::rebuild()
 
     for (const QString &key : std::as_const(order)) {
         const QList<Notification> &items = byGroup.value(key);
-        const bool collapsed = isCollapsed(key, items.size());
+        const bool collapsed = isCollapsed(key, items.first().appName, items.size());
 
         /* The newest member of the group. items are in display order, which
            is oldest-first when the newest is being shown at the bottom. */
@@ -352,17 +367,55 @@ void HistoryModel::rebuild()
     m_saveTimer.start();
 }
 
-bool HistoryModel::isCollapsed(const QString &key, int count) const
+bool HistoryModel::isCollapsed(const QString &key, const QString &appName, int count) const
 {
+    /* An explicit expand still wins over always_collapsed — the rule sets how
+       the group *opens*, not a lock. setPanelOpen() drops the expand again
+       when the panel closes, which is what makes "always" literal. */
     if (m_expanded.contains(key)) {
         return false;
     }
     if (m_collapsed.contains(key)) {
         return true;
     }
+    if (m_alwaysCollapsed.contains(appName)) {
+        return true;
+    }
     /* Long groups start folded so a single noisy app cannot push everything
        else off the screen. */
     return m_autoCollapseOver > 0 && count > m_autoCollapseOver;
+}
+
+void HistoryModel::reloadRules()
+{
+    const KSharedConfig::Ptr config = KSharedConfig::openConfig(QStringLiteral("glassosdrc"));
+    config->reparseConfiguration();
+
+    QSet<QString> collapsed;
+    const QStringList groups = config->groupList();
+    for (const QString &groupName : groups) {
+        if (!groupName.startsWith(QLatin1String("Rule "))) {
+            continue;
+        }
+        KConfigGroup g(config, groupName);
+        if (!g.readEntry("always_collapsed", false)) {
+            continue;
+        }
+        /* Only an exact appname match is honoured. The rules engine matches
+           globs, but a group is one concrete app, and expanding a glob across
+           every app seen so far would make the panel's own toggle read back
+           wrong for apps the user never configured. */
+        const QString app = g.readEntry("appname", QString());
+        if (!app.isEmpty()) {
+            collapsed.insert(app);
+        }
+    }
+
+    if (collapsed == m_alwaysCollapsed) {
+        return;
+    }
+    m_alwaysCollapsed = collapsed;
+    rebuild();
 }
 
 void HistoryModel::activateEntry(int row)
@@ -383,7 +436,16 @@ void HistoryModel::toggleGroup(const QString &key)
             break;
         }
     }
-    if (isCollapsed(key, count)) {
+    /* The group key is the desktop entry where there is one, so it is not
+       usable as the appname the always_collapsed rule is written under. */
+    QString appName;
+    for (const Notification &n : std::as_const(m_all)) {
+        if (n.groupKey() == key) {
+            appName = n.appName;
+            break;
+        }
+    }
+    if (isCollapsed(key, appName, count)) {
         m_expanded.insert(key);
         m_collapsed.remove(key);
     } else {
