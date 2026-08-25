@@ -457,6 +457,78 @@ Window {
                 spacing: 6
                 model: HistoryModel
 
+                /* A list in a desktop panel, not a page on a phone: running
+                   off the end and springing back reads as the list refusing
+                   to go further rather than as having reached the bottom. */
+                boundsBehavior: Flickable.StopAtBounds
+                /* Touchpad flicks glide roughly twice as far as the defaults
+                   (1500 / 2500) allow, which is much closer to what every
+                   other scrolling surface on the desktop does. */
+                flickDeceleration: 900
+                maximumFlickVelocity: 6000
+
+                /* Mouse wheel, handled here rather than by Flickable.
+
+                   Flickable turns one notch into a very short flick and then
+                   decelerates it away almost immediately, and — the part that
+                   actually makes it feel wrong — a second notch arriving
+                   during that deceleration *replaces* the first instead of
+                   adding to it. Spinning the wheel therefore moves the list
+                   barely further than one notch does. Accumulating onto
+                   scrollAnim.to fixes exactly that: each notch extends the
+                   distance already being travelled.
+
+                   Mouse only. A touchpad sends pixel deltas that Flickable
+                   already tracks one-to-one with your fingers, and taking
+                   that over would replace direct manipulation with an
+                   animation chasing it. */
+                WheelHandler {
+                    id: wheel
+                    target: null
+                    acceptedDevices: PointerDevice.Mouse
+                    property real notch: 180   // px per detent, ~3 entries
+
+                    onWheel: (event) => {
+                        const maxY = Math.max(0, list.contentHeight - list.height)
+                        if (maxY <= 0)
+                            return
+                        const from = scrollAnim.running ? scrollAnim.to : list.contentY
+                        const delta = event.angleDelta.y / 120 * wheel.notch
+                        scrollAnim.to = Math.max(0, Math.min(maxY, from - delta))
+                        scrollAnim.restart()
+                    }
+                }
+                NumberAnimation {
+                    id: scrollAnim
+                    target: list
+                    property: "contentY"
+                    duration: 220
+                    easing.type: Easing.OutCubic
+                }
+
+                /* Something to show how far down the backlog you are. Without
+                   it a list that has stopped scrolling and a list that has
+                   run out of entries look identical. */
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.rightMargin: 1
+                    width: 3
+                    radius: 1.5
+                    color: Style.foregroundDim
+                    visible: list.contentHeight > list.height
+                    opacity: list.moving || scrollAnim.running ? 0.55 : 0.18
+                    Behavior on opacity { NumberAnimation { duration: 250 } }
+
+                    height: Math.max(24, list.height * (list.height / list.contentHeight))
+                    /* Offset by contentY because a visual child of a
+                       Flickable is parented to its contentItem, not to the
+                       view — without this the indicator scrolls away with
+                       the entries it is supposed to be tracking. */
+                    y: list.contentY + (list.contentHeight <= list.height ? 0
+                       : (list.contentY / (list.contentHeight - list.height))
+                         * (list.height - height))
+                }
+
                 delegate: Loader {
                     required property int index
                     required property var model
