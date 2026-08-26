@@ -17,6 +17,8 @@
 #include "rules.h"
 
 #include <QDBusAbstractAdaptor>
+#include <QDBusServiceWatcher>
+#include <QHash>
 #include <QDBusContext>
 #include <QObject>
 #include <QVariantMap>
@@ -60,13 +62,46 @@ private:
     HistoryModel *m_history;
     Rules m_rules;
     uint m_nextId = 1;
+
+public:
+    /* Notification inhibition, the KDE extension to org.freedesktop.Notifications
+       that xdg-desktop-portal-kde uses to silence notifications while the
+       screen is being cast. Implementing it means auto-DND while screen
+       sharing costs nothing and arrives by the same route for every other
+       application that already asks — screen recorders, presentation tools —
+       rather than glassosd watching for one case it happened to think of.
+
+       An inhibition belongs to the bus name that asked for it and is dropped
+       when that name goes away, so an application that crashes mid-share
+       cannot leave notifications silenced for the rest of the session. */
+    /* The caller is taken from the live D-Bus message rather than passed in:
+       NotificationServer is a QDBusContext, and trusting an application to
+       name itself would let one release another's inhibition. */
+    uint inhibit(const QString &desktopEntry, const QString &reason);
+    void unInhibit(uint cookie);
+    bool inhibited() const { return !m_inhibits.isEmpty(); }
+
+private:
+    struct Inhibition {
+        QString service;
+        QString desktopEntry;
+        QString reason;
+    };
+    void refreshInhibited();
+
+    QHash<uint, Inhibition> m_inhibits;
+    uint m_nextInhibit = 1;
+    QDBusServiceWatcher *m_inhibitWatcher = nullptr;
 };
 
 class NotificationsAdaptor : public QDBusAbstractAdaptor
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.freedesktop.Notifications")
+    /* Read-only and change-signalled, as upstream declares it. */
+    Q_PROPERTY(bool Inhibited READ inhibited NOTIFY inhibitedChanged)
 public:
+    bool inhibited() const;
     explicit NotificationsAdaptor(NotificationServer *server);
 
 public Q_SLOTS:
@@ -79,6 +114,8 @@ public Q_SLOTS:
                 const QVariantMap &hints,
                 int expire_timeout);
     void CloseNotification(uint id);
+    uint Inhibit(const QString &desktop_entry, const QString &reason, const QVariantMap &hints);
+    void UnInhibit(uint cookie);
     QStringList GetCapabilities();
     QString GetServerInformation(QString &vendor, QString &version, QString &spec_version);
 
@@ -88,6 +125,7 @@ Q_SIGNALS:
     /* KDE extension, matching libnotificationmanager's interface. */
     void NotificationReplied(uint id, const QString &text);
     void ActivationToken(uint id, const QString &activation_token);
+    void inhibitedChanged();
 
 private:
     NotificationServer *m_server;

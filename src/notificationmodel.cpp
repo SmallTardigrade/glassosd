@@ -357,9 +357,10 @@ uint NotificationModel::insert(Notification n)
         return n.id;
     }
 
-    /* Do Not Disturb suppresses the popup but must never lose the message;
-       history still receives it via the closed signal path. */
-    if (m_dnd) {
+    /* Do Not Disturb, or an application asking for quiet, suppresses the popup
+       but must never lose the message; history still receives it via the
+       closed signal path. */
+    if (quiet()) {
         Q_EMIT notificationClosed(n.id, CloseReason::Expired);
         return n.id;
     }
@@ -673,6 +674,19 @@ void NotificationModel::setIdleThresholdMs(int ms)
     if (ms > 0) {
         m_idleTimeoutId = kit->addIdleTimeout(ms);
     }
+}
+
+void NotificationModel::setInhibited(bool inhibited)
+{
+    if (m_inhibited == inhibited) {
+        return;
+    }
+    m_inhibited = inhibited;
+    Q_EMIT inhibitedChanged();
+    /* Anything held back while inhibited is released the moment it lifts —
+       update() promotes from the queue, and the queue is where a suppressed
+       notification would be if the limit had also been reached. */
+    update();
 }
 
 void NotificationModel::setDoNotDisturb(bool dnd)

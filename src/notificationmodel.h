@@ -69,6 +69,15 @@ public:
     bool doNotDisturb() const { return m_dnd; }
     void setDoNotDisturb(bool dnd);
 
+    /* Applications asking for quiet, via the notification server's Inhibit
+       method. Kept apart from Do Not Disturb rather than folded into it: one
+       is the user's choice and the other is an application's request, and
+       turning DND off should not silently cancel a screen recording's
+       inhibition. Popups are suppressed while either is on. */
+    bool inhibited() const { return m_inhibited; }
+    void setInhibited(bool inhibited);
+    bool quiet() const { return m_dnd || m_inhibited; }
+
     /* Clamped at 0 (dunst's "unlimited"). A negative limit is an easy typo
        in a config file and would make effectiveLimit() negative, so update()
        would promote nothing and every notification would queue forever with
@@ -137,6 +146,7 @@ public:
 Q_SIGNALS:
     void hiddenCountChanged();
     void doNotDisturbChanged();
+    void inhibitedChanged();
     void notificationClosed(uint id, uint reason);
     void actionInvoked(uint id, const QString &key);
     void replied(uint id, const QString &text);
@@ -173,6 +183,7 @@ private:
     int m_timeoutCritical = 0;
     bool m_indicateHidden = true;
     bool m_dnd = false;
+    bool m_inhibited = false;
     int m_lastHiddenCount = 0;
 
     int m_idleThresholdMs = 0;

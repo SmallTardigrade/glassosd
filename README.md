@@ -311,6 +311,35 @@ glassosdctl restart                    # modules are read at startup
 | `osd` | volume, brightness, media OSD |
 | `lockkeys` | caps, num and Fn lock OSDs |
 
+### Auto Do Not Disturb while screen sharing
+
+glassosd implements the notification server's inhibition API — `Inhibit`,
+`UnInhibit` and the `Inhibited` property, the KDE extension to
+`org.freedesktop.Notifications` — so anything that already asks Plasma for
+quiet gets it here too. `xdg-desktop-portal-kde` inhibits notifications while
+the screen is being cast, which means notifications stop appearing mid-share
+without glassosd having to watch for screen sharing itself. Screen recorders
+and presentation tools that use the same call work for the same reason.
+
+Inhibited notifications are suppressed on screen and **still recorded**, the
+same as Do Not Disturb — the point is that nobody watching your screen sees
+them, not that you lose them.
+
+An inhibition belongs to the bus name that asked for it and is released when
+that name goes away, so an application that crashes mid-share cannot leave
+notifications silenced for the rest of the session.
+
+Inhibition and Do Not Disturb are tracked separately. One is the user's
+choice and the other is an application's request, so turning DND off does not
+cancel a screen recording's inhibition.
+
+```bash
+gdbus call --session -d org.freedesktop.Notifications \
+  -o /org/freedesktop/Notifications \
+  -m org.freedesktop.DBus.Properties.Get \
+  org.freedesktop.Notifications Inhibited
+```
+
 ### Snooze
 
 Every notification carries a clock button. Pressing it closes the card and

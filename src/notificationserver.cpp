@@ -6,6 +6,7 @@
 #include "notificationserver.h"
 
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDBusMetaType>
 #include <QDateTime>
 #include <QDebug>
@@ -315,6 +316,112 @@ uint NotificationsAdaptor::Notify(const QString &app_name,
 void NotificationsAdaptor::CloseNotification(uint id)
 {
     m_server->handleClose(id);
+}
+
+uint NotificationsAdaptor::Inhibit(const QString &desktop_entry,
+                                   const QString &reason,
+                                   const QVariantMap &hints)
+{
+    /* hints is accepted and ignored: upstream defines none that change what
+       inhibition means, and refusing the argument would break callers. */
+    Q_UNUSED(hints)
+    return m_server->inhibit(desktop_entry, reason);
+}
+
+void NotificationsAdaptor::UnInhibit(uint cookie)
+{
+    m_server->unInhibit(cookie);
+}
+
+bool NotificationsAdaptor::inhibited() const
+{
+    return m_server->inhibited();
+}
+
+uint NotificationServer::inhibit(const QString &desktopEntry, const QString &reason)
+{
+    const QString service = calledFromDBus() ? message().service() : QString();
+
+    if (!m_inhibitWatcher) {
+        m_inhibitWatcher = new QDBusServiceWatcher(this);
+        m_inhibitWatcher->setConnection(QDBusConnection::sessionBus());
+        m_inhibitWatcher->setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
+        connect(m_inhibitWatcher, &QDBusServiceWatcher::serviceUnregistered,
+                this, [this](const QString &gone) {
+                    /* Whoever asked for quiet has left the bus. Releasing here
+                       is the difference between a screen recorder crashing
+                       mid-share and notifications staying silenced until the
+                       next login. */
+                    bool removed = false;
+                    for (auto it = m_inhibits.begin(); it != m_inhibits.end();) {
+                        if (it.value().service == gone) {
+                            it = m_inhibits.erase(it);
+                            removed = true;
+                        } else {
+                            ++it;
+                        }
+                    }
+                    if (removed) {
+                        m_inhibitWatcher->removeWatchedService(gone);
+                        refreshInhibited();
+                    }
+                });
+    }
+    if (!service.isEmpty()) {
+        m_inhibitWatcher->addWatchedService(service);
+    }
+
+    const uint cookie = m_nextInhibit++;
+    m_inhibits.insert(cookie, Inhibition{service, desktopEntry, reason});
+    qInfo("glassosd: notifications inhibited by %s (%s)",
+          qUtf8Printable(desktopEntry.isEmpty() ? service : desktopEntry),
+          qUtf8Printable(reason));
+    refreshInhibited();
+    return cookie;
+}
+
+void NotificationServer::unInhibit(uint cookie)
+{
+    const auto it = m_inhibits.constFind(cookie);
+    if (it == m_inhibits.cend()) {
+        return;
+    }
+    const QString service = it.value().service;
+    m_inhibits.erase(it);
+    /* Only stop watching once nothing else of theirs is left: one application
+       may hold several inhibitions at once. */
+    if (m_inhibitWatcher && !service.isEmpty()) {
+        bool stillHeld = false;
+        for (const Inhibition &other : std::as_const(m_inhibits)) {
+            if (other.service == service) {
+                stillHeld = true;
+                break;
+            }
+        }
+        if (!stillHeld) {
+            m_inhibitWatcher->removeWatchedService(service);
+        }
+    }
+    refreshInhibited();
+}
+
+void NotificationServer::refreshInhibited()
+{
+    if (m_model) {
+        m_model->setInhibited(inhibited());
+    }
+    /* The property is declared EmitsChangedSignal, so anything watching for
+       quiet — a status widget, another daemon — hears about it without
+       polling. Emitted by hand because the adaptor's property is read-only
+       and Qt only auto-emits for ones it can write. */
+    QDBusMessage msg = QDBusMessage::createSignal(
+        QStringLiteral("/org/freedesktop/Notifications"),
+        QStringLiteral("org.freedesktop.DBus.Properties"),
+        QStringLiteral("PropertiesChanged"));
+    msg << QStringLiteral("org.freedesktop.Notifications")
+        << QVariantMap{{QStringLiteral("Inhibited"), inhibited()}}
+        << QStringList();
+    QDBusConnection::sessionBus().send(msg);
 }
 
 QStringList NotificationsAdaptor::GetCapabilities()
