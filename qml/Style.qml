@@ -92,18 +92,23 @@ QtObject {
        bigger than the thing it was gapping. Matching the two means every
        corner in the stack has the same radius and each sheet shows a whole
        one. */
-    /* Proportioned from how iOS and Figma draw the same thing: the sheet is
-       inset noticeably more than it peeks. Measured off both, the inset is
-       around 5.5% of the card's width on each side and the peek a little less
-       than that in absolute terms — so the sheet reads as a narrower card
-       behind rather than as a ledge under the front one. This was the wrong
-       way round, insetting 8 and peeking 10. */
+    /* Proportioned from how iOS draws the same thing: the sheet is inset
+       noticeably more than it peeks, so it reads as a narrower card behind
+       rather than as a ledge under the front one. This was the wrong way
+       round, insetting 8 and peeking 10.
+
+       Measured off the reference, the sheet furthest back sits about 5.8% of
+       the card's width in from each side. That is the figure to match, not the
+       per-step one: iOS shows a single sheet there, so copying 5.8% *per step*
+       puts our second sheet at twice its depth and the taper runs away. With
+       stack.depth at 2 and a 380px card, 11 per step lands the back sheet
+       where the reference has it. */
     /* How many sheets may show behind the front card. A taste call we have
        moved on twice, so it lives in the theme where it can be tried live
        rather than in a constant that needs a rebuild to argue with. */
     readonly property int stackMaxDepth: Math.max(0, Math.round(tnum("stack.depth", 2)))
     readonly property int stackOffset: Math.round(tnum("stack.offset", 9))
-    readonly property int stackInset: Math.round(tnum("stack.inset", 20))
+    readonly property int stackInset: Math.round(tnum("stack.inset", 11))
     /* The seam along the bottom of each sheet is what separates one from the
        next.
 
