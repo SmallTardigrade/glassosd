@@ -55,8 +55,18 @@ Rectangle {
        nothing changed. If a caller wants an opaque surface it should say so
        in surfaceColor; `glass` decides the *edge* and whether the backdrop
        effect is requested, not whether the theme is honoured. */
+    /* Square off the bottom when something is stacked directly beneath this
+       panel, so the two meet flush. A rounded bottom corner pulls the outline
+       away from each end, and the wedge of backdrop that leaves cannot be
+       filled from below: a sheet extending up behind a translucent card
+       composes with it and darkens the overlap. Removing the corner removes
+       the wedge. */
+    property bool flatBottom: false
+
     color: surfaceColor
     radius: Style.pill ? height / 2 : 16
+    bottomLeftRadius: flatBottom ? 0 : radius
+    bottomRightRadius: flatBottom ? 0 : radius
     border.color: glass ? Style.glassEdge : Style.edgeOuter
     border.width: Style.edgeWidth
     antialiasing: true
