@@ -87,6 +87,9 @@ struct Notification {
        view should see one of these — indexOfDisplayed() hides them, so every
        piece of logic that looks a notification up treats it as already gone. */
     bool closing = false;
+    /* Set by a rule's sound= key; empty means category and urgency decide.
+       "none" is a rule asking for silence, which is not the same as no rule. */
+    QString sound;
     bool skipDisplay = false;    // rule said: no popup, history only
     bool historyIgnore = false;  // rule said: do not even record it
 

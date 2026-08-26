@@ -16,6 +16,7 @@
 #include "notificationmodel.h"
 #include "notificationserver.h"
 #include "snoozestore.h"
+#include "soundplayer.h"
 #include "notifyimageprovider.h"
 #include "fnlockwatcher.h"
 #include "iconprovider.h"
@@ -220,6 +221,28 @@ int main(int argc, char *argv[])
        model knows nothing about either, and a woken notification comes back
        through insert() exactly like a new one so it meets the rules,
        coalescing and the queue on the way in rather than bypassing them. */
+    /* Sounds. Notifications on by default, OSD off: a desktop that says
+       nothing when a message arrives is missing something, whereas a click on
+       every volume step is a taste rather than an improvement. */
+    auto *sounds = new SoundPlayer(&app);
+    auto applySoundSettings = [sounds, cfg]() {
+        KConfigGroup g(cfg, QStringLiteral("Sounds"));
+        sounds->setNotificationsEnabled(g.readEntry("Enabled", true));
+        sounds->setOsdEnabled(g.readEntry("Osd", false));
+    };
+    applySoundSettings();
+    QObject::connect(notifications, &NotificationModel::soundWanted,
+                     sounds, [sounds, applySoundSettings](const QString &name) {
+                         applySoundSettings();
+                         sounds->playNotification(name);
+                     });
+
+    QObject::connect(model, &OsdModel::soundWanted,
+                     sounds, [sounds, applySoundSettings](const QString &name) {
+                         applySoundSettings();
+                         sounds->playOsd(name);
+                     });
+
     auto *snoozes = new SnoozeStore(&app);
     QObject::connect(notifications, &NotificationModel::snoozeRequested,
                      snoozes, [snoozes, cfg](const Notification &n) {

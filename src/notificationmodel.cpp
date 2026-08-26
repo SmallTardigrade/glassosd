@@ -5,6 +5,8 @@
 */
 #include "notificationmodel.h"
 
+#include "soundplayer.h"
+
 #include <memory>
 
 #include <QDateTime>
@@ -363,6 +365,18 @@ uint NotificationModel::insert(Notification n)
     if (quiet()) {
         Q_EMIT notificationClosed(n.id, CloseReason::Expired);
         return n.id;
+    }
+
+    /* Before the queue, not after: a notification held back by the display
+       limit has still arrived, and the sound is what tells you so. The player
+       rate-limits, so a burst that coalesces into one card is one sound. */
+    if (n.sound != QLatin1String("none")) {
+        const QString name = n.sound.isEmpty()
+            ? SoundPlayer::nameFor(n.category, int(n.urgency))
+            : n.sound;
+        if (!name.isEmpty()) {
+            Q_EMIT soundWanted(name);
+        }
     }
 
     m_waiting.append(n);

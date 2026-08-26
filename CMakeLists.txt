@@ -47,6 +47,7 @@ qt_add_executable(glassosd
     src/modules.cpp
     src/buttonsmodel.cpp
     src/snoozestore.cpp
+    src/soundplayer.cpp
     src/systemcontrols.cpp
 )
 
@@ -110,6 +111,7 @@ qt_add_qml_module(glassosd
         src/modules.h
         src/buttonsmodel.h
         src/snoozestore.h
+        src/soundplayer.h
         src/systemcontrols.h
     RESOURCE_PREFIX /qt/qml
 )

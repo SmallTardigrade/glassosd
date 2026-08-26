@@ -118,6 +118,11 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  sound [on|off]         Notification sounds, by freedesktop sound-theme name
+                         (on by default). Per-rule override: sound=NAME, or
+                         sound=none to silence one app.
+  osd-sound [on|off]     Feedback on volume steps and lock keys (off by
+                         default — a click on every keypress is a taste).
   snooze [minutes]       How long the snooze button defers a notification
                          (default 10). The card closes and comes back later.
   snoozed                List what is snoozed and when each is due
@@ -323,16 +328,33 @@ case "$cmd" in
     esac ;;
   rules)
     if grep -q '^\[Rule ' "$CONF" 2>/dev/null; then
+      # n is cleared at any other section header, not a separate flag: the old
+      # version set inr=0 while still testing n, so once it had seen one rule
+      # it went on printing every line of the file that followed.
       awk '/^\[Rule /{n=$0; sub(/^\[Rule /,"",n); sub(/\]$/,"",n); print "\n" n ":"; next}
-           /^\[/{inr=0} NF && n {print "  " $0}' "$CONF"
+           /^\[/{n=""} NF && n {print "  " $0}' "$CONF"
     else echo "(no rules)"; fi ;;
   rule-set)
     name=$1; shift
     for kv in "$@"; do cfg_write "Rule $name" "${kv%%=*}" "${kv#*=}"; done
     echo "rule '$name' saved (applied live)" ;;
   rule-del)
-    have kwriteconfig6 || { echo "rule-del needs kwriteconfig6; edit $CONF by hand" >&2; exit 1; }
-    kwriteconfig6 --notify --file $RC --group "Rule $1" --delete-group; echo "rule '$1' deleted" ;;
+    # kwriteconfig6 has no --delete-group, so the section goes out of the INI
+    # here. It used to be asked for one anyway and reported success while
+    # deleting nothing.
+    grep -q "^\[Rule $1\]$" "$CONF" 2>/dev/null || { echo "no rule '$1'" >&2; exit 1; }
+    tmp=$(mktemp)
+    awk -v want="[Rule $1]" '
+      $0 == want { drop = 1; next }
+      /^\[/      { drop = 0 }
+      !drop      { print }' "$CONF" > "$tmp" && mv "$tmp" "$CONF"
+    # The file was edited behind KConfig's back, so nothing has told the daemon.
+    # Rewriting a key it already has, with --notify, is what makes it reload.
+    if have kwriteconfig6; then
+      kwriteconfig6 --notify --file "$RC" --group Notifications --key Enabled \
+        "$(cfg_or Notifications Enabled true)"
+    fi
+    echo "rule '$1' deleted" ;;
   themes)
     echo "search path (first match wins):"
     for d in "${XDG_CONFIG_HOME:-$HOME/.config}/glassosd/themes" \
@@ -437,6 +459,20 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  sound)
+    case "${1:-}" in
+      "")      echo "sound: $(cfg_or Sounds Enabled true)  (osd: $(cfg_or Sounds Osd false))" ;;
+      on|true)   cfg_write Sounds Enabled true;  echo "sound = on" ;;
+      off|false) cfg_write Sounds Enabled false; echo "sound = off" ;;
+      *) echo "sound takes 'on' or 'off'" >&2; exit 1 ;;
+    esac ;;
+  osd-sound)
+    case "${1:-}" in
+      "")      echo "osd-sound: $(cfg_or Sounds Osd false)" ;;
+      on|true)   cfg_write Sounds Osd true;  echo "osd-sound = on" ;;
+      off|false) cfg_write Sounds Osd false; echo "osd-sound = off" ;;
+      *) echo "osd-sound takes 'on' or 'off'" >&2; exit 1 ;;
+    esac ;;
   snooze)
     if [ -z "${1:-}" ]; then echo "snooze: $(cfg_or Notifications SnoozeMinutes 10) minutes"
     else cfg_write Notifications SnoozeMinutes "$1"; echo "snooze = $1 minutes"; fi ;;

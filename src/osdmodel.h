@@ -59,6 +59,10 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     void changed();
+    /* Wired to SoundPlayer in main.cpp. Feedback on a volume step or a lock
+       key is something no comparable daemon does at all, and it is off by
+       default — a noise on every keypress is a taste, not an improvement. */
+    void soundWanted(const QString &name);
 
 private:
     void bump();

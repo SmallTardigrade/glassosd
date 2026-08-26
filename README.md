@@ -311,6 +311,60 @@ glassosdctl restart                    # modules are read at startup
 | `osd` | volume, brightness, media OSD |
 | `lockkeys` | caps, num and Fn lock OSDs |
 
+### Sounds
+
+swaync's answer to notification sounds is a shell script that calls `play`.
+The names are already standardised — the XDG sound naming spec defines
+`message-new-instant`, `dialog-warning`, `audio-volume-change` and the rest,
+and themes ship them under `/usr/share/sounds/<theme>/stereo/` — so glassosd
+asks for a name and lets your chosen sound theme answer.
+
+```bash
+glassosdctl sound off          # notification sounds (on by default)
+glassosdctl osd-sound on       # volume steps and lock keys (off by default)
+```
+
+The sound is chosen by the notification's **category** first, since that says
+what the thing is, and by **urgency** second, since that only says how much it
+matters:
+
+| Category | Sound |
+|---|---|
+| `im.*` | `message-new-instant` |
+| `email.*` | `message` |
+| `device.added` / `device.removed` | `device-added` / `device-removed` |
+| `network.connected` / `.disconnected` | `network-connectivity-established` / `-lost` |
+| `transfer.complete` / `.error` | `complete` / `dialog-error` |
+
+| Urgency | Sound |
+|---|---|
+| Critical | `dialog-warning` |
+| Normal | `message` |
+| Low | *silent* |
+
+Only categories with a matching name in the sound naming spec are mapped; the
+rest fall through to urgency rather than inventing a name no theme ships.
+
+Per-rule override, which is the part a shell script was needed for before:
+
+```bash
+glassosdctl rule-set mail  appname=Thunderbird sound=message-new-email
+glassosdctl rule-set noisy appname=Steam       sound=none
+```
+
+Sounds follow the popup: a muted app, Do Not Disturb and an inhibition each
+silence the sound along with the card, because a notification nobody is shown
+should not announce itself. Bursts are rate limited, so twelve notifications
+arriving together make one sound rather than twelve.
+
+OSD sounds cover volume steps and lock keys, which no comparable daemon does
+at all. Brightness deliberately makes none — there is no standard sound for it
+and a click on every step is noise.
+
+Played through `canberra-gtk-play`, which resolves the name against your theme
+and its inheritance chain. If it is missing, `paplay` or `pw-play` play the
+freedesktop file directly: no theming, but not silence either.
+
 ### Auto Do Not Disturb while screen sharing
 
 glassosd implements the notification server's inhibition API — `Inhibit`,
@@ -380,7 +434,7 @@ glassosdctl rules
 
 Rule keys: `appname`, `summary`, `body`, `category`, `desktop_entry`,
 `match_urgency`, `set_stack_tag`, `timeout`, `set_urgency`, `skip_display`,
-`history_ignore`, `always_collapsed`.
+`history_ignore`, `always_collapsed`, `sound`.
 
 The same rules are what the notification centre's per-app settings panel
 writes — click the sliders icon on any group header. It offers four outcomes

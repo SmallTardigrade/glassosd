@@ -63,6 +63,7 @@ void Rules::load(const KSharedConfig::Ptr &config)
         r.setUrgency = g.readEntry("set_urgency", -1);
         r.skipDisplay = g.readEntry("skip_display", false);
         r.historyIgnore = g.readEntry("history_ignore", false);
+        r.sound = g.readEntry("sound", QString());
 
         m_rules.append(r);
     }
@@ -93,6 +94,9 @@ void Rules::apply(Notification &n) const
         }
         if (r.historyIgnore) {
             n.historyIgnore = true;
+        }
+        if (!r.sound.isEmpty()) {
+            n.sound = r.sound;
         }
     }
 }

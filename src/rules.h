@@ -38,6 +38,9 @@ struct Rule {
     int setUrgency = -1;
     bool skipDisplay = false;
     bool historyIgnore = false;
+    /* Sound-theme name to play instead of whatever category and urgency would
+       have chosen. Empty leaves the choice alone; "none" silences this rule. */
+    QString sound;
 
     bool matches(const Notification &n) const;
 };

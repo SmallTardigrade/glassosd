@@ -142,6 +142,8 @@ void OsdModel::onOsdCall(const QString &member, const QVariantList &args)
 
 void OsdModel::onLockChanged(int key, bool locked)
 {
+    Q_EMIT soundWanted(QStringLiteral("bell"));
+
     if (key == Qt::Key_CapsLock) {
         showText(QStringLiteral("lock-caps"),
                  locked ? i18nc("keep short", "Caps Lock On") : i18nc("keep short", "Caps Lock Off"),
@@ -165,6 +167,12 @@ void OsdModel::onFnLockChanged(bool locked)
 
 void OsdModel::showProgress(const QString &icon, int value, int maxValue, const QString &extra)
 {
+    /* Volume only. Brightness has no standard sound and macOS does not make
+       one either; a click on every brightness step would be noise. */
+    if (icon.contains(QLatin1String("volume")) || icon.contains(QLatin1String("audio"))) {
+        Q_EMIT soundWanted(QStringLiteral("audio-volume-change"));
+    }
+
     m_icon = icon;
     m_value = qBound(0, value, maxValue);
     m_maxValue = maxValue;

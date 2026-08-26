@@ -153,6 +153,11 @@ Q_SIGNALS:
     void activationToken(uint id, const QString &token);
     /* Wired to SnoozeStore in main.cpp. */
     void snoozeRequested(const Notification &n);
+    /* Wired to SoundPlayer in main.cpp. Emitted only for notifications that
+       will actually be seen, so a muted app, Do Not Disturb or an inhibition
+       silences the sound along with the popup — a notification nobody is shown
+       should not announce itself. */
+    void soundWanted(const QString &name);
 
 private:
     void update();
