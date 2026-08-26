@@ -152,7 +152,16 @@ Item {
                 width: parent.width
                 height: card.height
                 y: parent.height - height
-                radius: Style.cardRadius
+                /* Capped to the height of the strip this sheet shows through.
+
+                   At the card's own 16px radius only the bottom 9px of the
+                   curve is ever visible, and over those 9px the edge sweeps
+                   14px inward — an almost 60-degree diagonal. Geometrically
+                   that is exactly what a card of the same radius peeking out
+                   by 9px looks like, and it reads as a chamfered wedge rather
+                   than as a rounded card. Capping it lets the corner finish
+                   inside the strip. */
+                radius: Math.min(Style.cardRadius, Style.stackOffset)
                 color: Style.cardStackEdge
                 antialiasing: true
 

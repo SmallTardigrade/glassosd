@@ -147,6 +147,7 @@ void Theme::reload()
         break;
     }
 
+    ++m_revision;
     Q_EMIT changed();
 }
 

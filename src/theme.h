@@ -42,6 +42,13 @@ class Theme : public QObject
 
     /* The name of the loaded theme, or an empty string when no file was
        found and every value is coming from the built-in defaults. */
+    /* Bumped on every successful load. Style.qml reads this inside its
+       accessor helpers purely to create a dependency: color()/num()/str()/
+       flag() are invokable *methods*, and a QML binding whose only dependency
+       is a method call is evaluated once and never again. Without something
+       property-shaped to watch, every themed value in the UI was frozen at
+       startup and editing a theme file changed nothing on screen. */
+    Q_PROPERTY(int revision READ revision NOTIFY changed)
     Q_PROPERTY(QString name READ name NOTIFY changed)
     Q_PROPERTY(bool loaded READ loaded NOTIFY changed)
 
@@ -53,6 +60,7 @@ public:
 
     /* Style.qml calls these for every value. The fallback is the built-in,
        so an absent or partial theme file is not an error condition. */
+    int revision() const { return m_revision; }
     Q_INVOKABLE QColor color(const QString &key, const QColor &fallback) const;
     Q_INVOKABLE qreal num(const QString &key, qreal fallback) const;
     Q_INVOKABLE QString str(const QString &key, const QString &fallback) const;
@@ -76,5 +84,6 @@ private:
     QString m_name;
     QString m_path;
     bool m_loaded = false;
+    int m_revision = 0;
     QFileSystemWatcher *m_watcher = nullptr;
 };
