@@ -25,13 +25,18 @@ Item {
     property var entry            // the model row
     property int stackDepth: 0    // how many edges to peek out below
 
-    /* A stack is one object and casts one shadow, around the silhouette of
-       the card and its sheets together. Rasterising the lot and shadowing the
-       result is what makes that silhouette available — MultiEffect works off
-       the item's own alpha, so the shape comes out right without anyone
-       describing it. Off for a lone card, which shadows itself as before and
-       should not pay for a layer it does not need. */
-    layer.enabled: stackDepth > 0
+    readonly property bool stacked: stackDepth > 0
+
+    /* One layer for the whole stack: it flattens the cards so their alphas
+       cannot compound, and it gives MultiEffect a silhouette to cast a single
+       shadow around — the card and its sheets together, rather than the card
+       shadowing its own sheets. Off for a lone card, which needs neither and
+       should not pay for a layer.
+
+       The glass alpha is applied here, to the flattened result, which is why
+       everything inside is drawn opaque while stacked. */
+    opacity: stacked ? Style.cardBackground.a : 1.0
+    layer.enabled: stacked
     layer.effect: MultiEffect {
         shadowEnabled: true
         shadowColor: Style.shadowColor
@@ -71,88 +76,54 @@ Item {
     implicitHeight: card.implicitHeight + stackDepth * Style.stackOffset
 
     // ---- stacked edges, drawn behind and below --------------------------
-    /* Each sheet is clipped to the sliver that actually peeks out.
+    /* The stack is flattened and faded once, rather than composited card by
+       card. That is the whole trick, and everything else here follows from it.
 
-       It used to be a full card-height rectangle parked behind the card. That
-       was invisible while cards were opaque, but they are glass now and an
-       opaque rectangle behind a translucent card is simply a backing: the top
-       9px of the card showed the wallpaper through it and everything below
-       showed this rectangle instead. The card read as translucent along its
-       top edge and solid for the rest of its height — a hard horizontal step
-       across the card with nothing in the design to explain it.
+       Two constraints fight each other on a translucent card. A sheet must not
+       overlap the card, because 0.78 over 0.78 composes to an effective 0.95
+       and the doubled strip goes nearly opaque — that was the black band. But
+       not overlapping means the sheet has to stop at the card's bottom edge,
+       and the card's rounded corner curves away from it, leaving a wedge of
+       backdrop between the two. Squaring the corners closed the wedge and gave
+       three different shapes down one edge; rounding them back restored the
+       shapes and the wedge with them; widening the offset shrank the wedge by
+       making the whole stack twice as tall.
 
-       Clipping to the sliver means the sheet never covers any part of the
-       card, so the glass is glass the whole way down. The visible result is
-       unchanged for an opaque theme, which is what this looked like when it
-       was written.
-
-       The sheets are the card's own material — same fill, same alpha, same
-       backdrop region — rather than a colour of their own. That is not
-       tidiness, it is the only thing that works: a glass card's *appearance*
-       is whatever the backdrop makes it, so no fixed sheet colour relates to
-       it. Opaque went black against a white page while the card sat at
-       mid-grey; lightened-and-translucent washed out to a pale band. Sharing
-       the material means both are lit by the same backdrop and cannot drift
-       apart, and the card's own drop shadow falling across the slivers is
-       what separates the layers. */
+       None of that is fixable one card at a time, because the problem is that
+       they are being composited one card at a time. Rendering the lot into a
+       layer at full opacity and applying the glass alpha to the *result* means
+       overlap costs nothing: sheets sit fully behind the card, no strip is
+       doubled, no corner has a wedge to hide, and the offset can go back to
+       being small. Inside the layer they are ordinary opaque shapes stacked in
+       z order, which is what they always wanted to be. */
     Repeater {
         id: sheets
         model: root.stackDepth
-        delegate: Item {
+        delegate: Rectangle {
+            id: sheetRect
             required property int index
-            /* Above the card, not behind it.
 
-               This is why every fill colour tried for these sheets came out
-               black. The card draws its drop shadow as part of itself at z 0 —
-               opacity 0.55, blur 50, offset 9px straight down in this theme —
-               and the sheets peek out 9 and 18px below the card, which is
-               precisely the darkest part of that shadow. Sitting behind it,
-               they were being viewed through a half-black overlay, so opaque,
-               translucent and lightened all looked like the same black band.
-
-               They cannot cover the card by being in front of it: each is
-               clipped to a strip that starts at the card's bottom edge. All
-               they cover is the shadow directly beneath the card, which is
-               what a sheet sitting there would cover in reality. The shadow
-               still falls past the last sheet, so the stack as a whole keeps
-               one. Index order is preserved: 0 is nearest the front. */
-            z: root.stackDepth - index
+            z: -1 - index
             anchors.horizontalCenter: parent.horizontalCenter
             width: card.width - (index + 1) * Style.stackInset * 2
-            /* Each sheet gets its own band, starting where the one in front
-               of it stops — not from the card's bottom edge every time.
+            y: (index + 1) * Style.stackOffset
+            height: card.height
+            /* Capped to what peeks out: at a radius larger than the offset the
+               sliver shows only part of the curve and the edge sweeps inward
+               like a chamfer instead of turning like a corner. */
+            radius: Math.min(Style.cardRadius, Style.stackOffset)
+            color: root.stacked ? Style.opaque(Style.cardStackEdge) : Style.cardStackEdge
+            antialiasing: true
 
-               Overlapping them is what turned the nearest sheet black. Two
-               translucent layers compose: 0.78 over 0.78 is an effective 0.95,
-               so the strip where sheet 0 lay over sheet 1 was very nearly
-               opaque while the strip where only sheet 1 showed was not.
-               Measured over a white page: card 79, sheet 1 at 62, sheet 0 at
-               29 — and 0.95*18 + 0.05*218 predicts 27.7, which is the whole
-               explanation. The fill colour was never the problem. */
-            y: card.height + index * Style.stackOffset
-            height: Style.stackOffset
-            clip: true
-
-            /* The region has to describe the *painted* rectangle, not the clip
-               band: the band is only stackOffset tall, so the radius gets
-               clamped to half of that and the region comes out near-square
-               while the sheet is painted with the card's full radius. That
-               left blurred backdrop showing outside the sheet's corners, which
-               reads as square corners with lines running off the ends. The
-               card-sized rectangle inside the clip is the real shape; its
-               upper part lands inside the card's own region, which costs
-               nothing because regions are unioned. */
+            /* Registered so the compositor blurs behind the sliver too. The
+               region is this rectangle exactly; the part of it behind the card
+               simply lands inside the card's own region, and regions union. */
             function refreshSheet() {
                 if (!Window.window)
                     return
-                const p = mapToItem(null, 0, height - card.height)
-                const r = Qt.rect(p.x, p.y, width, card.height)
-                Surface.setPanelRegion(Window.window, sheetRect, r, Style.cardRadius)
-                if (card.glass) {
-                    Surface.applyContrast(Window.window, r, Style.cardRadius,
-                                          Style.bgContrast, Style.bgIntensity,
-                                          Style.bgSaturation)
-                }
+                const p = mapToItem(null, 0, 0)
+                const r = Qt.rect(p.x, p.y, width, height)
+                Surface.setPanelRegion(Window.window, sheetRect, r, radius)
             }
             Component.onCompleted: refreshSheet()
             onYChanged: refreshSheet()
@@ -160,40 +131,22 @@ Item {
             onHeightChanged: refreshSheet()
             Component.onDestruction: if (Window.window) Surface.clearPanelRegion(Window.window, sheetRect)
 
+            /* Seam along the *bottom* edge. Now that the sheets are full-height
+               and overlap, the top edge of every one of them is behind the card
+               and draws nothing — the visible boundary between one sheet and the
+               next is where the sheet in front ends, which is its bottom.
 
-            /* Card-sized and bottom-aligned inside the clip, so the corners
-               that show are the same radius as the card's own. Drawing a
-               short rounded rect instead would round the top corners too and
-               read as a separate pill rather than as a sheet behind. */
+               It matters because a flattened stack of one colour has no edges of
+               its own: this is what makes the layers countable rather than a
+               single thick slab with a rounded end. */
             Rectangle {
-                id: sheetRect
-                width: parent.width
-                height: card.height
-                y: parent.height - height
-                /* Capped to the height of the strip this sheet shows through.
-
-                   At the card's own 16px radius only the bottom 9px of the
-                   curve is ever visible, and over those 9px the edge sweeps
-                   14px inward — an almost 60-degree diagonal. Geometrically
-                   that is exactly what a card of the same radius peeking out
-                   by 9px looks like, and it reads as a chamfered wedge rather
-                   than as a rounded card. Capping it lets the corner finish
-                   inside the strip. */
-                radius: Math.min(Style.cardRadius, Style.stackOffset)
-                color: Style.cardStackEdge
-                antialiasing: true
-
-                /* Seam along the bottom of each sheet. Only the bottom sliver
-                   is ever visible, so a seam on the top edge draws nothing. */
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.leftMargin: Style.cardRadius * 0.5
-                    anchors.rightMargin: Style.cardRadius * 0.5
-                    height: 1
-                    color: Style.cardStackSeam
-                }
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: parent.radius * 0.5
+                anchors.rightMargin: parent.radius * 0.5
+                height: 1
+                color: Style.cardStackSeam
             }
         }
     }
@@ -202,7 +155,10 @@ Item {
         id: card
         width: parent.width
         radius: Style.cardRadius
-        surfaceColor: Style.cardBackground
+        /* Opaque while stacked: the root layer carries the alpha for the whole
+           stack, so anything inside it that is translucent in its own right
+           would be faded twice. */
+        surfaceColor: root.stacked ? Style.opaque(Style.cardBackground) : Style.cardBackground
         /* Cards are glass too. At the default 0.975 alpha the backdrop effect
            is imperceptible, but a theme that lowers card.background needs the
            blur behind it or the card is merely see-through. */

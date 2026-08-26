@@ -92,7 +92,7 @@ QtObject {
        bigger than the thing it was gapping. Matching the two means every
        corner in the stack has the same radius and each sheet shows a whole
        one. */
-    readonly property int stackOffset: Math.round(tnum("stack.offset", 16))
+    readonly property int stackOffset: Math.round(tnum("stack.offset", 10))
     readonly property int stackInset: Math.round(tnum("stack.inset", 8))
     /* The seam along the bottom of each sheet is what separates one from the
        next.
@@ -102,7 +102,13 @@ QtObject {
        whatever the backdrop makes it — see the Repeater in
        NotificationCard.qml. Depth comes from the card's shadow falling across
        the sliver and from the seam, not from the fill. */
-    readonly property color cardStackEdge: tcolor("card.stackEdge", cardBackground)
+    /* Same colour, alpha discarded. Used where a stack is flattened into one
+       layer and faded as a whole — see NotificationCard.qml — so the parts
+       inside must not carry an alpha of their own. */
+    function opaque(c) { return Qt.rgba(c.r, c.g, c.b, 1.0) }
+
+    readonly property color cardStackEdge: tcolor("card.stackEdge",
+                                                  Qt.darker(cardBackground, 1.12))
     readonly property color cardStackSeam: tcolor("card.stackSeam", dark ? Qt.rgba(0,0,0,0.55) : Qt.rgba(0,0,0,0.18))
     readonly property int cardRadius: Math.round(tnum("radius.card", px(16)))
 
