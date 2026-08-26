@@ -108,12 +108,10 @@ Window {
                 Layout.preferredHeight: implicitHeight
 
                 entry: model
-                /* One sheet, however many are behind it. Two was a guess and
-                   it reads as a thicker slab rather than as more depth — the
-                   count is already stated in words on the card, so the second
-                   sheet was spending vertical space to repeat it badly. Both
-                   iOS and Figma draw exactly one for any depth of stack. */
-                stackDepth: model.groupCount > 1 ? 1 : 0
+                /* Never more sheets than there are notifications behind this
+                   card — a stack of three under a group of two would be
+                   drawing something that is not there. */
+                stackDepth: Math.min(model.groupCount - 1, Style.stackMaxDepth)
 
                 onDismissed: NotificationModel.dismiss(model.notifId)
                 onHoverChanged: h => NotificationModel.setHovered(model.notifId, h)

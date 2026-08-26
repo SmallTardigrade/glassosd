@@ -98,6 +98,10 @@ QtObject {
        than that in absolute terms — so the sheet reads as a narrower card
        behind rather than as a ledge under the front one. This was the wrong
        way round, insetting 8 and peeking 10. */
+    /* How many sheets may show behind the front card. A taste call we have
+       moved on twice, so it lives in the theme where it can be tried live
+       rather than in a constant that needs a rebuild to argue with. */
+    readonly property int stackMaxDepth: Math.max(0, Math.round(tnum("stack.depth", 2)))
     readonly property int stackOffset: Math.round(tnum("stack.offset", 9))
     readonly property int stackInset: Math.round(tnum("stack.inset", 20))
     /* The seam along the bottom of each sheet is what separates one from the
