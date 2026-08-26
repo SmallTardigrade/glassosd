@@ -31,10 +31,12 @@ class NotificationModel : public QAbstractListModel
     /* Number queued behind the visible ones — the "+N more" indicator. */
     Q_PROPERTY(int hiddenCount READ hiddenCount NOTIFY hiddenCountChanged)
     Q_PROPERTY(bool doNotDisturb READ doNotDisturb WRITE setDoNotDisturb NOTIFY doNotDisturbChanged)
+    Q_PROPERTY(int exitMs READ exitMs WRITE setExitMs)
 
 public:
     enum Roles {
         IdRole = Qt::UserRole + 1,
+        ClosingRole,
         AppNameRole,
         SummaryRole,
         BodyRole,
@@ -97,6 +99,12 @@ public:
     uint insert(Notification n);
     bool closeId(uint id, uint reason);
 
+    /* How long a card is kept on screen after it is closed, so it can animate
+       away. Set from QML so the theme's motion.out stays the one place the
+       duration lives; 0 removes it immediately, as before. */
+    int exitMs() const { return m_exitMs; }
+    void setExitMs(int ms) { m_exitMs = qBound(0, ms, 2000); }
+
     Q_INVOKABLE void dismiss(uint id);                       // user clicked away
     /* Clear every popup on screen and everything queued behind them.
        A notification with expire_timeout 0, or critical urgency, is required
@@ -131,6 +139,7 @@ Q_SIGNALS:
 private:
     void update();
     void expireTick();
+    void finishClose(uint id);
     int indexOfDisplayed(uint id) const;
 
     /* Precedence, in dunst's order: an explicit replaces_id wins, then a stack
@@ -161,6 +170,7 @@ private:
     int m_idleThresholdMs = 0;
     int m_idleTimeoutId = -1;
     bool m_userIdle = false;
+    int m_exitMs = 0;   // set from QML; 0 keeps the old instant removal
     int m_coalesceThreshold = 3;
     int m_coalesceWindowMs = 20000;
     QHash<QString, QList<QDateTime>> m_recentByGroup;

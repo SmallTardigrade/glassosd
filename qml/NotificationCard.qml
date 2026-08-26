@@ -35,8 +35,54 @@ Item {
 
        The glass alpha is applied here, to the flattened result, which is why
        everything inside is drawn opaque while stacked. */
-    opacity: stacked ? Style.cardBackground.a : 1.0
+    /* Fades in on arrival. `reveal` is a separate 0..1 factor rather than
+       opacity itself, because opacity is already carrying the glass alpha for
+       the flattened stack — assigning to it directly would drop the stack to
+       fully opaque the moment the animation finished.
+
+       Nothing moves. A card that slides or grows has to re-send its blur
+       region every frame, since compositor blur is binary — a surface is
+       blurred or it is not, there is no alpha to animate — and the region is
+       rebuilt from every panel in the window on each change. Fading leaves the
+       geometry alone, so the region is registered once and stays correct. */
+    property real reveal: 0.0
+    /* Set by the view from the model's `closing` role: the row is kept for the
+       length of the animation after it has been closed. */
+    property bool leaving: false
+
+    opacity: (stacked ? Style.cardBackground.a : 1.0) * reveal
     layer.enabled: stacked
+
+    /* Quint rather than Cubic: Material's "emphasized" curves are far steeper
+       than a plain ease, and the gentle version reads as a dissolve rather
+       than as something arriving. Decelerate in, accelerate out, paired. */
+    Behavior on reveal {
+        NumberAnimation {
+            duration: root.leaving ? Style.animOut : Style.animIn
+            easing.type: root.leaving ? Easing.InQuint : Easing.OutQuint
+        }
+    }
+    Component.onCompleted: reveal = 1.0
+    onLeavingChanged: if (leaving) reveal = 0.0
+
+    /* Rises into place, and sinks as it goes. A transform rather than a change
+       of y, so the layout does not reflow every frame and the cards below stay
+       put while this one arrives. */
+    transform: Translate {
+        y: (1.0 - root.reveal) * Style.animRise
+    }
+
+    /* Compositor blur cannot be animated — a surface is blurred or it is not,
+       there is no alpha — so the region has to be re-sent as the card travels
+       or the blurred patch sits still while the card moves off it. Same reason
+       the delegate refreshes when the ListView moves it. */
+    onRevealChanged: {
+        card.refreshBlur()
+        for (let i = 0; i < sheets.count; ++i) {
+            const s = sheets.itemAt(i)
+            if (s) s.refreshSheet()
+        }
+    }
     layer.effect: MultiEffect {
         shadowEnabled: true
         shadowColor: Style.shadowColor

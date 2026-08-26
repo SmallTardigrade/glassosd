@@ -69,6 +69,19 @@ Window {
         function onChanged() { win.applyPosition() }
     }
 
+    /* The model holds a closed card for this long so it can animate away, so
+       motion.out stays the one place the duration is written down.
+
+       A Binding rather than an assignment in Component.onCompleted: that runs
+       once, so editing motion.out in a theme changed the animation the view
+       played while the model went on removing the row at the old duration —
+       and the card vanished mid-fade. */
+    Binding {
+        target: NotificationModel
+        property: "exitMs"
+        value: Style.animOut
+    }
+
     /* Only a card offering inline reply needs the keyboard. Anything else
        leaves focus where the user put it. */
     function refreshKeyboardFocus() {
@@ -108,6 +121,7 @@ Window {
                 Layout.preferredHeight: implicitHeight
 
                 entry: model
+                leaving: model.closing === true
                 /* Never more sheets than there are notifications behind this
                    card — a stack of three under a group of two would be
                    drawing something that is not there. */

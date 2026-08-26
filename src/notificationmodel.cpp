@@ -59,6 +59,7 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const
     const Notification &n = m_displayed.at(index.row());
     switch (role) {
     case IdRole:         return n.id;
+    case ClosingRole:    return n.closing;
     case AppNameRole:    return n.appName;
     case SummaryRole:    return n.summary;
     case BodyRole:       return n.body;
@@ -133,6 +134,7 @@ QHash<int, QByteArray> NotificationModel::roleNames() const
         {ActionsRole, "actions"},
         {HasDefaultActionRole, "hasDefaultAction"},
         {GroupCountRole, "groupCount"},
+        {ClosingRole, "closing"},
         {GroupKeyRole, "groupKey"},
         {WhenRole, "when"},
         {ProgressRole, "progress"},
@@ -184,7 +186,11 @@ bool NotificationModel::isLive(uint id) const
 int NotificationModel::indexOfDisplayed(uint id) const
 {
     for (int i = 0; i < m_displayed.size(); ++i) {
-        if (m_displayed.at(i).id == id) {
+        /* A closing row is logically gone — it is only still here so the view
+           can animate it away. Hiding it here means replace-by-id, coalescing
+           and activation all treat it as absent, without each of them having
+           to know that the state exists. */
+        if (m_displayed.at(i).id == id && !m_displayed.at(i).closing) {
             return i;
         }
     }
@@ -363,12 +369,25 @@ bool NotificationModel::closeId(uint id, uint reason)
 {
     const int row = indexOfDisplayed(id);
     if (row >= 0) {
-        beginRemoveRows({}, row, row);
-        m_displayed.removeAt(row);
-        endRemoveRows();
         m_hovered.remove(id);
+        /* Told to the sender straight away, whatever the animation does. The
+           spec's NotificationClosed answers "has this been dealt with", and
+           holding it back for the length of a fade would make every client
+           wait on a detail of our rendering. */
         Q_EMIT notificationClosed(id, reason);
-        update();
+
+        if (m_exitMs <= 0) {
+            beginRemoveRows({}, row, row);
+            m_displayed.removeAt(row);
+            endRemoveRows();
+            update();
+            return true;
+        }
+
+        m_displayed[row].closing = true;
+        const QModelIndex ix = index(row, 0);
+        Q_EMIT dataChanged(ix, ix, {ClosingRole});
+        QTimer::singleShot(m_exitMs, this, [this, id] { finishClose(id); });
         return true;
     }
     for (int i = 0; i < m_waiting.size(); ++i) {
@@ -529,6 +548,23 @@ void NotificationModel::update()
     if (m_waiting.size() != m_lastHiddenCount) {
         m_lastHiddenCount = m_waiting.size();
         Q_EMIT hiddenCountChanged();
+    }
+}
+
+/* The row's index will have moved if anything above it went first, and
+   indexOfDisplayed() deliberately cannot see closing rows, so find it by
+   hand. */
+void NotificationModel::finishClose(uint id)
+{
+    for (int i = 0; i < m_displayed.size(); ++i) {
+        if (m_displayed.at(i).id != id || !m_displayed.at(i).closing) {
+            continue;
+        }
+        beginRemoveRows({}, i, i);
+        m_displayed.removeAt(i);
+        endRemoveRows();
+        update();
+        return;
     }
 }
 

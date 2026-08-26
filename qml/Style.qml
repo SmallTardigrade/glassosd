@@ -294,6 +294,14 @@ QtObject {
     readonly property int shadowYOffset: Math.round(tnum("shadow.offsetY", 8))
 
     // ---- Motion -----------------------------------------------------------
-    readonly property int animIn: Math.round(tnum("motion.in", 150))
-    readonly property int animOut: Math.round(tnum("motion.out", 200))
+    /* Material's figures: 225ms in, 195ms out, paired decelerate/accelerate.
+       Ours were 150/200 on the gentler cubic curves, which reads as a dissolve
+       rather than as something arriving. */
+    readonly property int animIn: Math.round(tnum("motion.in", 225))
+    readonly property int animOut: Math.round(tnum("motion.out", 195))
+    /* How far a card travels as it arrives. It cannot slide in from off-screen
+       the way a phone's does — the layer-shell surface is only as wide as the
+       card, so anything outside it is clipped by the surface itself — so this
+       is a short rise into place rather than a journey. */
+    readonly property int animRise: Math.round(tnum("motion.rise", 14))
 }

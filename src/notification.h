@@ -83,6 +83,10 @@ struct Notification {
        persistence. We were recording them, which is a compliance bug. */
     bool transientHint = false;
 
+    /* Closed, but still on screen while it animates away. Nothing but the
+       view should see one of these — indexOfDisplayed() hides them, so every
+       piece of logic that looks a notification up treats it as already gone. */
+    bool closing = false;
     bool skipDisplay = false;    // rule said: no popup, history only
     bool historyIgnore = false;  // rule said: do not even record it
 
