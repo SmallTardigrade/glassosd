@@ -311,6 +311,71 @@ glassosdctl restart                    # modules are read at startup
 | `osd` | volume, brightness, media OSD |
 | `lockkeys` | caps, num and Fn lock OSDs |
 
+### Focus modes
+
+A focus mode is a bundle of rules and an allow/block list, switched on and off
+as a unit — modelled on macOS Focus, and something neither dunst nor swaync
+has. It is what makes the rules engine usable rather than config-file
+archaeology.
+
+```bash
+glassosdctl focus-set work   allow=Signal,Jenkins   # only these get through
+glassosdctl focus-set gaming block=Slack,Discord    # everything but these
+glassosdctl focus work
+glassosdctl focus off
+glassosdctl focus                                   # what is on, what exists
+```
+
+`allow=` silences everything except the apps named; `block=` silences only
+those. Names are matched against both the app name and its desktop entry,
+since the one you know is whichever you happen to have seen.
+
+Rules can belong to a mode too, which is the more powerful half:
+
+```bash
+glassosdctl rule-set standup focus=work appname=Calendar sound=bell
+```
+
+A rule with `focus=` is simply not there when that mode is off, so a mode is a
+bundle rather than a set of edits to undo afterwards.
+
+Allow and block lists are compiled into rules and appended after the
+hand-written ones, so there is one engine with one set of semantics — and a
+mode has the final say rather than being quietly undone by a rule written
+months ago. Silenced notifications are still recorded.
+
+### Quiet while something is playing
+
+```bash
+glassosdctl quiet-while-busy on     # off by default
+```
+
+Notifications are held back while an application is asking that the screen not
+blank — a video playing, a game, a presentation — and are still recorded, the
+same as Do Not Disturb.
+
+**This is not fullscreen detection**, and the difference is worth knowing. On
+Wayland a client cannot see another window's state, by design, and KWin
+implements no foreign-toplevel protocol — which is why dunst reports it cannot
+do fullscreen detection here either. The only route to literal fullscreen on
+Plasma is a script installed into KWin itself.
+
+What is available is the signal applications already send through
+`org.freedesktop.PowerManagement.Inhibit`, and it is arguably the better
+question: "does an application say the user is watching something" is closer
+to what a notification daemon wants to know than "is a window the size of the
+screen". A long download can hold the screen awake without being fullscreen,
+and a fullscreen text editor holds nothing.
+
+One caveat, measured rather than assumed: PowerDevil takes about five seconds
+to register an inhibition, so a notification arriving in the first few seconds
+of a video still appears. Nothing here polls — the state is change-signalled —
+the delay is upstream.
+
+It is a third, separate reason to stay quiet, alongside Do Not Disturb and an
+application's inhibition, so turning any one of them off does not cancel the
+others.
+
 ### History search
 
 swaync offers no way to search its history at all. With a 200-entry default
