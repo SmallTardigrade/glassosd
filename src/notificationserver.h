@@ -16,6 +16,8 @@
 #include "notificationmodel.h"
 #include "rules.h"
 
+#include <KConfigGroup>
+
 #include <QDBusAbstractAdaptor>
 #include <QDBusServiceWatcher>
 #include <QHash>
@@ -49,7 +51,15 @@ public:
     void handleClose(uint id);
 
     NotificationModel *model() const { return m_model; }
-    void loadRules(const KSharedConfig::Ptr &config) { m_rules.load(config); }
+    void loadRules(const KSharedConfig::Ptr &config)
+    {
+        /* Read before load(), because load() compiles the active mode's
+           Allow/Block lists into rules and needs to know which mode that is. */
+        m_rules.setActiveFocus(
+            KConfigGroup(config, QStringLiteral("Notifications")).readEntry("Focus", QString()));
+        m_rules.load(config);
+    }
+    QString activeFocus() const { return m_rules.activeFocus(); }
 
 Q_SIGNALS:
     void closed(uint id, uint reason);

@@ -36,11 +36,17 @@ struct Rule {
     QString setStackTag;
     int timeoutMs = -2;      // -2 == leave alone
     int setUrgency = -1;
-    bool skipDisplay = false;
+    /* Tri-state, not a bool: a rule has to be able to say "show this" as well
+       as "hide this", or an allow-list is impossible — it needs a catch-all
+       that hides everything followed by rules that put a few back. Unset
+       leaves whatever an earlier rule decided. */
+    std::optional<bool> skipDisplay;
     bool historyIgnore = false;
     /* Sound-theme name to play instead of whatever category and urgency would
        have chosen. Empty leaves the choice alone; "none" silences this rule. */
     QString sound;
+    /* Only applied while this focus mode is active. Empty means always. */
+    QString focus;
 
     bool matches(const Notification &n) const;
 };
@@ -49,9 +55,15 @@ class Rules
 {
 public:
     void load(const KSharedConfig::Ptr &config);
+    /* Which focus mode is on. Rules naming a different one are skipped, and
+       the active mode's Allow/Block lists are compiled into rules of their
+       own — see load(). */
+    void setActiveFocus(const QString &focus) { m_focus = focus; }
+    QString activeFocus() const { return m_focus; }
     void apply(Notification &n) const;
     int count() const { return m_rules.size(); }
 
 private:
     QList<Rule> m_rules;
+    QString m_focus;
 };

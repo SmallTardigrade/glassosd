@@ -118,6 +118,12 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  focus [name|off]       Switch focus mode. A mode is a bundle of rules and
+                         an allow/block list, on or off as a unit.
+  focus-set <name> [allow=A,B] [block=C,D]
+                         Define or amend a mode. allow= silences everything
+                         except those apps; block= silences just those.
+  focus-del <name>       Delete a mode
   search <text>          Open the centre with the history filtered to <text>
   sounds                 List every sound name your themes provide, and where
                          to put your own
@@ -462,6 +468,45 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  focus)
+    cur=$(cfg_or Notifications Focus "")
+    case "${1:-}" in
+      "")
+        echo "focus: ${cur:-off}"
+        modes=$(grep -o '^\[Focus .*\]$' "$CONF" 2>/dev/null | sed 's/^\[Focus //; s/\]$//' | sort)
+        [ -n "$modes" ] && { echo "  defined: $(echo "$modes" | tr '\n' ' ')"; } \
+                        || echo "  (no modes defined — see 'focus-set')" ;;
+      off|none)
+        cfg_write Notifications Focus ""; echo "focus off" ;;
+      *)
+        grep -q "^\[Focus $1\]$" "$CONF" 2>/dev/null \
+          || { echo "no focus mode '$1'; define one with: glassosdctl focus-set $1 allow=App,App" >&2; exit 1; }
+        cfg_write Notifications Focus "$1"; echo "focus = $1" ;;
+    esac ;;
+  focus-set)
+    name=$1; shift
+    [ -n "$name" ] || { echo "usage: glassosdctl focus-set <name> [allow=A,B] [block=C,D]" >&2; exit 1; }
+    for kv in "$@"; do
+      k=${kv%%=*}; v=${kv#*=}
+      case "$k" in
+        allow|Allow) cfg_write "Focus $name" Allow "$v" ;;
+        block|Block) cfg_write "Focus $name" Block "$v" ;;
+        *) echo "focus-set takes allow= and block=, not '$k'" >&2; exit 1 ;;
+      esac
+    done
+    echo "focus mode '$name' saved" ;;
+  focus-del)
+    [ -n "${1:-}" ] || { echo "usage: glassosdctl focus-del <name>" >&2; exit 1; }
+    grep -q "^\[Focus $1\]$" "$CONF" 2>/dev/null || { echo "no focus mode '$1'" >&2; exit 1; }
+    tmp=$(mktemp)
+    awk -v want="[Focus $1]" '$0 == want { drop=1; next } /^\[/ { drop=0 } !drop { print }' \
+      "$CONF" > "$tmp" && mv "$tmp" "$CONF"
+    [ "$(cfg_or Notifications Focus "")" = "$1" ] && cfg_write Notifications Focus ""
+    if have kwriteconfig6; then
+      kwriteconfig6 --notify --file "$RC" --group Notifications --key Enabled \
+        "$(cfg_or Notifications Enabled true)"
+    fi
+    echo "focus mode '$1' deleted" ;;
   search)
     [ -n "${1:-}" ] || { echo "usage: glassosdctl search <text>" >&2; exit 1; }
     call Search s "$*" >/dev/null && echo "searching history for: $*" ;;
