@@ -373,24 +373,34 @@ void Surface::applyContrast(QQuickWindow *window,
                             qreal intensity,
                             qreal saturation)
 {
-    /* Remember these so recompute() can reapply contrast with the combined
-       region without every caller having to pass them again. */
-    m_contrast = contrast;
-    m_intensity = intensity;
-    m_saturation = saturation;
+    /* Records the parameters and lets recompute() apply them over the
+       aggregated region. It used to also call enableBackgroundContrast()
+       itself with just this one rect — and that call sets the region for the
+       *whole window*, so it replaced whatever recompute() had just built.
+
+       Whichever panel refreshed last therefore owned the contrast, and every
+       other panel in the window kept its blur but lost its contrast. On a
+       grouped popup that is the card and its stack sheets: same fill, same
+       blur, but only the card getting the backdrop lifted, which left the
+       sheets eight levels darker over an identical backdrop. No fill colour
+       could have fixed that, which is why several did not.
+
+       rect and radius are now unused — the region is the aggregate — but the
+       signature stays so callers keep describing what they are asking for. */
+    Q_UNUSED(rect)
+    Q_UNUSED(radius)
+
     if (!window || !blurAvailable()) {
         return;
     }
-    const QRect logical = rect.toAlignedRect();
-    if (logical.isEmpty()) {
-        return;
+    if (qFuzzyCompare(m_contrast, contrast) && qFuzzyCompare(m_intensity, intensity)
+        && qFuzzyCompare(m_saturation, saturation)) {
+        return;   // nothing changed; recompute() has already applied these
     }
-    KWindowEffects::enableBackgroundContrast(window,
-                                             true,
-                                             contrast,
-                                             intensity,
-                                             saturation,
-                                             roundedRegion(logical, qRound(radius)));
+    m_contrast = contrast;
+    m_intensity = intensity;
+    m_saturation = saturation;
+    recompute(window);
 }
 
 void Surface::clearContrast(QQuickWindow *window)
