@@ -23,8 +23,8 @@
         Order=2
 
     `Action` is one of the built-ins (toggle-dnd, toggle-wifi, toggle-bluetooth,
-    clear-all, lock, reboot, poweroff, logout); `Command` runs an arbitrary
-    program. A button naming both
+    toggle-power-saver, clear-all, lock, reboot, poweroff, logout); `Command`
+    runs an arbitrary program. A button naming both
     prefers the built-in, because a built-in cannot be mis-typed into something
     that silently does nothing.
 */
@@ -93,11 +93,19 @@ private:
        the time. */
     static bool wifiOn();
     static bool bluetoothOn();
+    static QString powerProfile();
+    static void setPowerProfile(const QString &profile);
     static QString readProcess(const QString &program, const QStringList &args);
 
     KSharedConfig::Ptr m_config;
     std::vector<QuickButton> m_buttons;
     int m_perRow = 5;
+    /* What to go back to when power saving is switched off again. Someone on
+       "performance" who saves power for a while expects performance back, not
+       "balanced" — and the profile daemon does not remember for us. Session
+       lifetime only; on a fresh start there is nothing to restore and
+       "balanced" is the safe answer. */
+    mutable QString m_profileBeforeSaving;
     NotificationModel *m_notifications = nullptr;
     HistoryModel *m_history = nullptr;
 };

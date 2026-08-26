@@ -543,13 +543,21 @@ no external program:
 | `toggle-dnd` | Do Not Disturb on/off |
 | `toggle-wifi` | Wi-Fi radio on/off, via `nmcli` |
 | `toggle-bluetooth` | Bluetooth radio on/off, via `rfkill` |
+| `toggle-power-saver` | power-saver profile on/off, via power-profiles-daemon |
 | `clear-all` | clear the notification history |
 | `lock` | lock the session |
 | `reboot` / `poweroff` / `logout` | |
 
-The three `toggle-` actions render as toggles that show live state rather than
-as plain buttons — the radios are read from `nmcli` and `rfkill` each time the
-grid is drawn, so they stay right when something else changes them.
+Every `toggle-` action renders as a toggle showing live state rather than as a
+plain button, and the state is read fresh each time the grid is drawn, so it
+stays right when something else changes it.
+
+`toggle-power-saver` talks to power-profiles-daemon over D-Bus rather than
+through `powerprofilesctl`, which is a separate package and often absent even
+where the daemon is running. On Fedora the interface is served by `tuned-ppd`;
+the name is what matters, not what is behind it. Switching power saving off
+returns you to the profile you were on before, not to `balanced` — within a
+session, since the daemon does not remember it for us.
 
 Prefer these to a `Command` that opens a settings page. A quick action should
 *do* the thing: `plasma-open-settings kcm_networkmanagement` starts the whole

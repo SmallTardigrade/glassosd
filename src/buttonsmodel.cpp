@@ -11,7 +11,11 @@
 #include <KConfigGroup>
 
 #include <QDebug>
+#include <QDBusConnection>
+#include <QDBusInterface>
 #include <QProcess>
+
+#include <memory>
 
 ButtonsModel::ButtonsModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -107,7 +111,8 @@ QVariant ButtonsModel::data(const QModelIndex &index, int role) const
     case ToggleRole:
         return b.action == QLatin1String("toggle-dnd")
             || b.action == QLatin1String("toggle-wifi")
-            || b.action == QLatin1String("toggle-bluetooth");
+            || b.action == QLatin1String("toggle-bluetooth")
+            || b.action == QLatin1String("toggle-power-saver");
     case ActiveRole:
         if (b.action == QLatin1String("toggle-dnd") && m_notifications) {
             return m_notifications->doNotDisturb();
@@ -118,9 +123,52 @@ QVariant ButtonsModel::data(const QModelIndex &index, int role) const
         if (b.action == QLatin1String("toggle-bluetooth")) {
             return bluetoothOn();
         }
+        if (b.action == QLatin1String("toggle-power-saver")) {
+            return powerProfile() == QLatin1String("power-saver");
+        }
         return false;
     default:
         return {};
+    }
+}
+
+/* power-profiles-daemon's interface, which on Fedora is served by tuned-ppd
+   rather than by power-profiles-daemon itself — the name is what matters, not
+   what is behind it. Newer versions also answer on the UPower name, so try
+   both rather than depending on which one a distribution shipped.
+
+   Over D-Bus rather than through powerprofilesctl: the CLI is a separate
+   package and is not installed here, while the interface it drives is. */
+static QDBusInterface *profilesInterface()
+{
+    static const char *names[] = {"net.hadess.PowerProfiles",
+                                  "org.freedesktop.UPower.PowerProfiles"};
+    static const char *paths[] = {"/net/hadess/PowerProfiles",
+                                  "/org/freedesktop/UPower/PowerProfiles"};
+    for (int i = 0; i < 2; ++i) {
+        auto *iface = new QDBusInterface(QString::fromLatin1(names[i]),
+                                         QString::fromLatin1(paths[i]),
+                                         QString::fromLatin1(names[i]),
+                                         QDBusConnection::systemBus());
+        if (iface->isValid()) {
+            return iface;
+        }
+        delete iface;
+    }
+    return nullptr;
+}
+
+QString ButtonsModel::powerProfile()
+{
+    std::unique_ptr<QDBusInterface> iface(profilesInterface());
+    return iface ? iface->property("ActiveProfile").toString() : QString();
+}
+
+void ButtonsModel::setPowerProfile(const QString &profile)
+{
+    std::unique_ptr<QDBusInterface> iface(profilesInterface());
+    if (iface) {
+        iface->setProperty("ActiveProfile", profile);
     }
 }
 
@@ -187,6 +235,16 @@ void ButtonsModel::activate(int row)
                 ? QStringLiteral("rfkill block bluetooth")
                 : QStringLiteral("rfkill unblock bluetooth && "
                                  "bluetoothctl power on >/dev/null 2>&1 || true"));
+        } else if (b.action == QLatin1String("toggle-power-saver")) {
+            const QString now = powerProfile();
+            if (now == QLatin1String("power-saver")) {
+                setPowerProfile(m_profileBeforeSaving.isEmpty()
+                                    ? QStringLiteral("balanced")
+                                    : m_profileBeforeSaving);
+            } else {
+                m_profileBeforeSaving = now;
+                setPowerProfile(QStringLiteral("power-saver"));
+            }
         } else if (b.action == QLatin1String("clear-all")) {
             if (m_history) {
                 m_history->clearAll();
