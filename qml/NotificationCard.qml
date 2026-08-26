@@ -5,6 +5,7 @@
 */
 import QtQuick
 import QtQuick.Window
+import QtQuick.Effects
 import QtQuick.Layouts
 import org.glassosd.ui
 
@@ -23,6 +24,23 @@ Item {
 
     property var entry            // the model row
     property int stackDepth: 0    // how many edges to peek out below
+
+    /* A stack is one object and casts one shadow, around the silhouette of
+       the card and its sheets together. Rasterising the lot and shadowing the
+       result is what makes that silhouette available — MultiEffect works off
+       the item's own alpha, so the shape comes out right without anyone
+       describing it. Off for a lone card, which shadows itself as before and
+       should not pay for a layer it does not need. */
+    layer.enabled: stackDepth > 0
+    layer.effect: MultiEffect {
+        shadowEnabled: true
+        shadowColor: Style.shadowColor
+        shadowBlur: Style.shadowBlur
+        blurMax: Style.shadowBlurMax
+        shadowOpacity: Style.shadowOpacity
+        shadowVerticalOffset: Style.shadowYOffset
+        autoPaddingEnabled: true
+    }
 
     /* The ListView moves this delegate when a card above it goes away. The
        GlassPanel inside does not move relative to *us*, so none of its own
@@ -196,7 +214,15 @@ Item {
            is imperceptible, but a theme that lowers card.background needs the
            blur behind it or the card is merely see-through. */
         glass: true
-        shadow: true
+        /* Only when this card is on its own. With sheets beneath it the whole
+           stack casts one shadow, from the root — see below. A per-card shadow
+           falls straight onto the sheets, and since they sit 9 and 18px below
+           it, the nearest one lands in the darkest part of it and the next in
+           a lighter part. That gradient across two sheets painted the same
+           colour is what reads as "the first one is black and the second is
+           grey", and it only shows over a bright backdrop, where a 55% black
+           overlay has something to darken. */
+        shadow: root.stackDepth === 0
         implicitHeight: body.implicitHeight + Style.padding * 2
 
         Component.onCompleted: refreshBlur()
