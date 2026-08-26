@@ -108,7 +108,26 @@ QtObject {
        rather than in a constant that needs a rebuild to argue with. */
     readonly property int stackMaxDepth: Math.max(0, Math.round(tnum("stack.depth", 2)))
     readonly property int stackOffset: Math.round(tnum("stack.offset", 9))
-    readonly property int stackInset: Math.round(tnum("stack.inset", 11))
+    readonly property int stackInset: Math.round(tnum("stack.inset", 8))
+    /* Each sheet further back peeks less than the one in front of it, rather
+       than every sheet stepping down by the same amount. A uniform step makes
+       the back of the stack as prominent as the front, which reads as a thick
+       ledge; tapering it reads as depth, and is what foreshortening would do
+       anyway. 1.0 restores the uniform step. */
+    readonly property real stackFalloff: Math.max(0.2, Math.min(1.0, tnum("stack.falloff", 0.6)))
+
+    /* How far sheet i's bottom edge sits below the card's, with the taper
+       applied. Reads stackOffset and stackFalloff, so a theme reload
+       re-evaluates anything bound to it. */
+    function stackDrop(i) {
+        let drop = 0
+        let step = stackOffset
+        for (let k = 0; k <= i; ++k) {
+            drop += step
+            step = Math.max(3, step * stackFalloff)
+        }
+        return Math.round(drop)
+    }
     /* The seam along the bottom of each sheet is what separates one from the
        next.
 

@@ -73,7 +73,8 @@ Item {
     signal activated()
     signal hoverChanged(bool hovered)
 
-    implicitHeight: card.implicitHeight + stackDepth * Style.stackOffset
+    implicitHeight: card.implicitHeight
+                    + (stackDepth > 0 ? Style.stackDrop(stackDepth - 1) : 0)
 
     // ---- stacked edges, drawn behind and below --------------------------
     /* The stack is flattened and faded once, rather than composited card by
@@ -106,13 +107,22 @@ Item {
             z: -1 - index
             anchors.horizontalCenter: parent.horizontalCenter
             width: card.width - (index + 1) * Style.stackInset * 2
-            y: (index + 1) * Style.stackOffset
+            y: Style.stackDrop(index)
             height: card.height
             /* Capped to what peeks out: at a radius larger than the offset the
                sliver shows only part of the curve and the edge sweeps inward
                like a chamfer instead of turning like a corner. */
             radius: Math.min(Style.cardRadius, Style.stackOffset)
             color: root.stacked ? Style.opaque(Style.cardStackEdge) : Style.cardStackEdge
+            /* The same lit edge the card carries. Without it the sheets had a
+               fill and nothing else, so where one ended and the next began
+               there was no boundary at all — same colour, no border, and no
+               seam since a single sheet does not need one. The strip below the
+               card rendered as one undifferentiated ledge rather than as two
+               cards, and the silhouette went soft exactly where the card's own
+               crisp edge stopped. */
+            border.color: Style.glassEdge
+            border.width: Style.edgeWidth
             antialiasing: true
 
             /* Registered so the compositor blurs behind the sliver too. The
