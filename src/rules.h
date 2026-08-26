@@ -47,6 +47,11 @@ struct Rule {
     QString sound;
     /* Only applied while this focus mode is active. Empty means always. */
     QString focus;
+    /* Run on match. Split into arguments here rather than handed to a shell,
+       so a summary containing a semicolon is an argument and not a command. */
+    QString run;
+    /* Defer on arrival: don't show it now, bring it back in N minutes. */
+    int snoozeMinutes = -1;
 
     bool matches(const Notification &n) const;
 };

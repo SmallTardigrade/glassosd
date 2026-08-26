@@ -66,6 +66,9 @@ Q_SIGNALS:
     void actionInvoked(uint id, const QString &key);
     void replied(uint id, const QString &text);
     void activationToken(uint id, const QString &token);
+    /* A rule asked for this one to be deferred on arrival. Wired to
+       SnoozeStore in main.cpp — the server has no business owning wake times. */
+    void snoozeOnArrival(const Notification &n, int minutes);
 
 private:
     NotificationModel *m_model;
@@ -88,6 +91,8 @@ public:
        NotificationServer is a QDBusContext, and trusting an application to
        name itself would let one release another's inhibition. */
     uint inhibit(const QString &desktopEntry, const QString &reason);
+    /* Run a rule's run= command for this notification. */
+    static void runRuleCommand(const Notification &n);
     void unInhibit(uint cookie);
     bool inhibited() const { return !m_inhibits.isEmpty(); }
 

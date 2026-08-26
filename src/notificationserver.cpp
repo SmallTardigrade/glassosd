@@ -7,6 +7,8 @@
 
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QProcess>
+#include <QProcessEnvironment>
 #include <QDBusMetaType>
 #include <QDateTime>
 #include <QDebug>
@@ -265,6 +267,22 @@ uint NotificationServer::handleNotify(const QString &appName,
        to happen before the queue decides what this replaces. */
     m_rules.apply(n);
 
+    if (!n.run.isEmpty()) {
+        runRuleCommand(n);
+    }
+
+    /* Deferred on arrival. Recorded first so it is in history straight away —
+       the notification did arrive, and hiding it from the backlog as well as
+       the screen would make it disappear rather than wait. */
+    if (n.snoozeMinutes > 0) {
+        n.received = QDateTime::currentDateTimeUtc();
+        if (!n.transientHint && m_history) {
+            m_history->record(n);
+        }
+        Q_EMIT snoozeOnArrival(n, n.snoozeMinutes);
+        return n.id;
+    }
+
     /* The spec has no opinion here, but an empty message is not worth a
        popup; dunst drops these too. */
     if (n.summary.isEmpty() && n.body.isEmpty()) {
@@ -336,6 +354,58 @@ void NotificationsAdaptor::UnInhibit(uint cookie)
 bool NotificationsAdaptor::inhibited() const
 {
     return m_server->inhibited();
+}
+
+void NotificationServer::runRuleCommand(const Notification &n)
+{
+    /* Split into arguments and executed directly. Not handed to a shell, and
+       that is the whole point: the parts being substituted in are attacker
+       controlled. A summary reading `x; rm -rf ~` is a notification anybody
+       can send us, and through a shell it would be a command. Substituting
+       after the split means it can only ever be one argument.
+
+       The fields are also exported, which is the safe way to reach them from
+       a shell: `run=sh -c 'echo "$GLASSOSD_SUMMARY" >> log'` cannot be
+       injected into, because the value never passes through the parser. A
+       placeholder inside an `sh -c` string can be, so the environment is the
+       documented way round. */
+    QStringList args = QProcess::splitCommand(n.run);
+    if (args.isEmpty()) {
+        return;
+    }
+    const QString program = args.takeFirst();
+
+    const QString urgency = QString::number(int(n.urgency));
+    const QString id = QString::number(n.id);
+    for (QString &arg : args) {
+        arg.replace(QLatin1String("%a"), n.appName);
+        arg.replace(QLatin1String("%s"), n.summary);
+        arg.replace(QLatin1String("%b"), n.body);
+        arg.replace(QLatin1String("%c"), n.category);
+        arg.replace(QLatin1String("%u"), urgency);
+        arg.replace(QLatin1String("%i"), id);
+    }
+
+    auto *p = new QProcess;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("GLASSOSD_APP"), n.appName);
+    env.insert(QStringLiteral("GLASSOSD_SUMMARY"), n.summary);
+    env.insert(QStringLiteral("GLASSOSD_BODY"), n.body);
+    env.insert(QStringLiteral("GLASSOSD_CATEGORY"), n.category);
+    env.insert(QStringLiteral("GLASSOSD_URGENCY"), urgency);
+    env.insert(QStringLiteral("GLASSOSD_ID"), id);
+    env.insert(QStringLiteral("GLASSOSD_DESKTOP_ENTRY"), n.desktopEntry);
+    p->setProcessEnvironment(env);
+
+    /* Reaped rather than detached, so a command that never exits is visible as
+       a process we own instead of an orphan nobody is counting. */
+    QObject::connect(p, &QProcess::finished, p, &QObject::deleteLater);
+    QObject::connect(p, &QProcess::errorOccurred, p, [p, program](QProcess::ProcessError) {
+        qWarning("glassosd: rule run= failed: %s (%s)",
+                 qUtf8Printable(program), qUtf8Printable(p->errorString()));
+        p->deleteLater();
+    });
+    p->start(program, args);
 }
 
 uint NotificationServer::inhibit(const QString &desktopEntry, const QString &reason)

@@ -90,6 +90,10 @@ struct Notification {
     /* Set by a rule's sound= key; empty means category and urgency decide.
        "none" is a rule asking for silence, which is not the same as no rule. */
     QString sound;
+    /* Set by a rule's run= key: a command to run when this arrives. */
+    QString run;
+    /* Set by a rule's snooze= key: minutes to defer this on arrival. */
+    int snoozeMinutes = -1;
     bool skipDisplay = false;    // rule said: no popup, history only
     bool historyIgnore = false;  // rule said: do not even record it
 

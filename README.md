@@ -490,9 +490,56 @@ glassosdctl rule-set noisy   appname=Steam skip_display=true
 glassosdctl rules
 ```
 
-Rule keys: `appname`, `summary`, `body`, `category`, `desktop_entry`,
-`match_urgency`, `set_stack_tag`, `timeout`, `set_urgency`, `skip_display`,
-`history_ignore`, `always_collapsed`, `sound`.
+**Matchers:** `appname`, `summary`, `body`, `category`, `desktop_entry`,
+`match_urgency`, `focus`.
+
+**Actions:** `set_stack_tag`, `timeout`, `set_urgency`, `skip_display`,
+`history_ignore`, `always_collapsed`, `sound`, `run`, `snooze`.
+
+`skip_display` takes `true` or `false`, and setting it false is meaningful —
+it puts back something an earlier rule hid, which is how a focus mode's
+allow-list works.
+
+#### run= — do something when it arrives
+
+dunst and swaync both run a shell script on match, so this is table stakes.
+The difference is how the notification reaches it.
+
+```bash
+glassosdctl rule-set logmail appname=Thunderbird "run=/home/me/bin/log.sh %a %s"
+```
+
+Placeholders: `%a` app, `%s` summary, `%b` body, `%c` category, `%u` urgency,
+`%i` id. The same values are exported as `$GLASSOSD_APP`, `$GLASSOSD_SUMMARY`,
+`$GLASSOSD_BODY`, `$GLASSOSD_CATEGORY`, `$GLASSOSD_URGENCY`, `$GLASSOSD_ID`
+and `$GLASSOSD_DESKTOP_ENTRY`.
+
+**The command is not run through a shell.** It is split into arguments and
+executed directly, and placeholders are substituted after the split — so a
+summary reading `x; rm -rf ~` arrives as one argument, not as a command.
+Anyone can send you a notification; treating its text as shell input would be
+a hole.
+
+That means shell syntax — pipes, redirection, `&&` — does not work inline. If
+you need it, call a shell explicitly and read the **environment**, never a
+placeholder:
+
+```bash
+# safe: the value never passes through the parser
+run=sh -c 'echo "$GLASSOSD_SUMMARY" >> ~/notifications.log'
+
+# unsafe: %s is substituted into a string the shell then parses
+run=sh -c 'echo %s >> ~/notifications.log'
+```
+
+#### snooze= — defer it on arrival
+
+```bash
+glassosdctl rule-set standup appname=Calendar summary='Standup*' snooze=5
+```
+
+The notification is recorded in history immediately and shown 5 minutes later.
+It arrived; it is waiting, not lost.
 
 The same rules are what the notification centre's per-app settings panel
 writes — click the sliders icon on any group header. It offers four outcomes

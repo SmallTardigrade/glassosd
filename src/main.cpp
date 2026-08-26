@@ -251,6 +251,14 @@ int main(int argc, char *argv[])
                                  .readEntry("SnoozeMinutes", 10);
                          snoozes->snooze(n, minutes);
                      });
+    QObject::connect(server, &NotificationServer::snoozeOnArrival,
+                     snoozes, [snoozes](const Notification &n, int minutes) {
+                         /* The stored copy must not defer itself again when it
+                            comes back, or it would never arrive. */
+                         Notification once = n;
+                         once.snoozeMinutes = -1;
+                         snoozes->snooze(once, minutes);
+                     });
     QObject::connect(snoozes, &SnoozeStore::woke,
                      notifications, [notifications](const Notification &n) {
                          notifications->insert(n);
