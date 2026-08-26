@@ -122,7 +122,7 @@ QtObject {
        it is closest to horizontal, so the end spreads further sideways and
        reads flatter — which is what a card seen edge-on should look like. */
     readonly property int stackRadius: Math.round(tnum("stack.radius", cardRadius))
-    readonly property real stackFalloff: Math.max(0.2, Math.min(1.0, tnum("stack.falloff", 0.6)))
+    readonly property real stackFalloff: Math.max(0.2, Math.min(1.0, tnum("stack.falloff", 0.78)))
 
     /* How far sheet i's bottom edge sits below the card's, with the taper
        applied. Reads stackOffset and stackFalloff, so a theme reload
