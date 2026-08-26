@@ -5,6 +5,7 @@
 */
 #include "soundplayer.h"
 
+#include <QDir>
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
@@ -29,9 +30,27 @@ void SoundPlayer::play(const QString &name)
         return;
     }
 
+    /* A path rather than a name. Themes are the better answer — they follow
+       whatever the user has chosen and inherit sensibly — but somebody with a
+       single .ogg they like should not have to build a theme around it. */
+    QString file;
+    if (name.startsWith(QLatin1Char('/'))) {
+        file = name;
+    } else if (name.startsWith(QLatin1String("~/"))) {
+        file = QDir::homePath() + name.mid(1);
+    }
+
     const QString canberra =
         QStandardPaths::findExecutable(QStringLiteral("canberra-gtk-play"));
     if (!canberra.isEmpty()) {
+        if (!file.isEmpty()) {
+            if (!QFileInfo::exists(file)) {
+                qWarning("glassosd: sound file not found: %s", qUtf8Printable(file));
+                return;
+            }
+            QProcess::startDetached(canberra, {QStringLiteral("-f"), file});
+            return;
+        }
         /* -i takes a theme name and resolves it through the user's theme and
            its inheritance chain, which is the whole reason to go through
            canberra rather than play a file. */
@@ -39,11 +58,13 @@ void SoundPlayer::play(const QString &name)
         return;
     }
 
-    /* No canberra: play the freedesktop file directly. Loses theming — this
-       will not honour a user's chosen sound theme — but a daemon that makes
-       the standard sound is better than one that makes none. */
-    const QString file =
-        QStringLiteral("/usr/share/sounds/freedesktop/stereo/%1.oga").arg(name);
+    /* No canberra: play the file, or the freedesktop copy of the name. Loses
+       theming — this will not honour a user's chosen sound theme — but a
+       daemon that makes the standard sound is better than one that makes
+       none. */
+    if (file.isEmpty()) {
+        file = QStringLiteral("/usr/share/sounds/freedesktop/stereo/%1.oga").arg(name);
+    }
     if (!QFileInfo::exists(file)) {
         return;
     }

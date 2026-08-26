@@ -345,12 +345,45 @@ matters:
 Only categories with a matching name in the sound naming spec are mapped; the
 rest fall through to urgency rather than inventing a name no theme ships.
 
-Per-rule override, which is the part a shell script was needed for before:
+#### Seeing what you have
+
+```bash
+glassosdctl sounds
+```
+
+Lists every name your installed themes provide, and which theme is in use.
+Worth checking before writing a rule: the themes are not interchangeable.
+Freedesktop ships 35 names; KDE's **ocean** adds about 30 more of its own —
+`message-new-email`, `battery-low`, `desktop-login` — so a rule naming one of
+those is silent unless ocean is your theme or inherits into it.
+
+#### Per-rule override
+
+This is the part a shell script was needed for before:
 
 ```bash
 glassosdctl rule-set mail  appname=Thunderbird sound=message-new-email
 glassosdctl rule-set noisy appname=Steam       sound=none
+glassosdctl rule-set ping  appname=Signal      sound=/home/me/sounds/ping.ogg
 ```
+
+`sound=none` silences one app without silencing the rest.
+
+#### Custom sounds
+
+Two ways, and the first is better:
+
+**As part of a theme** — drop the file at
+`~/.local/share/sounds/<theme>/stereo/<name>.oga` and use it as `sound=<name>`.
+It then follows theme switching and inheritance like any other name, and one
+name can have different files per theme.
+
+**As a path** — `sound=/path/to/ding.ogg` in a rule. No theming, but nothing
+to set up either. `~/` is expanded. A path that does not exist is reported in
+the journal rather than failing silently.
+
+Any format your audio stack can play works; `.oga`, `.ogg` and `.wav` are what
+themes conventionally use.
 
 Sounds follow the popup: a muted app, Do Not Disturb and an inhibition each
 silence the sound along with the card, because a notification nobody is shown

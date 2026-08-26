@@ -118,6 +118,8 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  sounds                 List every sound name your themes provide, and where
+                         to put your own
   sound [on|off]         Notification sounds, by freedesktop sound-theme name
                          (on by default). Per-rule override: sound=NAME, or
                          sound=none to silence one app.
@@ -459,6 +461,27 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  sounds)
+    # An unset key reads as empty with exit 0, so the fallback has to test the
+    # value rather than the status — the same trap cfg_or exists for.
+    theme=$(kreadconfig6 --file kdeglobals --group Sounds --key Theme 2>/dev/null)
+    echo "sound theme in use: ${theme:-freedesktop (default)}"
+    echo
+    echo "names your themes provide (any of these works as sound=NAME):"
+    for d in "${XDG_DATA_HOME:-$HOME/.local/share}/sounds" /usr/share/sounds; do
+      [ -d "$d" ] || continue
+      for t in "$d"/*/; do
+        [ -d "$t" ] || continue
+        names=$(find "$t" \( -name '*.oga' -o -name '*.ogg' -o -name '*.wav' \) -printf '%f\n' 2>/dev/null \
+                | sed 's/\.\(oga\|ogg\|wav\)$//' | sort -u)
+        [ -n "$names" ] || continue
+        printf '\n  [%s]\n' "$(basename "$t")"
+        echo "$names" | tr '\n' ' ' | fold -s -w 74 | sed 's/^/    /'
+      done
+    done
+    echo
+    echo "custom: put a file at ~/.local/share/sounds/<theme>/stereo/<name>.oga"
+    echo "        or point a rule straight at one: sound=/path/to/ding.ogg" ;;
   sound)
     case "${1:-}" in
       "")      echo "sound: $(cfg_or Sounds Enabled true)  (osd: $(cfg_or Sounds Osd false))" ;;
