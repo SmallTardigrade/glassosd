@@ -76,7 +76,12 @@ public:
        inhibition. Popups are suppressed while either is on. */
     bool inhibited() const { return m_inhibited; }
     void setInhibited(bool inhibited);
-    bool quiet() const { return m_dnd || m_inhibited; }
+    /* Something is holding the screen awake — a video, a game, a
+       presentation. A third reason, kept apart from the other two so that
+       turning any one of them off does not cancel the others. */
+    bool busyQuiet() const { return m_busyQuiet; }
+    void setBusyQuiet(bool on);
+    bool quiet() const { return m_dnd || m_inhibited || m_busyQuiet; }
 
     /* Clamped at 0 (dunst's "unlimited"). A negative limit is an easy typo
        in a config file and would make effectiveLimit() negative, so update()
@@ -189,6 +194,7 @@ private:
     bool m_indicateHidden = true;
     bool m_dnd = false;
     bool m_inhibited = false;
+    bool m_busyQuiet = false;
     int m_lastHiddenCount = 0;
 
     int m_idleThresholdMs = 0;

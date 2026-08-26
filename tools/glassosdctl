@@ -118,6 +118,11 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  quiet-while-busy [on|off]
+                         Stay quiet while an application is holding the
+                         screen awake — video, games, presentations. Off by
+                         default. Not literal fullscreen: a Wayland client
+                         cannot see that.
   focus [name|off]       Switch focus mode. A mode is a bundle of rules and
                          an allow/block list, on or off as a unit.
   focus-set <name> [allow=A,B] [block=C,D]
@@ -468,6 +473,13 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  quiet-while-busy)
+    case "${1:-}" in
+      "")        echo "quiet-while-busy: $(cfg_or Notifications QuietWhileBusy false)" ;;
+      on|true)   cfg_write Notifications QuietWhileBusy true;  echo "quiet-while-busy = on" ;;
+      off|false) cfg_write Notifications QuietWhileBusy false; echo "quiet-while-busy = off" ;;
+      *) echo "quiet-while-busy takes 'on' or 'off'" >&2; exit 1 ;;
+    esac ;;
   focus)
     cur=$(cfg_or Notifications Focus "")
     case "${1:-}" in

@@ -703,6 +703,16 @@ void NotificationModel::setInhibited(bool inhibited)
     update();
 }
 
+void NotificationModel::setBusyQuiet(bool on)
+{
+    if (m_busyQuiet == on) {
+        return;
+    }
+    m_busyQuiet = on;
+    /* Whatever was held back is released as soon as it lifts. */
+    update();
+}
+
 void NotificationModel::setDoNotDisturb(bool dnd)
 {
     if (m_dnd == dnd) {

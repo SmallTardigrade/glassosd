@@ -17,6 +17,7 @@
 #include "notificationserver.h"
 #include "snoozestore.h"
 #include "soundplayer.h"
+#include "busywatcher.h"
 #include "notifyimageprovider.h"
 #include "fnlockwatcher.h"
 #include "iconprovider.h"
@@ -243,6 +244,15 @@ int main(int argc, char *argv[])
                          sounds->playOsd(name);
                      });
 
+    /* Quiet while something holds the screen awake. Not fullscreen — that is
+       not visible to a Wayland client — but the signal applications actually
+       send when the user is watching something; see busywatcher.h. */
+    auto *busy = new BusyWatcher(&app);
+    busy->setEnabled(KConfigGroup(cfg, QStringLiteral("Notifications"))
+                         .readEntry("QuietWhileBusy", false));
+    QObject::connect(busy, &BusyWatcher::changed, notifications,
+                     [notifications](bool quiet) { notifications->setBusyQuiet(quiet); });
+
     auto *snoozes = new SnoozeStore(&app);
     QObject::connect(notifications, &NotificationModel::snoozeRequested,
                      snoozes, [snoozes, cfg](const Notification &n) {
@@ -308,6 +318,8 @@ int main(int argc, char *argv[])
                          theme->reload();
                          server->loadRules(cfg);
                          history->reloadRules();
+                         busy->setEnabled(KConfigGroup(cfg, QStringLiteral("Notifications"))
+                                              .readEntry("QuietWhileBusy", false));
                      });
     if (modules->notifications() && notifyCfg.readEntry("Enabled", true)) {
         server->start();
