@@ -262,6 +262,11 @@ QtObject {
        flat value and the whole UI sat on a single plane. */
     readonly property color controlFill: tcolor("control.fill", dark ? Qt.rgba(1,1,1,0.13) : Qt.rgba(0,0,0,0.06))
     readonly property color controlFillHover: tcolor("control.fillHover", dark ? Qt.rgba(1,1,1,0.22) : Qt.rgba(0,0,0,0.12))
+    /* Pressed. Controls had a hover colour and nothing for the click itself,
+       so a button that triggers something slow — a crash reporter starting,
+       say — gave no sign it had been pressed at all. */
+    readonly property color controlFillActive: tcolor("control.fillActive",
+                                                      dark ? Qt.rgba(1,1,1,0.30) : Qt.rgba(0,0,0,0.18))
     readonly property color controlEdge: tcolor("control.edge", dark ? Qt.rgba(1,1,1,0.14) : Qt.rgba(0,0,0,0.10))
 
     readonly property color chipIdle: tcolor("chip.idle", dark ? Qt.rgba(1,1,1,0.07) : Qt.rgba(0,0,0,0.06))

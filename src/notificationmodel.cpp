@@ -5,6 +5,8 @@
 */
 #include "notificationmodel.h"
 
+#include <memory>
+
 #include <QDateTime>
 
 #include <KIdleTime>
@@ -477,6 +479,13 @@ void NotificationModel::sendReply(uint id, const QString &text)
     closeId(id, CloseReason::Dismissed);
 }
 
+namespace
+{
+/* Long enough that the token normally arrives first, short enough that a
+   compositor which never answers cannot make a button feel broken. */
+constexpr int kActivationTokenWaitMs = 200;
+} // namespace
+
 void NotificationModel::activate(QQuickWindow *window, uint id, const QString &key)
 {
     const int row = indexOfDisplayed(id);
@@ -488,14 +497,29 @@ void NotificationModel::activate(QQuickWindow *window, uint id, const QString &k
     }
 
     /* Ask the compositor for a token tied to this click, then hand it to the
-       sender just before the action itself so it can raise its window. */
-    auto future = KWaylandExtras::xdgActivationToken(window, 0, appId);
-    future.then(this, [this, id, key](const QString &token) {
+       sender just before the action itself so it can raise its window.
+
+       Bounded, because the action used to wait on that round trip with nothing
+       to stop it taking as long as it liked. The token is a courtesy — it lets
+       the sender raise a window without tripping focus stealing prevention —
+       and it is not worth making someone wait to find out whether their click
+       did anything. If it has not arrived by the deadline the action goes
+       without it, and a late token is dropped rather than invoking twice. */
+    auto fired = std::make_shared<bool>(false);
+    auto fire = [this, id, key, fired](const QString &token) {
+        if (*fired) {
+            return;
+        }
+        *fired = true;
         if (!token.isEmpty()) {
             Q_EMIT activationToken(id, token);
         }
         invokeAction(id, key);
-    });
+    };
+
+    auto future = KWaylandExtras::xdgActivationToken(window, 0, appId);
+    future.then(this, [fire](const QString &token) { fire(token); });
+    QTimer::singleShot(kActivationTokenWaitMs, this, [fire] { fire(QString()); });
 }
 
 void NotificationModel::invokeAction(uint id, const QString &key)

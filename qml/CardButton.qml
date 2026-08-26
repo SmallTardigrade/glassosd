@@ -16,7 +16,13 @@ Rectangle {
     implicitWidth: 24
     implicitHeight: 24
     radius: width / 2
-    color: hover.containsMouse ? Style.controlFillHover : Style.controlFill
+    color: hover.pressed ? Style.controlFillActive
+         : hover.containsMouse ? Style.controlFillHover
+                               : Style.controlFill
+    /* Takes the press on the way down, so the acknowledgement is immediate
+       rather than arriving with whatever the action goes on to do. */
+    scale: hover.pressed ? 0.90 : 1.0
+    Behavior on scale { NumberAnimation { duration: 70; easing.type: Easing.OutCubic } }
     border.color: Style.controlEdge
     border.width: 1
     Behavior on color { ColorAnimation { duration: 100 } }

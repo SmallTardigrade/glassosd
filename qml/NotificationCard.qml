@@ -491,7 +491,8 @@ Item {
                         required property int index
                         Layout.fillWidth: true
                         Layout.preferredHeight: 30
-                        color: actHover.containsMouse ? Style.controlFillHover
+                        color: actHover.pressed ? Style.controlFillActive
+                             : actHover.containsMouse ? Style.controlFillHover
                                                       : Style.controlFill
                         Behavior on color { ColorAnimation { duration: 100 } }
 
