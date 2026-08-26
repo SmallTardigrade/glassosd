@@ -180,10 +180,6 @@ Item {
                    than as a rounded card. Capping it lets the corner finish
                    inside the strip. */
                 radius: Math.min(Style.cardRadius, Style.stackOffset)
-                /* Same rule between one sheet and the next: only the last of
-                   them is an outside edge. */
-                bottomLeftRadius: index === root.stackDepth - 1 ? radius : 0
-                bottomRightRadius: index === root.stackDepth - 1 ? radius : 0
                 color: Style.cardStackEdge
                 antialiasing: true
 
@@ -206,9 +202,6 @@ Item {
         id: card
         width: parent.width
         radius: Style.cardRadius
-        /* Sheets meet the card's bottom edge; a rounded corner there would
-           leave a wedge of backdrop between the two. */
-        flatBottom: root.stackDepth > 0
         surfaceColor: Style.cardBackground
         /* Cards are glass too. At the default 0.975 alpha the backdrop effect
            is imperceptible, but a theme that lowers card.background needs the
@@ -223,6 +216,14 @@ Item {
            grey", and it only shows over a bright backdrop, where a 55% black
            overlay has something to darken. */
         shadow: root.stackDepth === 0
+        /* Every card in the stack keeps its own rounded corners. Squaring off
+           the ones that meet something below closed the small wedge of
+           backdrop between them, but at the price of a card with square
+           bottom corners sitting above a sheet with square ones sitting above
+           a sheet with round ones — three different shapes down one edge. The
+           wedge is what a stack of rounded cards actually looks like; the
+           mismatched shapes were something else entirely. */
+        flatBottom: false
         implicitHeight: body.implicitHeight + Style.padding * 2
 
         Component.onCompleted: refreshBlur()
