@@ -26,6 +26,7 @@
 #include "osdmonitor.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QDBusConnection>
@@ -88,6 +89,37 @@ int main(int argc, char *argv[])
 
        Checked before QApplication is constructed, because the abort happens
        inside its constructor. */
+    /* WAYLAND_DISPLAY is put into the systemd user environment by the session
+       as it starts, and a unit ordered After=graphical-session.target can
+       still be launched before that import has landed. When it is, the guard
+       below fires, the daemon exits 0, RestartPreventExitStatus=0 means
+       systemd never tries again, and the session runs without a notification
+       daemon until the next login — which is how another daemon's D-Bus
+       activation file gets to claim org.freedesktop.Notifications instead.
+       Observed on a cold boot: started at 10:52:51, gone by :52, dunst up
+       at :59.
+
+       The compositor's socket is the fact on the ground, so use that rather
+       than trusting the variable to have arrived. */
+    if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
+        const QString runtimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR");
+        if (!runtimeDir.isEmpty()) {
+            const QStringList sockets =
+                QDir(runtimeDir).entryList({QStringLiteral("wayland-*")},
+                                           QDir::System | QDir::NoDotAndDotDot);
+            for (const QString &name : sockets) {
+                /* The compositor keeps a wayland-N.lock beside the socket. */
+                if (name.endsWith(QLatin1String(".lock"))) {
+                    continue;
+                }
+                qputenv("WAYLAND_DISPLAY", name.toLocal8Bit());
+                qWarning("glassosd: WAYLAND_DISPLAY was not set; using %s found in "
+                         "XDG_RUNTIME_DIR", qUtf8Printable(name));
+                break;
+            }
+        }
+    }
+
     if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY") && qEnvironmentVariableIsEmpty("DISPLAY")) {
         fprintf(stderr, "glassosd: no WAYLAND_DISPLAY or DISPLAY — not starting\n");
         return 0;

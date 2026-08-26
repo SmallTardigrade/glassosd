@@ -88,11 +88,49 @@ if [ -n "$owner" ] && [ "$owner" != "glassosd" ]; then
       fi
     fi
   done
+
 elif [ "$owner" = "glassosd" ]; then
   ok "glassosd already owns org.freedesktop.Notifications"
 else
   skip "nothing currently owns the notification name"
 fi
+
+# A systemd unit is only one of the two ways these start. The other is an
+# XDG autostart entry, which systemd-xdg-autostart-generator turns into
+# app-<name>.desktop@autostart.service at login — invisible to the loop
+# above, because there is no unit of that name to ask about. Miss it and the
+# daemon comes back on the next boot, wins the race for the notification
+# name, and glassosd looks like it simply stopped working.
+#
+# Hidden=true in a user-level copy is the XDG-defined way to switch one off,
+# and it masks a system-wide entry of the same name too. Renaming the file is
+# not: the generator picked up a "dunst.desktop.disabled-by-glassosd" and
+# started it regardless.
+for app in dunst swaync mako; do
+  user_entry="$HOME/.config/autostart/$app.desktop"
+  sys_entry="/etc/xdg/autostart/$app.desktop"
+  [ -f "$user_entry" ] || [ -f "$sys_entry" ] || continue
+  if [ -f "$user_entry" ] && grep -qi '^Hidden=true' "$user_entry"; then
+    ok "$app autostart already disabled"
+    continue
+  fi
+  warn "$app has an XDG autostart entry, so it starts at login"
+  if ask "Disable the $app autostart entry?"; then
+    mkdir -p "$HOME/.config/autostart"
+    if [ -f "$user_entry" ]; then
+      # Drop any existing switch first so we cannot end up with both.
+      sed -i '/^Hidden=/d; /^X-GNOME-Autostart-enabled=/d' "$user_entry"
+    else
+      printf '[Desktop Entry]\nType=Application\nName=%s\n' "$app" > "$user_entry"
+    fi
+    printf 'Hidden=true\nX-GNOME-Autostart-enabled=false\n' >> "$user_entry"
+    ok "$app autostart disabled ($user_entry)"
+    # It may already be running from this login.
+    systemctl --user stop "app-$app.desktop@autostart.service" 2>/dev/null || true
+  else
+    skip "left $app autostart enabled"
+  fi
+done
 echo
 
 # ------------------------------------------------- 2. the portal problem ----
