@@ -105,15 +105,51 @@ QVariant ButtonsModel::data(const QModelIndex &index, int role) const
     case TooltipRole:
         return b.tooltip;
     case ToggleRole:
-        return b.action == QLatin1String("toggle-dnd");
+        return b.action == QLatin1String("toggle-dnd")
+            || b.action == QLatin1String("toggle-wifi")
+            || b.action == QLatin1String("toggle-bluetooth");
     case ActiveRole:
         if (b.action == QLatin1String("toggle-dnd") && m_notifications) {
             return m_notifications->doNotDisturb();
+        }
+        if (b.action == QLatin1String("toggle-wifi")) {
+            return wifiOn();
+        }
+        if (b.action == QLatin1String("toggle-bluetooth")) {
+            return bluetoothOn();
         }
         return false;
     default:
         return {};
     }
+}
+
+QString ButtonsModel::readProcess(const QString &program, const QStringList &args)
+{
+    QProcess p;
+    p.start(program, args);
+    /* Bounded: a radio query that hangs must not hang the panel with it. */
+    if (!p.waitForFinished(400)) {
+        p.kill();
+        return {};
+    }
+    return QString::fromUtf8(p.readAllStandardOutput()).trimmed();
+}
+
+bool ButtonsModel::wifiOn()
+{
+    return readProcess(QStringLiteral("nmcli"),
+                       {QStringLiteral("radio"), QStringLiteral("wifi")})
+        == QLatin1String("enabled");
+}
+
+bool ButtonsModel::bluetoothOn()
+{
+    /* "Soft blocked: no" is the state that matters — hard blocks are a
+       physical switch and nothing we can toggle back. */
+    const QString out = readProcess(QStringLiteral("rfkill"),
+                                    {QStringLiteral("list"), QStringLiteral("bluetooth")});
+    return !out.isEmpty() && !out.contains(QLatin1String("Soft blocked: yes"));
 }
 
 void ButtonsModel::runCommand(const QString &command) const
@@ -139,6 +175,18 @@ void ButtonsModel::activate(int row)
             if (m_notifications) {
                 m_notifications->setDoNotDisturb(!m_notifications->doNotDisturb());
             }
+        } else if (b.action == QLatin1String("toggle-wifi")) {
+            runCommand(wifiOn() ? QStringLiteral("nmcli radio wifi off")
+                                : QStringLiteral("nmcli radio wifi on"));
+        } else if (b.action == QLatin1String("toggle-bluetooth")) {
+            /* rfkill rather than bluetoothctl: it does not need the adapter to
+               be powered to unblock it, and it is what actually gates the
+               radio. bluetoothctl power on afterwards for the case where the
+               adapter is unblocked but off. */
+            runCommand(bluetoothOn()
+                ? QStringLiteral("rfkill block bluetooth")
+                : QStringLiteral("rfkill unblock bluetooth && "
+                                 "bluetoothctl power on >/dev/null 2>&1 || true"));
         } else if (b.action == QLatin1String("clear-all")) {
             if (m_history) {
                 m_history->clearAll();

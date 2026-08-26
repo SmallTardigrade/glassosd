@@ -22,8 +22,9 @@
         Action=toggle-dnd          # built-in, needs no external program
         Order=2
 
-    `Action` is one of the built-ins (toggle-dnd, clear-all, lock, reboot,
-    poweroff); `Command` runs an arbitrary program. A button naming both
+    `Action` is one of the built-ins (toggle-dnd, toggle-wifi, toggle-bluetooth,
+    clear-all, lock, reboot, poweroff, logout); `Command` runs an arbitrary
+    program. A button naming both
     prefers the built-in, because a built-in cannot be mis-typed into something
     that silently does nothing.
 */
@@ -86,6 +87,13 @@ Q_SIGNALS:
 
 private:
     void runCommand(const QString &command) const;
+    /* Read straight off nmcli/rfkill each time the grid asks. Cheap enough —
+       the panel is closed almost always, and a cached value would be wrong
+       whenever the state changed anywhere else, which for a radio is most of
+       the time. */
+    static bool wifiOn();
+    static bool bluetoothOn();
+    static QString readProcess(const QString &program, const QStringList &args);
 
     KSharedConfig::Ptr m_config;
     std::vector<QuickButton> m_buttons;

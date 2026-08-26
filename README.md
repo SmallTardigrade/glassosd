@@ -525,7 +525,7 @@ existing rule groups:
 [Button wifi]
 Icon=wifi
 Tooltip=Network
-Command=kitty -e nmtui
+Action=toggle-wifi
 Order=0
 
 [Button dnd]
@@ -535,11 +535,25 @@ Action=toggle-dnd
 Order=2
 ```
 
-`Command` runs any shell command. `Action` is one of the built-ins, which
-need no external program and — in the case of `toggle-dnd` — render as a
-toggle that reflects live state:
+`Command` runs any shell command. `Action` is one of the built-ins, which need
+no external program:
 
-`toggle-dnd`, `clear-all`, `lock`, `reboot`, `poweroff`, `logout`
+| Action | |
+|---|---|
+| `toggle-dnd` | Do Not Disturb on/off |
+| `toggle-wifi` | Wi-Fi radio on/off, via `nmcli` |
+| `toggle-bluetooth` | Bluetooth radio on/off, via `rfkill` |
+| `clear-all` | clear the notification history |
+| `lock` | lock the session |
+| `reboot` / `poweroff` / `logout` | |
+
+The three `toggle-` actions render as toggles that show live state rather than
+as plain buttons — the radios are read from `nmcli` and `rfkill` each time the
+grid is drawn, so they stay right when something else changes them.
+
+Prefer these to a `Command` that opens a settings page. A quick action should
+*do* the thing: `plasma-open-settings kcm_networkmanagement` starts the whole
+System Settings shell, which takes seconds, where `toggle-wifi` is immediate.
 
 Bundled icon names: `wifi`, `bluetooth`, `dnd`, `settings`, `lock`, `power`,
 `reboot`, `media`, `brightness`, `volume-high`, `volume-muted`, `mic-on`,
