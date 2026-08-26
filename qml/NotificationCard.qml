@@ -82,11 +82,37 @@ Item {
         model: root.stackDepth
         delegate: Item {
             required property int index
-            z: -1 - index
+            /* Above the card, not behind it.
+
+               This is why every fill colour tried for these sheets came out
+               black. The card draws its drop shadow as part of itself at z 0 —
+               opacity 0.55, blur 50, offset 9px straight down in this theme —
+               and the sheets peek out 9 and 18px below the card, which is
+               precisely the darkest part of that shadow. Sitting behind it,
+               they were being viewed through a half-black overlay, so opaque,
+               translucent and lightened all looked like the same black band.
+
+               They cannot cover the card by being in front of it: each is
+               clipped to a strip that starts at the card's bottom edge. All
+               they cover is the shadow directly beneath the card, which is
+               what a sheet sitting there would cover in reality. The shadow
+               still falls past the last sheet, so the stack as a whole keeps
+               one. Index order is preserved: 0 is nearest the front. */
+            z: root.stackDepth - index
             anchors.horizontalCenter: parent.horizontalCenter
             width: card.width - (index + 1) * Style.stackInset * 2
-            y: card.height
-            height: (index + 1) * Style.stackOffset
+            /* Each sheet gets its own band, starting where the one in front
+               of it stops — not from the card's bottom edge every time.
+
+               Overlapping them is what turned the nearest sheet black. Two
+               translucent layers compose: 0.78 over 0.78 is an effective 0.95,
+               so the strip where sheet 0 lay over sheet 1 was very nearly
+               opaque while the strip where only sheet 1 showed was not.
+               Measured over a white page: card 79, sheet 1 at 62, sheet 0 at
+               29 — and 0.95*18 + 0.05*218 predicts 27.7, which is the whole
+               explanation. The fill colour was never the problem. */
+            y: card.height + index * Style.stackOffset
+            height: Style.stackOffset
             clip: true
 
             /* The region has to describe the *painted* rectangle, not the clip
