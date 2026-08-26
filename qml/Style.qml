@@ -114,6 +114,14 @@ QtObject {
        the back of the stack as prominent as the front, which reads as a thick
        ledge; tapering it reads as depth, and is what foreshortening would do
        anyway. 1.0 restores the uniform step. */
+    /* Corner radius for the sheets. Defaults to the card's, so the stack is
+       cards of one kind rather than a card with lozenges behind it.
+
+       It was capped to the peek, which made a 9px sliver end in a tight
+       quarter circle. A larger radius shows only the bottom of the arc, where
+       it is closest to horizontal, so the end spreads further sideways and
+       reads flatter — which is what a card seen edge-on should look like. */
+    readonly property int stackRadius: Math.round(tnum("stack.radius", cardRadius))
     readonly property real stackFalloff: Math.max(0.2, Math.min(1.0, tnum("stack.falloff", 0.6)))
 
     /* How far sheet i's bottom edge sits below the card's, with the taper

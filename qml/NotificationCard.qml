@@ -109,10 +109,7 @@ Item {
             width: card.width - (index + 1) * Style.stackInset * 2
             y: Style.stackDrop(index)
             height: card.height
-            /* Capped to what peeks out: at a radius larger than the offset the
-               sliver shows only part of the curve and the edge sweeps inward
-               like a chamfer instead of turning like a corner. */
-            radius: Math.min(Style.cardRadius, Style.stackOffset)
+            radius: Style.stackRadius
             color: root.stacked ? Style.opaque(Style.cardStackEdge) : Style.cardStackEdge
             /* The same lit edge the card carries. Without it the sheets had a
                fill and nothing else, so where one ended and the next began
