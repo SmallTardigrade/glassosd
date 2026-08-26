@@ -56,6 +56,12 @@ void Controller::ShowHistory()
     m_history->setPanelOpen(true);
 }
 
+void Controller::Search(const QString &text)
+{
+    m_history->setSearch(text);
+    m_history->setPanelOpen(true);
+}
+
 void Controller::HideHistory()
 {
     m_history->setPanelOpen(false);

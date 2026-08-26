@@ -311,6 +311,31 @@ glassosdctl restart                    # modules are read at startup
 | `osd` | volume, brightness, media OSD |
 | `lockkeys` | caps, num and Fn lock OSDs |
 
+### History search
+
+swaync offers no way to search its history at all. With a 200-entry default
+that is a real gap — the backlog is where a notification goes to be found
+later, and scrolling is not finding.
+
+The `search` widget filters as you type, matching **app name, summary and
+body**, case-insensitively. Escape clears it; Escape again closes the centre.
+
+It is a widget like any other, so it can be moved or left out:
+
+```bash
+glassosdctl widgets "title,mpris,volume,dnd,search,notifications,backlight,buttons-grid"
+```
+
+Searching is a whole-history question, so typing while drilled into one app
+clears that filter rather than searching only that app while appearing to
+search everything.
+
+Scriptable too, which is also how a launcher or a shortcut can reach it:
+
+```bash
+glassosdctl search "invoice"
+```
+
 ### Sounds
 
 swaync's answer to notification sounds is a shell script that calls `play`.
@@ -630,7 +655,7 @@ The control centre's contents are a list, using swaync's widget names so a
 config you are migrating reads the same way.
 
 ```bash
-glassosdctl widgets "title,mpris,volume,dnd,notifications,backlight,buttons-grid"
+glassosdctl widgets "title,mpris,volume,dnd,search,notifications,backlight,buttons-grid"
 glassosdctl widgets              # show the current list
 glassosdctl widgets default      # back to the built-in order
 ```
@@ -641,6 +666,7 @@ glassosdctl widgets default      # back to the built-in order
 | `mpris` | media player: art, title, artist, transport controls |
 | `volume` | volume slider, click the icon to mute |
 | `dnd` | Do Not Disturb toggle row |
+| `search` | filter the history as you type |
 | `notifications` | the grouped list, its empty state, and the per-app settings panel |
 | `backlight` | brightness slider (needs `brightnessctl`) |
 | `buttons-grid` | the quick-action grid |

@@ -161,8 +161,8 @@ void Appearance::reload()
     static const QStringList canonical{
         QStringLiteral("title"),   QStringLiteral("mpris"),
         QStringLiteral("volume"),  QStringLiteral("dnd"),
-        QStringLiteral("notifications"), QStringLiteral("backlight"),
-        QStringLiteral("buttons-grid"),
+        QStringLiteral("search"),  QStringLiteral("notifications"),
+        QStringLiteral("backlight"), QStringLiteral("buttons-grid"),
     };
 
     QStringList wanted = g.readEntry("Widgets", canonical);

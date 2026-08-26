@@ -224,6 +224,35 @@ ImageData HistoryModel::imageFor(uint id) const
     return {};
 }
 
+bool HistoryModel::matchesSearch(const Notification &n) const
+{
+    if (m_search.isEmpty()) {
+        return true;
+    }
+    /* App, summary and body — the three things somebody actually remembers
+       about a notification they are trying to find again. Case-insensitive
+       because nobody recalls the capitalisation of a subject line. */
+    return n.appName.contains(m_search, Qt::CaseInsensitive)
+        || n.summary.contains(m_search, Qt::CaseInsensitive)
+        || n.body.contains(m_search, Qt::CaseInsensitive);
+}
+
+void HistoryModel::setSearch(const QString &text)
+{
+    const QString trimmed = text.trimmed();
+    if (m_search == trimmed) {
+        return;
+    }
+    m_search = trimmed;
+    /* Searching is a whole-history question, so drilling into one app and then
+       typing would otherwise search only that app while looking like it
+       searched everything. */
+    if (!m_search.isEmpty()) {
+        m_filter.clear();
+    }
+    rebuild();
+}
+
 void HistoryModel::setGroupFilter(const QString &key)
 {
     if (m_filter == key) {
@@ -271,6 +300,7 @@ void HistoryModel::setPanelOpen(bool open)
            whichever app was drilled into last time, and not still showing a
            settings panel opened three drill-ins ago. */
         setGroupFilter({});
+        m_search.clear();
         m_appSettingsVisible = false;
 
         /* "Always collapsed" has to mean every time the panel opens, not just
@@ -321,10 +351,15 @@ void HistoryModel::rebuild()
        belongs to. */
     QStringList order;
     QHash<QString, QList<Notification>> byGroup;
+    m_matchCount = 0;
     for (const Notification &n : std::as_const(m_all)) {
         if (!m_filter.isEmpty() && n.groupKey() != m_filter) {
             continue;
         }
+        if (!matchesSearch(n)) {
+            continue;
+        }
+        ++m_matchCount;
         const QString key = n.groupKey();
         if (!byGroup.contains(key)) {
             order.append(key);

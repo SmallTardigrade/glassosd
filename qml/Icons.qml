@@ -35,6 +35,7 @@ QtObject {
         "dnd":                 "icons/dnd.svg",
         "close":               "icons/close.svg",
         "snooze":              "icons/snooze.svg",
+        "search":              "icons/search.svg",
         "settings":            "icons/settings.svg",
         "media-play":          "icons/media-play.svg",
         "media-pause":         "icons/media-pause.svg",

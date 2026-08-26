@@ -34,6 +34,14 @@ class HistoryModel : public QAbstractListModel
     Q_PROPERTY(int unread READ unread NOTIFY changed)
     /* Set to a group key to show only that app's entries — this is what the
        "+N more from <App>" line opens into. Empty shows everything. */
+    /* Filter-as-you-type over app name, summary and body. swaync offers no
+       way to search its history at all, and with a 200-entry default that is a
+       real gap — the backlog is where a notification goes to be found later,
+       and scrolling is not finding. */
+    Q_PROPERTY(QString search READ search WRITE setSearch NOTIFY changed)
+    /* How many entries match, so the UI can say "nothing found" without
+       counting rows itself — a collapsed group is one row and many entries. */
+    Q_PROPERTY(int matchCount READ matchCount NOTIFY changed)
     Q_PROPERTY(QString groupFilter READ groupFilter WRITE setGroupFilter NOTIFY changed)
     Q_PROPERTY(QString groupFilterLabel READ groupFilterLabel NOTIFY changed)
     /* Whether the drill-in should also show the per-app settings panel. */
@@ -85,6 +93,9 @@ public:
     bool newestFirst() const { return m_newestFirst; }
     QString groupFilter() const { return m_filter; }
     QString groupFilterLabel() const { return m_filterLabel; }
+    QString search() const { return m_search; }
+    void setSearch(const QString &text);
+    int matchCount() const { return m_matchCount; }
     void setGroupFilter(const QString &key);
 
     void record(const Notification &n);
@@ -153,6 +164,9 @@ private:
     };
     QList<Row> m_rows;
     QString m_filter;
+    QString m_search;
+    int m_matchCount = 0;
+    bool matchesSearch(const Notification &n) const;
     QString m_filterLabel;
     int m_capacity = 200;
     QString storePath() const;

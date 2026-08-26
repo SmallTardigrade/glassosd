@@ -41,6 +41,10 @@ public Q_SLOTS:
 
     void ToggleHistory();
     void ShowHistory();
+    /* Open the centre with a search already applied. Scriptable, and the only
+       way to drive the search field from outside — which also makes it
+       testable without synthesising key presses. */
+    void Search(const QString &text);
     void HideHistory();
 
     bool ToggleDoNotDisturb();

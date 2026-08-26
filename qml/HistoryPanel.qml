@@ -6,6 +6,7 @@
 import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
+import QtQuick.Effects
 import org.glassosd.ui
 
 /*
@@ -314,6 +315,105 @@ Window {
                     Toggle {
                         checked: NotificationModel.doNotDisturb
                         onToggled: NotificationModel.doNotDisturb = !NotificationModel.doNotDisturb
+                    }
+                }
+            }
+        }
+
+        Component {
+            id: searchWidget
+            /* Filter as you type. A widget rather than a fixed part of the
+               header, so it can be moved or left out like any other — and so
+               someone who never wants it is not carrying a search box. */
+            Rectangle {
+                property bool shown: true
+                implicitHeight: Style.px(38)
+                radius: 10
+                color: Style.entryCard
+                border.color: searchInput.activeFocus ? Style.accent : Style.entryCardEdge
+                border.width: 1
+                Behavior on border.color { ColorAnimation { duration: 120 } }
+
+                Image {
+                    id: searchGlyph
+                    anchors.left: parent.left
+                    anchors.leftMargin: 11
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 15; height: 15
+                    source: Icons.source("search")
+                    sourceSize: Qt.size(45, 45)
+                    visible: false
+                }
+                MultiEffect {
+                    anchors.fill: searchGlyph
+                    source: searchGlyph
+                    colorization: 1.0
+                    colorizationColor: Style.foregroundDim
+                }
+
+                TextInput {
+                    id: searchInput
+                    anchors.left: parent.left
+                    anchors.right: clearBtn.left
+                    anchors.leftMargin: 34
+                    anchors.rightMargin: 6
+                    anchors.verticalCenter: parent.verticalCenter
+                    verticalAlignment: Text.AlignVCenter
+                    color: Style.foreground
+                    font.family: Style.fontFamily
+                    font.pointSize: Style.fontSize - 1
+                    selectByMouse: true
+                    clip: true
+                    /* Typed straight into the model: filtering 200 entries on
+                       a substring is nothing, so debouncing would only add
+                       lag to something that feels instant. */
+                    onTextChanged: HistoryModel.search = text
+                    /* The panel is built when it opens, so a search set before
+                       that — glassosdctl search — has already fired its signal
+                       by the time this field exists. Without seeding it the
+                       list came up filtered while the box sat empty. */
+                    Component.onCompleted: text = HistoryModel.search
+                    Keys.onEscapePressed: {
+                        if (text !== "") text = ""
+                        else HistoryModel.panelOpen = false
+                    }
+
+                    Text {
+                        anchors.fill: parent
+                        verticalAlignment: Text.AlignVCenter
+                        visible: searchInput.text === "" && !searchInput.activeFocus
+                        text: "Search notifications"
+                        color: Style.foregroundDim
+                        font: searchInput.font
+                    }
+                }
+
+                CardButton {
+                    id: clearBtn
+                    anchors.right: parent.right
+                    anchors.rightMargin: 7
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: searchInput.text !== ""
+                    icon: "close"
+                    onActivated: searchInput.text = ""
+                }
+
+                Connections {
+                    target: HistoryModel
+                    /* Reset when the centre closes so it never reopens
+                       filtered — the model clears its own copy, this is the
+                       field. */
+                    function onPanelOpenChanged() {
+                        if (!HistoryModel.panelOpen) searchInput.text = ""
+                    }
+                    /* And follow a search set from outside. The panel's
+                       contents are built once at startup, not when it opens,
+                       so Component.onCompleted runs long before any
+                       `glassosdctl search` and cannot seed this on its own —
+                       the list came up filtered while the box sat empty. */
+                    function onChanged() {
+                        if (HistoryModel.search !== searchInput.text)
+                            searchInput.text = HistoryModel.search
                     }
                 }
             }
@@ -833,6 +933,7 @@ Window {
             "mpris": mprisWidget,
             "volume": volumeWidget,
             "dnd": dndWidget,
+            "search": searchWidget,
             "notifications": notificationsWidget,
             "backlight": backlightWidget,
             "buttons-grid": buttonsWidget

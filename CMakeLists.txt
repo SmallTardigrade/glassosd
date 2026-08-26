@@ -79,6 +79,7 @@ qt_add_qml_module(glassosd
         qml/icons/volume-medium.svg
         qml/icons/volume-high.svg
         qml/icons/snooze.svg
+        qml/icons/search.svg
         qml/icons/mic-on.svg
         qml/icons/mic-muted.svg
         qml/icons/brightness.svg
