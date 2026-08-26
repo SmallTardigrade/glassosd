@@ -92,8 +92,14 @@ QtObject {
        bigger than the thing it was gapping. Matching the two means every
        corner in the stack has the same radius and each sheet shows a whole
        one. */
-    readonly property int stackOffset: Math.round(tnum("stack.offset", 10))
-    readonly property int stackInset: Math.round(tnum("stack.inset", 8))
+    /* Proportioned from how iOS and Figma draw the same thing: the sheet is
+       inset noticeably more than it peeks. Measured off both, the inset is
+       around 5.5% of the card's width on each side and the peek a little less
+       than that in absolute terms — so the sheet reads as a narrower card
+       behind rather than as a ledge under the front one. This was the wrong
+       way round, insetting 8 and peeking 10. */
+    readonly property int stackOffset: Math.round(tnum("stack.offset", 9))
+    readonly property int stackInset: Math.round(tnum("stack.inset", 20))
     /* The seam along the bottom of each sheet is what separates one from the
        next.
 

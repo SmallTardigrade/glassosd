@@ -131,23 +131,12 @@ Item {
             onHeightChanged: refreshSheet()
             Component.onDestruction: if (Window.window) Surface.clearPanelRegion(Window.window, sheetRect)
 
-            /* Seam along the *bottom* edge. Now that the sheets are full-height
-               and overlap, the top edge of every one of them is behind the card
-               and draws nothing — the visible boundary between one sheet and the
-               next is where the sheet in front ends, which is its bottom.
-
-               It matters because a flattened stack of one colour has no edges of
-               its own: this is what makes the layers countable rather than a
-               single thick slab with a rounded end. */
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.leftMargin: parent.radius * 0.5
-                anchors.rightMargin: parent.radius * 0.5
-                height: 1
-                color: Style.cardStackSeam
-            }
+            /* No seam. With a single sheet the only boundary that matters is
+               between it and the card, and the card's own bottom edge already
+               draws that. A seam along the sheet's bottom would be a dark line
+               under the outermost edge of the whole stack, which is not a
+               boundary between anything. The references separate the layers by
+               inset and tone alone, and so do we. */
         }
     }
 

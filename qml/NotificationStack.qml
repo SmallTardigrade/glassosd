@@ -108,9 +108,12 @@ Window {
                 Layout.preferredHeight: implicitHeight
 
                 entry: model
-                /* Two peeking edges is enough to read as "a stack"; more just
-                   eats vertical space without adding information. */
-                stackDepth: model.groupCount > 2 ? 2 : (model.groupCount > 1 ? 1 : 0)
+                /* One sheet, however many are behind it. Two was a guess and
+                   it reads as a thicker slab rather than as more depth — the
+                   count is already stated in words on the card, so the second
+                   sheet was spending vertical space to repeat it badly. Both
+                   iOS and Figma draw exactly one for any depth of stack. */
+                stackDepth: model.groupCount > 1 ? 1 : 0
 
                 onDismissed: NotificationModel.dismiss(model.notifId)
                 onHoverChanged: h => NotificationModel.setHovered(model.notifId, h)
