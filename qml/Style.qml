@@ -149,6 +149,14 @@ QtObject {
        inside must not carry an alpha of their own. */
     function opaque(c) { return Qt.rgba(c.r, c.g, c.b, 1.0) }
 
+    /* Qt.lighter() returns a fully opaque colour whatever it was given, so a
+       translucent surface lightened with it stops being translucent. Lighten an
+       opaque copy and put the alpha back. */
+    function lift(c, factor) {
+        const l = Qt.lighter(Qt.rgba(c.r, c.g, c.b, 1.0), factor)
+        return Qt.rgba(l.r, l.g, l.b, c.a)
+    }
+
     readonly property color cardStackEdge: tcolor("card.stackEdge",
                                                   Qt.darker(cardBackground, 1.12))
     readonly property color cardStackSeam: tcolor("card.stackSeam", dark ? Qt.rgba(0,0,0,0.55) : Qt.rgba(0,0,0,0.18))

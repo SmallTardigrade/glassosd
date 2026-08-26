@@ -200,7 +200,22 @@ Item {
         /* Opaque while stacked: the root layer carries the alpha for the whole
            stack, so anything inside it that is translucent in its own right
            would be faded twice. */
-        surfaceColor: root.stacked ? Style.opaque(Style.cardBackground) : Style.cardBackground
+        /* Lifts under the press. The whole card is a button — clicking the body
+           runs the sender's default action — and it had no more acknowledgement
+           than the action buttons did, so opening a chat from a notification
+           looked like nothing until the other application got round to
+           answering.
+
+           A tint rather than a scale, deliberately. Compositor blur cannot be
+           animated and the region is a fixed rectangle, so a card that changes
+           size leaves its blurred patch behind; a colour change moves nothing
+           and needs no region update. */
+        surfaceColor: {
+            const base = root.stacked ? Style.opaque(Style.cardBackground)
+                                      : Style.cardBackground
+            return cardHover.pressed ? Style.lift(base, 1.28) : base
+        }
+        Behavior on surfaceColor { ColorAnimation { duration: 90 } }
         /* Cards are glass too. At the default 0.975 alpha the backdrop effect
            is imperceptible, but a theme that lowers card.background needs the
            blur behind it or the card is merely see-through. */
