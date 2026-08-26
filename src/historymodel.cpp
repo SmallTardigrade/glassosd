@@ -184,6 +184,11 @@ void HistoryModel::record(const Notification &n)
         return;
     }
 
+    /* Not counted while the centre is open — you are looking at it. */
+    if (!m_panelOpen) {
+        ++m_unread;
+    }
+
     /* A replaces_id notification is the *same* message updating itself — a
        file-copy progress notification would otherwise leave a hundred entries
        behind. Update in place instead of prepending.
@@ -254,6 +259,13 @@ void HistoryModel::setPanelOpen(bool open)
         return;
     }
     m_panelOpen = open;
+    if (open) {
+        m_unread = 0;
+        /* changed(), not just panelOpenChanged(): the tray listens to the
+           former, and without this the badge stayed up after the centre had
+           been opened and closed again. */
+        Q_EMIT changed();
+    }
     if (!open) {
         /* Reopening should show everything, not silently still be filtered to
            whichever app was drilled into last time, and not still showing a

@@ -5,6 +5,7 @@
 */
 #include "trayicon.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
 #include <KStatusNotifierItem>
 
@@ -15,6 +16,7 @@ TrayIcon::TrayIcon(NotificationModel *notifications, HistoryModel *history, QObj
     : QObject(parent)
     , m_notifications(notifications)
     , m_history(history)
+    , m_config(KSharedConfig::openConfig(QStringLiteral("glassosdrc")))
 {
     m_item = new KStatusNotifierItem(QStringLiteral("glassosd"), this);
     m_item->setCategory(KStatusNotifierItem::SystemServices);
@@ -61,15 +63,38 @@ void TrayIcon::refresh()
 {
     const bool dnd = m_notifications->doNotDisturb();
 
-    /* The icon itself carries the DND state, so it is legible at a glance
-       without opening anything. */
-    m_item->setIconByName(dnd ? QStringLiteral("notifications-disabled")
-                              : QStringLiteral("notifications"));
+    m_config->reparseConfiguration();
+    const bool badge = KConfigGroup(m_config, QStringLiteral("Appearance"))
+                           .readEntry("TrayBadge", QStringLiteral("on")).trimmed().toLower()
+                       != QLatin1String("off");
+
+    const int unread = dnd ? 0 : m_history->unread();
+
+    /* Three states, all named icons from the theme.
+
+       The badge was painted at first — a red disc, composed into a pixmap and
+       handed over with setOverlayIconByPixmap(). It arrives at this host as a
+       red *square*: the alpha does not survive the trip, at any size, and
+       adding pixmaps at every size a panel might ask for changed nothing.
+       setOverlayIconByName() then rendered nothing at all.
+
+       notification-active is Breeze's own bell-with-a-dot and goes through the
+       icon theme at the far end, where it is drawn rather than transported. It
+       also means the badge follows whatever icon theme is in use instead of
+       being a hardcoded red that clashes with half of them.
+
+       The cost is that a *count* cannot be shown — no icon theme ships
+       numerals — so the number lives in the tooltip. */
+    const QString iconName = dnd      ? QStringLiteral("notifications-disabled")
+                           : (badge && unread > 0) ? QStringLiteral("notification-active")
+                                                   : QStringLiteral("notifications");
+    m_item->setIconByName(iconName);
 
     const int count = m_history->total();
-    m_item->setToolTip(dnd ? QStringLiteral("notifications-disabled") : QStringLiteral("notifications"),
+    m_item->setToolTip(iconName,
                        i18n("Notifications"),
                        dnd ? i18n("Do Not Disturb is on")
-                           : (count > 0 ? i18np("%1 notification", "%1 notifications", count)
-                                        : i18n("No notifications")));
+                           : (unread > 0 ? i18np("%1 new notification", "%1 new notifications", unread)
+                              : count > 0 ? i18np("%1 notification", "%1 notifications", count)
+                                          : i18n("No notifications")));
 }

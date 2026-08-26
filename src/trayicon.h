@@ -15,6 +15,8 @@
 #include "historymodel.h"
 #include "notificationmodel.h"
 
+#include <KSharedConfig>
+
 #include <QObject>
 
 class KStatusNotifierItem;
@@ -27,6 +29,8 @@ public:
 
 private:
     void refresh();
+
+    KSharedConfig::Ptr m_config;
 
     KStatusNotifierItem *m_item = nullptr;
     NotificationModel *m_notifications;

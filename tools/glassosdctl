@@ -118,6 +118,10 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  badge [on|off]         Mark the tray icon when notifications arrived while
+                         the centre was closed. Uses the icon theme's own
+                         active-notification icon; the count is in the tooltip,
+                         because no icon theme ships numerals.
   position [where]       Which corner or edge popups appear at:
                          top-left, top-centre, top-right (default),
                          bottom-left, bottom-centre, bottom-right.
@@ -430,6 +434,12 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  badge)
+    case "${1:-}" in
+      "")              echo "badge: $(cfg_or Appearance TrayBadge on)" ;;
+      on|off)          cfg_write Appearance TrayBadge "$1"; echo "badge = $1" ;;
+      *) echo "badge takes 'on' or 'off'" >&2; exit 1 ;;
+    esac ;;
   position)
     known="top-left top-centre top-right bottom-left bottom-centre bottom-right"
     if [ -z "${1:-}" ]; then

@@ -28,6 +28,10 @@ class HistoryModel : public QAbstractListModel
     QML_SINGLETON
 
     Q_PROPERTY(int total READ total NOTIFY changed)
+    /* Arrived since the centre was last opened. total() is the whole backlog
+       — up to HistoryLength — so it says nothing about whether there is
+       anything new, which is the only question a tray badge answers. */
+    Q_PROPERTY(int unread READ unread NOTIFY changed)
     /* Set to a group key to show only that app's entries — this is what the
        "+N more from <App>" line opens into. Empty shows everything. */
     Q_PROPERTY(QString groupFilter READ groupFilter WRITE setGroupFilter NOTIFY changed)
@@ -65,6 +69,7 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     int total() const { return m_all.size(); }
+    int unread() const { return m_unread; }
     bool panelOpen() const { return m_panelOpen; }
     void setPanelOpen(bool open);
     Q_INVOKABLE void togglePanel() { setPanelOpen(!m_panelOpen); }
@@ -155,6 +160,7 @@ private:
     bool m_panelOpen = false;
     bool m_newestFirst = true;
     bool m_appSettingsVisible = false;
+    int m_unread = 0;
     uint m_maxLoadedId = 0;
     /* Two sets, not one: a group is collapsed by default once it grows past
        the threshold, but an explicit expand has to survive rebuilds — and an
