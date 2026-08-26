@@ -84,7 +84,15 @@ QtObject {
     readonly property int notifyIconSize: Math.round(tnum("size.notifyIcon", px(30)))
 
     /* Peeking card edges for a grouped stack. */
-    readonly property int stackOffset: Math.round(tnum("stack.offset", 9))
+    /* Matched to the card's corner radius, deliberately.
+
+       At 9 against a radius of 16 the sheet showed only the bottom half of
+       its own curve, and the wedge of backdrop between the card's corner and
+       the sheet's was wider than the sliver it separated — the gap read as
+       bigger than the thing it was gapping. Matching the two means every
+       corner in the stack has the same radius and each sheet shows a whole
+       one. */
+    readonly property int stackOffset: Math.round(tnum("stack.offset", 16))
     readonly property int stackInset: Math.round(tnum("stack.inset", 8))
     /* The seam along the bottom of each sheet is what separates one from the
        next.
