@@ -15,6 +15,7 @@
 #include "historymodel.h"
 #include "notificationmodel.h"
 #include "notificationserver.h"
+#include "snoozestore.h"
 #include "notifyimageprovider.h"
 #include "fnlockwatcher.h"
 #include "iconprovider.h"
@@ -214,6 +215,23 @@ int main(int argc, char *argv[])
     QObject::connect(&app, &QCoreApplication::aboutToQuit, history, [history] { history->save(); });
 
     auto *server = new NotificationServer(notifications, history, &app);
+
+    /* Snooze. The store owns the wake times and the file they live in; the
+       model knows nothing about either, and a woken notification comes back
+       through insert() exactly like a new one so it meets the rules,
+       coalescing and the queue on the way in rather than bypassing them. */
+    auto *snoozes = new SnoozeStore(&app);
+    QObject::connect(notifications, &NotificationModel::snoozeRequested,
+                     snoozes, [snoozes, cfg](const Notification &n) {
+                         const int minutes =
+                             KConfigGroup(cfg, QStringLiteral("Notifications"))
+                                 .readEntry("SnoozeMinutes", 10);
+                         snoozes->snooze(n, minutes);
+                     });
+    QObject::connect(snoozes, &SnoozeStore::woke,
+                     notifications, [notifications](const Notification &n) {
+                         notifications->insert(n);
+                     });
     server->reserveIds(history->maxLoadedId());
     /* On by default now that we ship a D-Bus activation file. An app that
        posts a notification starts us on demand, and a daemon that starts and

@@ -311,6 +311,36 @@ glassosdctl restart                    # modules are read at startup
 | `osd` | volume, brightness, media OSD |
 | `lockkeys` | caps, num and Fn lock OSDs |
 
+### Snooze
+
+Every notification carries a clock button. Pressing it closes the card and
+brings the notification back later, which neither dunst nor swaync offers in
+any form.
+
+```bash
+glassosdctl snooze 10      # minutes to defer for (default 10)
+glassosdctl snooze         # show the current setting
+glassosdctl snoozed        # what is waiting, and when each is due
+```
+
+Wake times are persisted to `~/.local/share/glassosd/snoozed.json`, so a
+snooze set before a logout is still there afterwards. Anything already due
+when the file is read comes straight back — the honest answer for a machine
+that was asleep or shut down through the wake time.
+
+A woken notification re-enters through the same path a new one does, so it
+meets rules, coalescing and the queue on the way in rather than bypassing
+them. It arrives with a fresh id, because ids are only unique within one run
+of the daemon and reusing one could collide with something live.
+
+The button is hidden on a notification carrying a stack tag. Those are ones
+the sender means to replace as it goes — a download's progress, a track
+change — and bringing back a stale copy of one is worse than not offering.
+
+Inline image data is not persisted, for the same reason history does not keep
+it: it is raw pixels and would bloat the file. Such a notification falls back
+to its app icon when it returns.
+
 ### Per-app rules
 
 ```bash

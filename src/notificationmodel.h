@@ -37,6 +37,7 @@ public:
     enum Roles {
         IdRole = Qt::UserRole + 1,
         ClosingRole,
+        StackTagRole,
         AppNameRole,
         SummaryRole,
         BodyRole,
@@ -105,6 +106,11 @@ public:
     int exitMs() const { return m_exitMs; }
     void setExitMs(int ms) { m_exitMs = qBound(0, ms, 2000); }
 
+    /* Put this one away and let it come back later. The notification itself
+       is handed out rather than kept: persistence belongs to SnoozeStore, and
+       a woken notification comes back through insert() like any other so it
+       meets the rules, coalescing and the queue on the way in. */
+    Q_INVOKABLE void snooze(uint id);
     Q_INVOKABLE void dismiss(uint id);                       // user clicked away
     /* Clear every popup on screen and everything queued behind them.
        A notification with expire_timeout 0, or critical urgency, is required
@@ -135,6 +141,8 @@ Q_SIGNALS:
     void actionInvoked(uint id, const QString &key);
     void replied(uint id, const QString &text);
     void activationToken(uint id, const QString &token);
+    /* Wired to SnoozeStore in main.cpp. */
+    void snoozeRequested(const Notification &n);
 
 private:
     void update();

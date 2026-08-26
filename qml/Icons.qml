@@ -34,6 +34,7 @@ QtObject {
         "lock-fn":             "icons/lock-fn.svg",
         "dnd":                 "icons/dnd.svg",
         "close":               "icons/close.svg",
+        "snooze":              "icons/snooze.svg",
         "settings":            "icons/settings.svg",
         "media-play":          "icons/media-play.svg",
         "media-pause":         "icons/media-pause.svg",

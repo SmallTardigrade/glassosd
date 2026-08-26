@@ -46,6 +46,7 @@ qt_add_executable(glassosd
     src/theme.cpp
     src/modules.cpp
     src/buttonsmodel.cpp
+    src/snoozestore.cpp
     src/systemcontrols.cpp
 )
 
@@ -76,6 +77,7 @@ qt_add_qml_module(glassosd
         qml/icons/volume-low.svg
         qml/icons/volume-medium.svg
         qml/icons/volume-high.svg
+        qml/icons/snooze.svg
         qml/icons/mic-on.svg
         qml/icons/mic-muted.svg
         qml/icons/brightness.svg
@@ -107,6 +109,7 @@ qt_add_qml_module(glassosd
         src/theme.h
         src/modules.h
         src/buttonsmodel.h
+        src/snoozestore.h
         src/systemcontrols.h
     RESOURCE_PREFIX /qt/qml
 )

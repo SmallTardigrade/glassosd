@@ -137,6 +137,7 @@ Window {
                    behaviour, and the group stayed folded on top of that. */
                 onMoreRequested: HistoryModel.showGroup(model.groupKey, false)
                 onSettingsRequested: HistoryModel.showGroup(model.groupKey, true)
+                onSnoozeRequested: NotificationModel.snooze(model.notifId)
             }
         }
 

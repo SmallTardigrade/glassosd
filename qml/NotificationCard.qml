@@ -114,6 +114,7 @@ Item {
     }
     signal dismissed()
     signal settingsRequested()
+    signal snoozeRequested()
     signal moreRequested()
     signal actionTriggered(string key)
     signal replySent(string text)
@@ -334,6 +335,17 @@ Item {
                     color: Style.foregroundDim
                     font.family: Style.fontFamily
                     font.pointSize: Style.fontSize - 2
+                }
+
+                /* Put it away and let it come back. Only offered where it can
+                   be honoured: a notification the sender expects to replace or
+                   update — one carrying a stack tag — would come back stale,
+                   and one that never expires is already staying until it is
+                   dealt with. */
+                CardButton {
+                    visible: root.entry.stackTag === ""
+                    icon: "snooze"
+                    onActivated: root.snoozeRequested()
                 }
 
                 CardButton {

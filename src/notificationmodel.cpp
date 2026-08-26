@@ -62,6 +62,7 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case IdRole:         return n.id;
     case ClosingRole:    return n.closing;
+    case StackTagRole:   return n.stackTag;
     case AppNameRole:    return n.appName;
     case SummaryRole:    return n.summary;
     case BodyRole:       return n.body;
@@ -137,6 +138,7 @@ QHash<int, QByteArray> NotificationModel::roleNames() const
         {HasDefaultActionRole, "hasDefaultAction"},
         {GroupCountRole, "groupCount"},
         {ClosingRole, "closing"},
+        {StackTagRole, "stackTag"},
         {GroupKeyRole, "groupKey"},
         {WhenRole, "when"},
         {ProgressRole, "progress"},
@@ -463,6 +465,23 @@ void NotificationModel::setHovered(uint id, bool hovered)
             }
         }
     }
+}
+
+void NotificationModel::snooze(uint id)
+{
+    const int row = indexOfDisplayed(id);
+    if (row < 0) {
+        return;
+    }
+    /* Copied before closing: closeId() marks the row and a later sweep removes
+       it, so a reference taken here would not survive the call. */
+    const Notification n = m_displayed.at(row);
+    Q_EMIT snoozeRequested(n);
+    /* Dismissed, not Expired: the user acted on it. The sender is told it is
+       closed and finds out nothing about the snooze, which is correct — a
+       notification coming back later is our behaviour, not a change to the
+       one it sent. */
+    closeId(id, CloseReason::Dismissed);
 }
 
 void NotificationModel::dismiss(uint id)

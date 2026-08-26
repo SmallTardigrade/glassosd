@@ -118,6 +118,9 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  snooze [minutes]       How long the snooze button defers a notification
+                         (default 10). The card closes and comes back later.
+  snoozed                List what is snoozed and when each is due
   badge [on|off]         Mark the tray icon when notifications arrived while
                          the centre was closed. Uses the icon theme's own
                          active-notification icon; the count is in the tooltip,
@@ -434,6 +437,26 @@ case "$cmd" in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  snooze)
+    if [ -z "${1:-}" ]; then echo "snooze: $(cfg_or Notifications SnoozeMinutes 10) minutes"
+    else cfg_write Notifications SnoozeMinutes "$1"; echo "snooze = $1 minutes"; fi ;;
+  snoozed)
+    f="${XDG_DATA_HOME:-$HOME/.local/share}/glassosd/snoozed.json"
+    if [ ! -s "$f" ] || [ "$(cat "$f")" = "[]" ]; then echo "nothing snoozed"; exit 0; fi
+    have python3 || { echo "  (needs python3 to format; the file is $f)"; exit 0; }
+    python3 - "$f" <<'SNZ'
+import json, sys, datetime
+for e in json.load(open(sys.argv[1])):
+    raw = e.get("wakeAt", "")
+    try:
+        t = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone()
+        mins = int((t - datetime.datetime.now().astimezone()).total_seconds() // 60)
+        when = t.strftime("%H:%M") + (" (in %dm)" % mins if mins >= 0 else " (due)")
+    except Exception:
+        when = raw
+    print("  %-18s %-34s %s" % (e.get("app", "?")[:18], e.get("summary", "")[:34], when))
+SNZ
+    ;;
   badge)
     case "${1:-}" in
       "")              echo "badge: $(cfg_or Appearance TrayBadge on)" ;;
