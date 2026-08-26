@@ -153,8 +153,12 @@ Window {
             Text {
                 id: moreLabel
                 anchors.centerIn: parent
-                text: NotificationModel.hiddenCount + " more notification"
-                      + (NotificationModel.hiddenCount > 1 ? "s" : "")
+                /* "Waiting", not "more notifications": these are queued
+                   behind the display limit and will appear on their own. The
+                   card's own pill used to read the same and means something
+                   quite different — the rest of a group, which pressing it
+                   opens. */
+                text: NotificationModel.hiddenCount + " waiting"
                 color: Style.foregroundDim
                 font.family: Style.fontFamily
                 font.pointSize: Style.fontSize - 1

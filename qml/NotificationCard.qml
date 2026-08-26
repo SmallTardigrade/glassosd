@@ -12,7 +12,8 @@ import org.glassosd.ui
 /*
     Notification card, following Apple's notification language:
     a small-caps app identity line with the time on the right, then title,
-    body, an "N more notifications" line, and full-width segmented actions.
+    body, a "Show N more" line for the rest of a group, and full-width
+    segmented actions.
 
     Grouped notifications render as a physical stack with card edges peeking
     out beneath — the single clearest signal that more are hiding behind this
@@ -390,8 +391,12 @@ Item {
                 Text {
                     id: moreLine
                     anchors.centerIn: parent
-                    text: (root.entry.groupCount - 1) + " more notification"
-                          + (root.entry.groupCount > 2 ? "s" : "")
+                    /* "Show", because this one is a button and pressing it
+                       opens them. The queue's pill in NotificationStack.qml
+                       said the same words for something else entirely —
+                       notifications waiting behind the display limit, which
+                       you cannot act on — so the two are worded apart. */
+                    text: "Show " + (root.entry.groupCount - 1) + " more"
                     color: Style.foreground
                     font.family: Style.fontFamily
                     font.pointSize: Style.fontSize - 2
