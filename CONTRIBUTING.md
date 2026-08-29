@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 ## Themes
 
 The easiest contribution, and the most useful. A theme is one JSON file —
-see [Theming](README.md#theming) for every key.
+see `man glassosdrc` for every key.
 
 ```bash
 glassosdctl edit-theme        # copies the current theme locally and opens it
@@ -16,6 +16,28 @@ glassosdctl edit-theme        # copies the current theme locally and opens it
 
 Drop it in `themes/` and open a PR. Include a screenshot taken on a plain
 background. Themes are CC0-1.0 so anyone can build on them.
+
+## Building
+
+```bash
+sudo dnf install cmake gcc-c++ ninja-build extra-cmake-modules dbus-devel \
+  qt6-qtbase-devel qt6-qtdeclarative-devel layer-shell-qt-devel \
+  kf6-kwindowsystem-devel kf6-kguiaddons-devel kf6-kconfig-devel \
+  kf6-ki18n-devel kf6-kglobalaccel-devel kf6-kstatusnotifieritem-devel \
+  kf6-kidletime-devel systemd-rpm-macros
+
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+sudo cmake --install build
+```
+
+Package names for Arch, Debian and openSUSE are in
+[packaging/DEPENDENCIES.md](packaging/DEPENDENCIES.md). Publishing and
+packaging notes are in [packaging/PUBLISHING.md](packaging/PUBLISHING.md).
+
+Optional at runtime: `wireplumber` (or `pulseaudio-utils`) for the volume
+widget, `brightnessctl` for the brightness widget, `papirus-icon-theme` for
+third-party application icons.
 
 ## Code
 
@@ -52,4 +74,4 @@ the daemon should survive with no restarts and no warnings.
 
 See the issue templates. The single most common report — "app X's notifications
 never arrive" — is usually the
-[portal backend](README.md#sandboxed-apps-the-portal-problem) rather than a bug.
+[portal backend](docs/portal-routing.md) rather than a bug.

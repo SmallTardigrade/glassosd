@@ -36,6 +36,14 @@ How long popups stay, in milliseconds; 0 means until dismissed. Defaults 6000,
 .B HoverPause
 Hold a popup open while the pointer is on it. Default true.
 .TP
+.B DoNotDisturb
+Whether Do Not Disturb is on. Persists across login. Suppressed notifications
+are still recorded.
+.TP
+.B IndicateHidden
+Whether a "+N more" row is shown when the display limit holds notifications
+back. Default true.
+.TP
 .B CoalesceThreshold ", " CoalesceWindowMs
 How many notifications from one application within how long collapse into a
 single card. Defaults 3 and 20000.
@@ -412,6 +420,41 @@ is missing,
 or
 .BR pw\-play (1)
 play the freedesktop file directly: no theming, but not silence either.
+.SH SCREEN SHARING
+glassosd implements the notification server's inhibition API \(em
+.BR Inhibit ,
+.B UnInhibit
+and the
+.B Inhibited
+property, the KDE extension to
+.B org.freedesktop.Notifications
+\(em so anything that already asks Plasma for quiet gets it here too.
+.PP
+.B xdg\-desktop\-portal\-kde
+inhibits notifications while the screen is being cast, which means they stop
+appearing mid\-share without glassosd having to watch for screen sharing itself.
+Screen recorders and presentation tools using the same call work for the same
+reason. There is no setting: an application explicitly asking for quiet is
+honoured.
+.PP
+Inhibited notifications are suppressed on screen and still recorded, the same
+as Do Not Disturb. The point is that nobody watching your screen sees them, not
+that you lose them.
+.PP
+An inhibition belongs to the bus name that asked for it and is released when
+that name goes away, so an application crashing mid\-share cannot leave
+notifications silenced for the rest of the session.
+.PP
+Inhibition and Do Not Disturb are tracked separately \(em one is the user's
+choice, the other an application's request \(em so turning Do Not Disturb off
+does not cancel a screen recording's inhibition.
+.PP
+.nf
+gdbus call \-\-session \-d org.freedesktop.Notifications \e
+  \-o /org/freedesktop/Notifications \e
+  \-m org.freedesktop.DBus.Properties.Get \e
+  org.freedesktop.Notifications Inhibited
+.fi
 .SH QUIET WHILE BUSY
 .nf
 glassosdctl quiet\-while\-busy on

@@ -25,23 +25,16 @@ glassosdctl theme-file material-dark   # or nord, frosted, rose, glass-dark
 > brightness in — the surface gets lighter as well as hazier.
 
 ---
-
 ## Contents
 
 - [What it does](#what-it-does)
 - [How it compares](#how-it-compares)
 - [Install](#install)
 - [Setup](#setup)
-  - [The portal problem](#sandboxed-apps-the-portal-problem)
-- [Configuration](#configuration)
-  - [Position](#position)
-- [Theming](#theming)
-- [Widgets](#widgets)
 - [Compositor support](#compositor-support)
-- [Command reference](#command-reference)
-- [Troubleshooting](#troubleshooting)
+- [Configuring it](#configuring-it)
+- [Documentation](#documentation)
 - [Reporting bugs](#reporting-bugs)
-- [Building](#building)
 - [Licence](#licence)
 
 ---
@@ -86,6 +79,8 @@ configurable quick-action button grid.
 
 ---
 
+---
+
 ## How it compares
 
 glassosd exists because dunst and swaync each had half of what was wanted.
@@ -114,6 +109,8 @@ burst still drips through one at a time.
 
 ---
 
+---
+
 ## Install
 
 ### Fedora
@@ -135,6 +132,8 @@ Every dependency is in `extra`. A PKGBUILD sketch is in
 ### From source
 
 See [Building](#building).
+
+---
 
 ---
 
@@ -176,708 +175,16 @@ glassosdctl module notifications off
 glassosdctl restart
 ```
 
-### Sandboxed apps: the portal problem
-
-**This one catches everyone, and it is not specific to glassosd** — it affects
-dunst and swaync identically.
-
-Flatpaks and other sandboxed apps do not talk to `org.freedesktop.Notifications`
-directly. They go through `xdg-desktop-portal`, which hands off to a *backend*.
-On KDE that backend is `plasmanotify`, which delivers straight into
-plasmashell's own notification system. Those notifications **never reach the
-notification daemon at all** — they appear in Plasma's popups instead of yours,
-and nothing in your daemon's log will mention them.
-
-Check which backend you have:
-
-```bash
-grep -r "impl.portal.Notification" /usr/share/xdg-desktop-portal/ ~/.config/xdg-desktop-portal/ 2>/dev/null
-```
-
-If it says `plasmanotify`, route it through the gtk backend, which forwards to
-whichever daemon owns the name:
-
-```bash
-sudo dnf install xdg-desktop-portal-gtk      # if not already installed
-mkdir -p ~/.config/xdg-desktop-portal
-cat > ~/.config/xdg-desktop-portal/portals.conf <<'EOF'
-[preferred]
-default=kde
-org.freedesktop.impl.portal.Notification=gtk
-EOF
-cp ~/.config/xdg-desktop-portal/portals.conf ~/.config/xdg-desktop-portal/kde-portals.conf
-systemctl --user restart xdg-desktop-portal.service
-```
-
-Restart any running Flatpaks afterwards. Verify it took:
-
-```bash
-journalctl --user -u xdg-desktop-portal -n 50 | grep -i notification
-#  Using gtk.portal for org.freedesktop.impl.portal.Notification
-```
-
-`glassosd-setup` detects and offers to do this for you.
-
-To diagnose a specific app end to end — which daemon owns the name, which
-portal backend is live, whether the app's sandbox blocks the bus, and whether
-anything actually arrives while you trigger it:
-
-```bash
-verify-routing.sh me.proton.Mail
-```
-
-### Apps that draw their own notifications
-
-Separately, an app whose sandbox blocks the notification bus *and* whose
-toolkit predates portal support will render its own notification window —
-usually unstyled, in a corner you did not choose. Proton Mail is a common
-example.
-
-```bash
-flatpak info --show-permissions <app.id> | grep -A3 "Session Bus"
-```
-
-No `org.freedesktop.Notifications=talk` there means the app cannot reach any
-daemon. libnotify 0.8+ uses the portal automatically and needs no permission,
-so fix the portal routing above first. If the app still draws its own, grant it
-directly — note this does widen that app's sandbox:
-
-```bash
-flatpak override --user --talk-name=org.freedesktop.Notifications <app.id>
-```
-
-Undo with `flatpak override --user --reset <app.id>`. Either way, **fully quit
-and restart the app** — Electron and Chromium probe for a notification server
-once at startup and cache the answer for the process lifetime.
-
----
-
-## Configuration
-
-Everything lives in `~/.config/glassosdrc`. Every key has a CLI equivalent
-that applies live, with no restart:
-
-```bash
-glassosdctl status              # what is running, and every current setting
-glassosdctl set Limit 5         # popups on screen at once
-glassosdctl set HoverPause true # hold a popup while the pointer is on it
-glassosdctl accent '#d95f02'    # auto-darkened if it would fail contrast
-glassosdctl scale 1.2           # everything, proportionally
-glassosdctl level bar           # or segmented
-glassosdctl test                # fire the demo sequence
-```
-
-### Position
-
-```bash
-glassosdctl position bottom-right   # top-left|top-centre|top-right|
-                                    # bottom-left|bottom-centre|bottom-right
-glassosdctl offset 0 160            # extra clearance from the anchored edges
-glassosdctl centre-position left    # which side the control centre opens on
-glassosdctl osd-position centre     # top (default), centre or bottom
-```
-
-Popups sit clear of your panel or taskbar automatically, whatever thickness
-and whichever edge it is on: glassosd requests no exclusive zone of its own
-but respects everyone else's, so the compositor keeps it out of the way.
-Nothing to configure, and it follows the panel if you move it.
-
-`offset` is for the things that panel-awareness cannot cover — a browser's tab
-strip, a video player's controls, a game's HUD. None of those reserve an
-exclusive zone, so nothing tells the compositor they are there. Two numbers, X
-then Y, in logical pixels, applied only to the edges you are anchored to. One
-number sets both. Zero is not flush against the screen edge: the card shadow
-already insets the stack.
-
-The stack always grows *away* from its anchor, so the newest notification is
-the one nearest the corner you chose whichever corner that is.
-
-### Modules
-
-Each half runs independently. Off means never constructed — no bus name, no
-Wayland surface, no watchers.
-
-```bash
-glassosdctl module                     # show all four
-glassosdctl module osd off             # notifications only
-glassosdctl module notifications off   # OSD only
-glassosdctl restart                    # modules are read at startup
-```
-
-| Module | What it covers |
-|---|---|
-| `notifications` | the daemon and its popups |
-| `centre` | the control centre and tray icon |
-| `osd` | volume, brightness, media OSD |
-| `lockkeys` | caps, num and Fn lock OSDs |
-
-### Focus modes
-
-A focus mode is a bundle of rules and an allow/block list, switched on and off
-as a unit — modelled on macOS Focus, and something neither dunst nor swaync
-has. It is what makes the rules engine usable rather than config-file
-archaeology.
-
-```bash
-glassosdctl focus-set work   allow=Signal,Jenkins   # only these get through
-glassosdctl focus-set gaming block=Slack,Discord    # everything but these
-glassosdctl focus work
-glassosdctl focus off
-glassosdctl focus                                   # what is on, what exists
-```
-
-`allow=` silences everything except the apps named; `block=` silences only
-those. Names are matched against both the app name and its desktop entry,
-since the one you know is whichever you happen to have seen.
-
-Rules can belong to a mode too, which is the more powerful half:
-
-```bash
-glassosdctl rule-set standup focus=work appname=Calendar sound=bell
-```
-
-A rule with `focus=` is simply not there when that mode is off, so a mode is a
-bundle rather than a set of edits to undo afterwards.
-
-Allow and block lists are compiled into rules and appended after the
-hand-written ones, so there is one engine with one set of semantics — and a
-mode has the final say rather than being quietly undone by a rule written
-months ago. Silenced notifications are still recorded.
-
-### Quiet while something is playing
-
-```bash
-glassosdctl quiet-while-busy on     # off by default
-```
-
-Notifications are held back while an application is asking that the screen not
-blank — a video playing, a game, a presentation — and are still recorded, the
-same as Do Not Disturb.
-
-**This is not fullscreen detection**, and the difference is worth knowing. On
-Wayland a client cannot see another window's state, by design, and KWin
-implements no foreign-toplevel protocol — which is why dunst reports it cannot
-do fullscreen detection here either. The only route to literal fullscreen on
-Plasma is a script installed into KWin itself.
-
-What is available is the signal applications already send through
-`org.freedesktop.PowerManagement.Inhibit`, and it is arguably the better
-question: "does an application say the user is watching something" is closer
-to what a notification daemon wants to know than "is a window the size of the
-screen". A long download can hold the screen awake without being fullscreen,
-and a fullscreen text editor holds nothing.
-
-One caveat, measured rather than assumed: PowerDevil takes about five seconds
-to register an inhibition, so a notification arriving in the first few seconds
-of a video still appears. Nothing here polls — the state is change-signalled —
-the delay is upstream.
-
-It is a third, separate reason to stay quiet, alongside Do Not Disturb and an
-application's inhibition, so turning any one of them off does not cancel the
-others.
-
-### History search
-
-swaync offers no way to search its history at all. With a 200-entry default
-that is a real gap — the backlog is where a notification goes to be found
-later, and scrolling is not finding.
-
-The `search` widget filters as you type, matching **app name, summary and
-body**, case-insensitively. Escape clears it; Escape again closes the centre.
-
-It is a widget like any other, so it can be moved or left out:
-
-```bash
-glassosdctl widgets "title,mpris,volume,dnd,search,notifications,backlight,buttons-grid"
-```
-
-Searching is a whole-history question, so typing while drilled into one app
-clears that filter rather than searching only that app while appearing to
-search everything.
-
-Scriptable too, which is also how a launcher or a shortcut can reach it:
-
-```bash
-glassosdctl search "invoice"
-```
-
-### Sounds
-
-swaync's answer to notification sounds is a shell script that calls `play`.
-The names are already standardised — the XDG sound naming spec defines
-`message-new-instant`, `dialog-warning`, `audio-volume-change` and the rest,
-and themes ship them under `/usr/share/sounds/<theme>/stereo/` — so glassosd
-asks for a name and lets your chosen sound theme answer.
-
-```bash
-glassosdctl sound off          # notification sounds (on by default)
-glassosdctl osd-sound on       # volume steps and lock keys (off by default)
-```
-
-The sound is chosen by the notification's **category** first, since that says
-what the thing is, and by **urgency** second, since that only says how much it
-matters:
-
-| Category | Sound |
-|---|---|
-| `im.*` | `message-new-instant` |
-| `email.*` | `message` |
-| `device.added` / `device.removed` | `device-added` / `device-removed` |
-| `network.connected` / `.disconnected` | `network-connectivity-established` / `-lost` |
-| `transfer.complete` / `.error` | `complete` / `dialog-error` |
-
-| Urgency | Sound |
-|---|---|
-| Critical | `dialog-warning` |
-| Normal | `message` |
-| Low | *silent* |
-
-Only categories with a matching name in the sound naming spec are mapped; the
-rest fall through to urgency rather than inventing a name no theme ships.
-
-#### Seeing what you have
-
-```bash
-glassosdctl sounds
-```
-
-Lists every name your installed themes provide, and which theme is in use.
-Worth checking before writing a rule: the themes are not interchangeable.
-Freedesktop ships 35 names; KDE's **ocean** adds about 30 more of its own —
-`message-new-email`, `battery-low`, `desktop-login` — so a rule naming one of
-those is silent unless ocean is your theme or inherits into it.
-
-#### Per-rule override
-
-This is the part a shell script was needed for before:
-
-```bash
-glassosdctl rule-set mail  appname=Thunderbird sound=message-new-email
-glassosdctl rule-set noisy appname=Steam       sound=none
-glassosdctl rule-set ping  appname=Signal      sound=/home/me/sounds/ping.ogg
-```
-
-`sound=none` silences one app without silencing the rest.
-
-#### Custom sounds
-
-Two ways, and the first is better:
-
-**As part of a theme** — drop the file at
-`~/.local/share/sounds/<theme>/stereo/<name>.oga` and use it as `sound=<name>`.
-It then follows theme switching and inheritance like any other name, and one
-name can have different files per theme.
-
-**As a path** — `sound=/path/to/ding.ogg` in a rule. No theming, but nothing
-to set up either. `~/` is expanded. A path that does not exist is reported in
-the journal rather than failing silently.
-
-Any format your audio stack can play works; `.oga`, `.ogg` and `.wav` are what
-themes conventionally use.
-
-Sounds follow the popup: a muted app, Do Not Disturb and an inhibition each
-silence the sound along with the card, because a notification nobody is shown
-should not announce itself. Bursts are rate limited, so twelve notifications
-arriving together make one sound rather than twelve.
-
-OSD sounds cover volume steps and lock keys, which no comparable daemon does
-at all. Brightness deliberately makes none — there is no standard sound for it
-and a click on every step is noise.
-
-Played through `canberra-gtk-play`, which resolves the name against your theme
-and its inheritance chain. If it is missing, `paplay` or `pw-play` play the
-freedesktop file directly: no theming, but not silence either.
-
-### Auto Do Not Disturb while screen sharing
-
-glassosd implements the notification server's inhibition API — `Inhibit`,
-`UnInhibit` and the `Inhibited` property, the KDE extension to
-`org.freedesktop.Notifications` — so anything that already asks Plasma for
-quiet gets it here too. `xdg-desktop-portal-kde` inhibits notifications while
-the screen is being cast, which means notifications stop appearing mid-share
-without glassosd having to watch for screen sharing itself. Screen recorders
-and presentation tools that use the same call work for the same reason.
-
-Inhibited notifications are suppressed on screen and **still recorded**, the
-same as Do Not Disturb — the point is that nobody watching your screen sees
-them, not that you lose them.
-
-An inhibition belongs to the bus name that asked for it and is released when
-that name goes away, so an application that crashes mid-share cannot leave
-notifications silenced for the rest of the session.
-
-Inhibition and Do Not Disturb are tracked separately. One is the user's
-choice and the other is an application's request, so turning DND off does not
-cancel a screen recording's inhibition.
-
-```bash
-gdbus call --session -d org.freedesktop.Notifications \
-  -o /org/freedesktop/Notifications \
-  -m org.freedesktop.DBus.Properties.Get \
-  org.freedesktop.Notifications Inhibited
-```
-
-### Snooze
-
-Every notification carries a clock button. Pressing it closes the card and
-brings the notification back later, which neither dunst nor swaync offers in
-any form.
-
-```bash
-glassosdctl snooze 10      # minutes to defer for (default 10)
-glassosdctl snooze         # show the current setting
-glassosdctl snoozed        # what is waiting, and when each is due
-```
-
-Wake times are persisted to `~/.local/share/glassosd/snoozed.json`, so a
-snooze set before a logout is still there afterwards. Anything already due
-when the file is read comes straight back — the honest answer for a machine
-that was asleep or shut down through the wake time.
-
-A woken notification re-enters through the same path a new one does, so it
-meets rules, coalescing and the queue on the way in rather than bypassing
-them. It arrives with a fresh id, because ids are only unique within one run
-of the daemon and reusing one could collide with something live.
-
-The button is hidden on a notification carrying a stack tag. Those are ones
-the sender means to replace as it goes — a download's progress, a track
-change — and bringing back a stale copy of one is worse than not offering.
-
-Inline image data is not persisted, for the same reason history does not keep
-it: it is raw pixels and would bloat the file. Such a notification falls back
-to its app icon when it returns.
-
-### Per-app rules
-
-```bash
-glassosdctl rule-set signal appname=Signal set_stack_tag=chat timeout=8000
-glassosdctl rule-set noisy   appname=Steam skip_display=true
-glassosdctl rules
-```
-
-**Matchers:** `appname`, `summary`, `body`, `category`, `desktop_entry`,
-`match_urgency`, `focus`.
-
-**Actions:** `set_stack_tag`, `timeout`, `set_urgency`, `skip_display`,
-`history_ignore`, `always_collapsed`, `sound`, `run`, `snooze`,
-`repeat_window`.
-
-`skip_display` takes `true` or `false`, and setting it false is meaningful —
-it puts back something an earlier rule hid, which is how a focus mode's
-allow-list works.
-
-#### run= — do something when it arrives
-
-dunst and swaync both run a shell script on match, so this is table stakes.
-The difference is how the notification reaches it.
-
-```bash
-glassosdctl rule-set logmail appname=Thunderbird "run=/home/me/bin/log.sh %a %s"
-```
-
-Placeholders: `%a` app, `%s` summary, `%b` body, `%c` category, `%u` urgency,
-`%i` id. The same values are exported as `$GLASSOSD_APP`, `$GLASSOSD_SUMMARY`,
-`$GLASSOSD_BODY`, `$GLASSOSD_CATEGORY`, `$GLASSOSD_URGENCY`, `$GLASSOSD_ID`
-and `$GLASSOSD_DESKTOP_ENTRY`.
-
-**The command is not run through a shell.** It is split into arguments and
-executed directly, and placeholders are substituted after the split — so a
-summary reading `x; rm -rf ~` arrives as one argument, not as a command.
-Anyone can send you a notification; treating its text as shell input would be
-a hole.
-
-That means shell syntax — pipes, redirection, `&&` — does not work inline. If
-you need it, call a shell explicitly and read the **environment**, never a
-placeholder:
-
-```bash
-# safe: the value never passes through the parser
-run=sh -c 'echo "$GLASSOSD_SUMMARY" >> ~/notifications.log'
-
-# unsafe: %s is substituted into a string the shell then parses
-run=sh -c 'echo %s >> ~/notifications.log'
-```
-
-#### snooze= — defer it on arrival
-
-```bash
-glassosdctl rule-set standup appname=Calendar summary='Standup*' snooze=5
-```
-
-The notification is recorded in history immediately and shown 5 minutes later.
-It arrived; it is waiting, not lost.
-
-#### repeat_window= — for a sender that will not stop
-
-```bash
-glassosdctl rule-set wacom-pen appname='Power Management' \
-    summary='Device Battery Low*' set_stack_tag=wacom-battery \
-    timeout=8000 repeat_window=600
-```
-
-Suppresses a byte-identical repeat for that many seconds. Only the popup —
-history still records every copy.
-
-`set_stack_tag` on its own is not enough for a sender that repeats
-indefinitely. It collapses copies onto the card that is already up, but only
-while that card exists: once it expires, the next copy has nothing to replace
-and opens a fresh popup. PowerDevil re-sends the identical "Device Battery Low
-(6% Remaining)" once or twice a second for as long as the pen is low, so
-without this you get a new card every time the last one times out.
-
-Matched on app name, summary and body together, so a rule carrying this still
-lets `12%` then `9%` then `6%` through as three separate pieces of news. It is
-the repeat that is suppressed, not the subject.
-
-The same rules are what the notification centre's per-app settings panel
-writes — click the sliders icon on any group header. It offers four outcomes
-rather than the raw keys:
-
-| | What it sets |
-|---|---|
-| **Mute** | `skip_display` — no popup, still kept in history |
-| **Ignore** | `history_ignore` + `skip_display` — dropped entirely |
-| **Never expire** | `timeout=0` — popups stay until dismissed |
-| **Always collapsed** | `always_collapsed` — the group opens folded |
-
-Ignore holds Mute on for as long as it is set, because a notification kept
-nowhere but still flashing on screen is not what "ignore" means. Turning Ignore
-off clears both; set Mute again if that was what you wanted.
-
----
-
-## Theming
-
-**glassosd does not parse CSS.** Its surfaces are QML, which has no CSS engine,
-and pretending otherwise would mean shipping a fake one. What it has instead is
-a JSON theme file that covers the part of a swaync `style.css` people actually
-edit — the `@define-color` block, the radii, the shadows and the font.
-
-```bash
-glassosdctl themes             # list what is installed and where
-glassosdctl theme-file nord    # switch
-glassosdctl edit-theme         # copy the current theme to ~/.config and open it
-```
-
-Themes live in `~/.config/glassosd/themes/NAME.json`, which overrides
-`~/.local/share/glassosd/themes/`, which overrides `/usr/share/glassosd/themes/`.
-Saving the file re-themes the running daemon — no restart, no reload command.
-
-### What the JSON actually changes
-
-Every value below is looked up in your theme first and falls back to the
-built-in, so a theme file **only needs the keys you want to change**. A
-two-line theme is a valid theme.
-
-**Colours** — accept `#rgb`, `#rrggbb`, `#rrggbbaa`, or `rgba(r, g, b, a)`
-exactly as written in a swaync stylesheet.
-
-| Key | What it paints |
-|---|---|
-| `accent` | progress fill, active toggles, focus, the lock-on chip |
-| `text.primary` | notification summaries, headings |
-| `text.muted` | the app-name line on a card |
-| `text.secondary` | body copy, timestamps, "no notifications" |
-| `osd.background` | the volume/brightness popup surface |
-| `panel.background` | the control centre sheet |
-| `card.background` | notification popup surface |
-| `entry.background` | rows inside the control centre |
-| `entry.backgroundHover` | those rows, hovered |
-| `entry.edge` | the hairline separating adjacent rows |
-| `surface.solid` | tooltips and other fully-opaque surfaces |
-| `glass.edge` | the lit hairline around a glass surface |
-| `glass.sheen` | the top-edge highlight on glass |
-| `card.sheen` | the same, on a solid card |
-| `edge.outer` | the outer border on non-glass surfaces |
-| `control.fill` / `control.fillHover` / `control.edge` | buttons, toggles, grid cells |
-| `slider.track` | the unfilled part of a slider or progress bar |
-| `chip.idle` | an icon container in its inactive state |
-| `card.stackEdge` / `card.stackSeam` | the peeking edges of a grouped stack |
-| `urgency.critical` | the critical-urgency accent |
-| `shadow.color` | drop-shadow colour |
-
-**Numbers**
-
-| Key | Default | Effect |
-|---|---|---|
-| `radius.card` | 16 | corner radius on cards and popups |
-| `radius.chipRatio` | 0.32 | icon-container roundness, as a fraction of its size (0.5 = circle) |
-| `radius.pill` | true | whether small controls are fully rounded |
-| `edge.width` | 1 | border thickness |
-| `spacing.padding` | 12 | padding inside surfaces |
-| `spacing.gap` | 13 | gap between elements |
-| `spacing.cardGap` | 8 | gap between stacked popups |
-| `spacing.screenMargin` | 10 | distance from the screen edge |
-| `spacing.osdTopMargin` | 118 | how far down the OSD sits |
-| `size.icon` / `size.notifyIcon` | 21 / 30 | icon sizes |
-| `size.centreWidth` | 400 | control centre width |
-| `level.segments` | 16 | blocks in the segmented level indicator |
-| `shadow.opacity` | 0.48 | shadow strength |
-| `shadow.blur` | 40 | shadow softness |
-| `shadow.offsetY` | 8 | shadow drop distance |
-| `blur.saturation` | 1.8 | backdrop saturation (1.0 = off) |
-| `blur.contrast` / `blur.intensity` | 0.32 / 0.92 | backdrop contrast, KWin only |
-| `motion.in` / `motion.out` | 150 / 200 | animation durations, ms |
-| `font.family` | Noto Sans | — |
-| `font.size` | 11 | base point size |
-
-### A minimal theme
-
-```json
-{
-  "accent": "#ff7043",
-  "card.background": "#1a1a1a",
-  "radius.card": 4
-}
-```
-
-### Referencing other keys
-
-A value starting with `@` resolves to another key, the way `@define-color`
-values get reused in a stylesheet:
-
-```json
-{
-  "accent": "#88c0d0",
-  "control.edge": "@glass.edge",
-  "slider.track": "@control.fill"
-}
-```
-
-### Making it not look like glass
-
-Set opaque surfaces and turn the sheen off. `material-dark.json` and
-`nord.json` in [`themes/`](themes/) both do this and are worth reading as
-worked examples:
-
-```json
-{
-  "card.background": "#211f26",
-  "panel.background": "#1d1b20",
-  "glass.sheen": "rgba(0, 0, 0, 0)",
-  "card.sheen": "rgba(0, 0, 0, 0)",
-  "blur.saturation": 1.0
-}
-```
-
-There is also a one-shot escape hatch that needs no theme file. `Solidity`
-pushes every glass surface toward opaque, which is what you want on a
-compositor that does not blur:
-
-```bash
-glassosdctl solidity 1.0    # 0 keeps the tuned glass, 1 is fully solid
-```
-
-### If a theme does not load
-
-A malformed file is reported with the exact byte offset, and the daemon falls
-back to the next theme in the search path rather than starting unstyled:
-
-```
-glassosd: ~/.config/glassosd/themes/mine.json is not valid JSON at offset 1005:
-          garbage at the end of the document
-```
-
-```bash
-journalctl --user -u glassosd -f
-```
-
----
-
-## Widgets
-
-The control centre's contents are a list, using swaync's widget names so a
-config you are migrating reads the same way.
-
-```bash
-glassosdctl widgets "title,mpris,volume,dnd,search,notifications,backlight,buttons-grid"
-glassosdctl widgets              # show the current list
-glassosdctl widgets default      # back to the built-in order
-```
-
-| Widget | What it is |
-|---|---|
-| `title` | the "Notifications" heading and the Clear button |
-| `mpris` | media player: art, title, artist, transport controls |
-| `volume` | volume slider, click the icon to mute |
-| `dnd` | Do Not Disturb toggle row |
-| `search` | filter the history as you type |
-| `notifications` | the grouped list, its empty state, and the per-app settings panel |
-| `backlight` | brightness slider (needs `brightnessctl`) |
-| `buttons-grid` | the quick-action grid |
-
-Order in the list is the order on screen, and anything omitted is not built —
-`notifications` included, so you can have a control centre with no notification
-list in it if that is what you want.
-
-That last part is why there is one special case. Before this key was an order
-it was a plain *set*, and no such list ever named `notifications`. Reading an
-old config literally would produce a centre with no notifications in it, which
-would look like a bad bug rather than a setting. So **a list that does not name
-`notifications` is read the old way**: the built-in order, filtered to what you
-asked for, with `title` and `notifications` kept regardless. Naming
-`notifications` is how you opt in to ordering — and every swaync config already
-does, since swaync's own default is `title,dnd,notifications`.
-
-`glassosdctl widgets` tells you which of the two you are getting. An unknown
-name is rejected by the CLI and skipped with a warning by the daemon, rather
-than silently becoming a widget that never appears.
-
-### The button grid
-
-Buttons are `[Button <name>]` groups in `glassosdrc`, matching the shape of the
-existing rule groups:
-
-```ini
-[Button wifi]
-Icon=wifi
-Tooltip=Network
-Action=toggle-wifi
-Order=0
-
-[Button dnd]
-Icon=dnd
-Tooltip=Do Not Disturb
-Action=toggle-dnd
-Order=2
-```
-
-`Command` runs any shell command. `Action` is one of the built-ins, which need
-no external program:
-
-| Action | |
-|---|---|
-| `toggle-dnd` | Do Not Disturb on/off |
-| `toggle-wifi` | Wi-Fi radio on/off, via `nmcli` |
-| `toggle-bluetooth` | Bluetooth radio on/off, via `rfkill` |
-| `toggle-power-saver` | power-saver profile on/off, via power-profiles-daemon |
-| `clear-all` | clear the notification history |
-| `lock` | lock the session |
-| `reboot` / `poweroff` / `logout` | |
-
-Every `toggle-` action renders as a toggle showing live state rather than as a
-plain button, and the state is read fresh each time the grid is drawn, so it
-stays right when something else changes it.
-
-`toggle-power-saver` talks to power-profiles-daemon over D-Bus rather than
-through `powerprofilesctl`, which is a separate package and often absent even
-where the daemon is running. On Fedora the interface is served by `tuned-ppd`;
-the name is what matters, not what is behind it. Switching power saving off
-returns you to the profile you were on before, not to `balanced` — within a
-session, since the daemon does not remember it for us.
-
-Prefer these to a `Command` that opens a settings page. A quick action should
-*do* the thing: `plasma-open-settings kcm_networkmanagement` starts the whole
-System Settings shell, which takes seconds, where `toggle-wifi` is immediate.
-
-Bundled icon names: `wifi`, `bluetooth`, `dnd`, `settings`, `lock`, `power`,
-`reboot`, `media`, `brightness`, `volume-high`, `volume-muted`, `mic-on`,
-`mic-muted`. Any icon from your icon theme also works. Set `Label` instead of
-`Icon` for text or a Nerd Font glyph.
-
-```bash
-glassosdctl set ButtonsPerRow 7
-```
+### Sandboxed apps
+
+Flatpaks and other sandboxed applications reach the notification daemon through
+`xdg-desktop-portal`, and on KDE the default backend delivers into plasmashell
+instead — so those notifications never arrive here, and nothing appears in the
+log. This catches everyone and is not specific to glassosd.
+
+`glassosd-setup` detects it and offers to fix it. The full explanation, and how
+to diagnose one application end to end, is in
+[docs/portal-routing.md](docs/portal-routing.md).
 
 ---
 
@@ -901,150 +208,65 @@ Where a feature has no portable equivalent there is a CLI way in:
 | Caps/Num Lock OSD | ✅ | ✗ — needs `org_kde_kwin_keystate`, KWin only |
 | Tray icon | ✅ | ✅ with any StatusNotifierItem host (waybar) |
 
-### Hyprland
-
-Blur is applied by the compositor, matched on layer namespace. glassosd uses
-three: `glassosd-osd`, `glassosd-notifications`, `glassosd-history`.
-
-```
-layerrule = blur on, ignore_alpha 0.2, match:namespace glassosd-osd
-layerrule = blur on, ignore_alpha 0.2, match:namespace glassosd-notifications
-layerrule = blur on, ignore_alpha 0.2, match:namespace glassosd-history
-
-exec-once = glassosd
-
-bind = SUPER, N, exec, glassosdctl history
-bind = SUPER SHIFT, N, exec, glassosdctl dnd toggle
-
-bindl = , XF86AudioRaiseVolume, exec, glassosdctl osd volume raise
-bindl = , XF86AudioLowerVolume, exec, glassosdctl osd volume lower
-bindl = , XF86AudioMute,        exec, glassosdctl osd volume mute
-bindl = , XF86AudioMicMute,     exec, glassosdctl osd mic mute
-bindl = , XF86MonBrightnessUp,   exec, glassosdctl osd brightness raise
-bindl = , XF86MonBrightnessDown, exec, glassosdctl osd brightness lower
-```
-
-### sway
-
-```
-exec glassosd
-
-bindsym $mod+n exec glassosdctl history
-bindsym $mod+Shift+n exec glassosdctl dnd toggle
-
-bindsym --locked XF86AudioRaiseVolume exec glassosdctl osd volume raise
-bindsym --locked XF86AudioLowerVolume exec glassosdctl osd volume lower
-bindsym --locked XF86AudioMute        exec glassosdctl osd volume mute
-bindsym --locked XF86MonBrightnessUp   exec glassosdctl osd brightness raise
-bindsym --locked XF86MonBrightnessDown exec glassosdctl osd brightness lower
-```
-
-sway has no compositor-side blur, and unblurred translucency over a photo
-wallpaper is genuinely hard to read. Either raise `solidity` or use one of the
-opaque themes:
-
-```bash
-glassosdctl theme-file nord
-```
+Per-compositor configuration — layer rules for blur, and media-key and shortcut
+bindings for Hyprland and sway — is in
+[docs/compositors.md](docs/compositors.md).
 
 ---
 
-## Command reference
+## Configuring it
 
-```
-glassosdctl <command>
+Everything lives in `~/.config/glassosdrc`, and every key has a `glassosdctl`
+equivalent that applies live, with no restart.
 
-  status                 daemon state and every current setting
-  version                daemon version
-
-  get <key>              read a Notifications setting
-  set <key> <value>      write one (applied immediately)
-
-  dnd [on|off|toggle]    Do Not Disturb
-  history [show|hide]    open/close the control centre
-
-  osd volume [raise|lower|mute|<0-100>]
-  osd mic [mute|<0-100>]
-  osd brightness [raise|lower|<0-100>]
-  osd text <icon> <text>
-
-  module <name> [on|off] notifications, centre, osd, lockkeys
-  rules / rule-set / rule-del
-
-  theme [dark|light]     built-in light/dark palette
-  theme-file [name]      load a JSON theme
-  themes                 list available themes
-  edit-theme             copy the current theme locally and open it
-  accent [#rrggbb]
-  level [segmented|bar]
-  widgets [list]
-  output [current|primary|NAME]
-  scale [0.6-2.0]
-  width [240-900]
-  solidity [0.0-1.0]
-
-  test                   fire the demo sequence
-  restart / log
+```bash
+glassosdctl status               # what is running, and every current setting
+glassosdctl set Limit 5          # popups on screen at once
+glassosdctl position bottom-right
+glassosdctl theme-file nord
+glassosdctl test                 # fire the demo sequence
 ```
 
-Settings keys: `Enabled`, `Limit`, `IndicateHidden`, `CoalesceThreshold`,
-`CoalesceWindowMs`, `DoNotDisturb`, `AutoCollapseOver`, `HistoryLength`,
-`IdleThresholdMs`, `HoverPause`.
+Themes are JSON, not CSS — QML has no CSS engine, and pretending otherwise
+would mean shipping a fake one. A theme only needs the keys it changes, so a
+two-line theme is a valid theme:
 
-### D-Bus
+```json
+{
+  "accent": "#ff7043",
+  "card.background": "#1a1a1a",
+  "radius.card": 4
+}
+```
 
-Everything `glassosdctl` does goes through `org.glassosd.Control` on the
-session bus, so it works identically on every compositor:
+Saving the file re-themes the running daemon. `material-dark.json` and
+`nord.json` in [`themes/`](themes/) are worked examples of turning the glass
+off entirely.
+
+**The full reference is `man glassosdrc`** — every setting, the rules engine,
+focus modes, sounds, widgets, the button grid and all the theme keys.
+
+---
+
+## Documentation
+
+| | |
+|---|---|
+| `man glassosd` | the daemon and its modules |
+| `man glassosdctl` | every command |
+| `man glassosdrc` | **configuration, rules, sounds, widgets, themes** |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | when something does not work |
+| [docs/portal-routing.md](docs/portal-routing.md) | sandboxed apps whose notifications never arrive |
+| [docs/compositors.md](docs/compositors.md) | Hyprland and sway setup |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | building from source |
+| [packaging/DEPENDENCIES.md](packaging/DEPENDENCIES.md) | package names per distribution |
+
+Everything `glassosdctl` does goes through `org.glassosd.Control` on the session
+bus, so it works identically on every compositor:
 
 ```bash
 busctl --user introspect org.glassosd.Daemon /Control org.glassosd.Control
 ```
-
----
-
-## Troubleshooting
-
-**Nothing appears at all.**
-
-```bash
-systemctl --user status glassosd
-journalctl --user -u glassosd -n 50
-```
-
-Check something else has not taken the bus name:
-
-```bash
-glassosdctl status     # "notifications: owned by …"
-```
-
-**Some apps' notifications never arrive**, and nothing appears in the log.
-Almost always the portal backend. See
-[Sandboxed apps: the portal problem](#sandboxed-apps-the-portal-problem).
-
-**Two sets of notifications.** Another daemon is still running, or Plasma's own
-OSD is still on. See [Setup](#setup).
-
-**Surfaces are transparent and unreadable.** Your compositor is not blurring.
-Raise `glassosdctl solidity 0.8`, or use an opaque theme.
-
-**The theme file does nothing.** Watch the log while you save it — a JSON error
-is reported with its byte offset:
-
-```bash
-journalctl --user -u glassosd -f
-```
-
-**Popups vanish while I am reading them.**
-
-```bash
-glassosdctl set HoverPause true
-```
-
-**Caps Lock OSD never appears off KDE.** Expected. `org_kde_kwin_keystate` is
-KWin-only and has no portable equivalent.
-
-**Global shortcuts do nothing off KDE.** Expected — bind `glassosdctl` in your
-compositor config. See [Compositor support](#compositor-support).
 
 ---
 
@@ -1074,27 +296,11 @@ issue tracker.
 
 ---
 
+---
+
 ## Building
 
-```bash
-sudo dnf install cmake gcc-c++ ninja-build extra-cmake-modules dbus-devel \
-  qt6-qtbase-devel qt6-qtdeclarative-devel layer-shell-qt-devel \
-  kf6-kwindowsystem-devel kf6-kguiaddons-devel kf6-kconfig-devel \
-  kf6-ki18n-devel kf6-kglobalaccel-devel kf6-kstatusnotifieritem-devel \
-  kf6-kidletime-devel systemd-rpm-macros
-
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
-sudo cmake --install build
-```
-
-Package names for Arch, Debian and openSUSE are in
-[packaging/DEPENDENCIES.md](packaging/DEPENDENCIES.md). Publishing and
-packaging notes are in [packaging/PUBLISHING.md](packaging/PUBLISHING.md).
-
-Optional at runtime: `wireplumber` (or `pulseaudio-utils`) for the volume
-widget, `brightnessctl` for the brightness widget, `papirus-icon-theme` for
-third-party application icons.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -1121,4 +327,3 @@ is covered by `REUSE.toml`.
 [pw]: https://invent.kde.org/plasma/plasma-workspace
 [reuse]: https://reuse.software/
 [issues]: https://github.com/SmallTardigrade/glassosd/issues
-[discussions]: https://github.com/SmallTardigrade/glassosd/discussions
