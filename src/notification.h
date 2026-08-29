@@ -95,6 +95,9 @@ struct Notification {
     /* Set by a rule's snooze= key: minutes to defer this on arrival. */
     int snoozeMinutes = -1;
     bool skipDisplay = false;    // rule said: no popup, history only
+    /* Seconds for which an identical repeat should not re-open a popup.
+       -1 == no suppression. Set by a rule; see Rule::repeatWindowSec. */
+    int repeatWindowSec = -1;
     bool historyIgnore = false;  // rule said: do not even record it
 
     QString groupKey() const

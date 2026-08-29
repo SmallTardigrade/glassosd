@@ -52,6 +52,16 @@ struct Rule {
     QString run;
     /* Defer on arrival: don't show it now, bring it back in N minutes. */
     int snoozeMinutes = -1;
+    /* Seconds for which a byte-identical repeat is not shown again.
+
+       set_stack_tag already collapses repeats onto one card, but only while
+       that card still exists: once it expires, the next copy has nothing to
+       replace and opens a fresh popup. For a sender that repeats forever —
+       PowerDevil re-sends the identical "Device Battery Low" once or twice a
+       second for as long as the device is low — that is a new card every time
+       the last one times out, which is the same spam wearing a different
+       shape. -1 leaves it off. */
+    int repeatWindowSec = -1;
 
     bool matches(const Notification &n) const;
 };

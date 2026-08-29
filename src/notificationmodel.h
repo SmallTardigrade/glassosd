@@ -204,6 +204,10 @@ private:
     int m_coalesceThreshold = 3;
     int m_coalesceWindowMs = 20000;
     QHash<QString, QList<QDateTime>> m_recentByGroup;
+    /* When each distinct piece of content was last shown, for rules carrying
+       repeat_window. Keyed on app + summary + body, so "9% remaining" and
+       "6% remaining" are different content and each gets its own popup. */
+    QHash<QString, QDateTime> m_lastShownByContent;
     QTimer m_tick;
     QSet<uint> m_hovered;
     bool m_hoverPause = true;

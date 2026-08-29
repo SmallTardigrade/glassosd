@@ -247,7 +247,27 @@ bool NotificationModel::replaceByTag(const Notification &n)
             const Notification old = m_displayed.at(i);
             Notification updated = n;
             updated.groupCount = old.groupCount;
-            updated.displayedAt = QDateTime::currentDateTimeUtc();
+            /* Only restart the expiry clock when something visible actually
+               changed.
+
+               PowerDevil re-sends the identical "Device Battery Low (6%
+               Remaining)" once or twice a second for as long as the device is
+               low — 66 byte-identical copies in one afternoon here. Each was
+               correctly collapsed onto the one card by the tag, but each also
+               reset displayedAt, so the 8s timer restarted roughly eight times
+               per expiry and the card could never die. The rule was working;
+               the card was simply immortal, which looks exactly like the
+               spam the rule was meant to stop.
+
+               A tagged notification whose text has genuinely changed (12% ->
+               9% -> 6%) still earns a fresh timer: that is new information and
+               the point of replacing by tag. A repeat of what is already on
+               screen is not. */
+            const bool sameContent = old.summary == n.summary
+                                  && old.body    == n.body;
+            updated.displayedAt = (sameContent && old.displayedAt.isValid())
+                                      ? old.displayedAt
+                                      : QDateTime::currentDateTimeUtc();
             if (updated.appIcon.isEmpty() && !updated.image.isValid()) {
                 updated.appIcon = old.appIcon;   // inherit rather than go blank
             }
@@ -350,6 +370,35 @@ uint NotificationModel::insert(Notification n)
     if (coalesce(n)) {
         update();
         return n.id;
+    }
+
+    /* An identical repeat, inside the window a rule asked for.
+
+       set_stack_tag alone is not enough. It collapses repeats onto the card
+       that is already up, but replaceByTag() searches only what is displayed
+       or waiting — once the card expires, the next copy matches nothing and
+       opens a fresh popup. A sender that repeats indefinitely therefore gets a
+       new card every time the previous one times out. Measured here with
+       PowerDevil: 66 byte-identical "Device Battery Low (6% Remaining)" in one
+       afternoon, one or two every second.
+
+       Keyed on the content rather than on the tag, so the same rule still lets
+       12% -> 9% -> 6% through as three separate pieces of news. History is
+       untouched: this suppresses the popup, not the record. */
+    if (n.repeatWindowSec >= 0) {
+        const QString key = n.appName + QLatin1Char('\x1f')
+                          + n.summary + QLatin1Char('\x1f') + n.body;
+        const QDateTime last = m_lastShownByContent.value(key);
+        if (last.isValid() && last.secsTo(n.received) < n.repeatWindowSec) {
+            Q_EMIT notificationClosed(n.id, CloseReason::Expired);
+            return n.id;
+        }
+        m_lastShownByContent.insert(key, n.received);
+        /* Bounded: one entry per distinct message, and a desktop does not
+           produce unboundedly many. Trimmed anyway if it ever runs away. */
+        if (m_lastShownByContent.size() > 512) {
+            m_lastShownByContent.clear();
+        }
     }
 
     /* A rule asked for no popup. The sender is still told the notification

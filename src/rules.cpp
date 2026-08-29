@@ -69,6 +69,7 @@ void Rules::load(const KSharedConfig::Ptr &config)
         r.focus = g.readEntry("focus", QString());
         r.run = g.readEntry("run", QString());
         r.snoozeMinutes = g.readEntry("snooze", -1);
+        r.repeatWindowSec = g.readEntry("repeat_window", -1);
 
         m_rules.append(r);
     }
@@ -166,6 +167,9 @@ void Rules::apply(Notification &n) const
         }
         if (r.historyIgnore) {
             n.historyIgnore = true;
+        }
+        if (r.repeatWindowSec >= 0) {
+            n.repeatWindowSec = r.repeatWindowSec;
         }
         if (!r.sound.isEmpty()) {
             n.sound = r.sound;
