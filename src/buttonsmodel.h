@@ -41,6 +41,11 @@ struct QuickButton {
     QString name;
     QString icon;
     QString label;
+    /* How many columns of the grid this button takes. A button wide enough to
+       carry a written label as well as its glyph is the difference between a
+       row of anonymous symbols and a control you can read, so the ones that
+       matter can be given the room. */
+    int span = 1;
     QString tooltip;
     QString command;
     QString action;
@@ -64,6 +69,7 @@ public:
         TooltipRole,
         ToggleRole,   // renders as a state toggle rather than a plain button
         ActiveRole,   // current state, for toggles
+        SpanRole,     // how many grid columns this button occupies
     };
 
     explicit ButtonsModel(QObject *parent = nullptr);

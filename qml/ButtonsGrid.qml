@@ -24,11 +24,17 @@ Item {
     readonly property int cellW: Math.floor((width - gap * (ButtonsModel.perRow - 1))
                                             / ButtonsModel.perRow)
 
-    Grid {
+    /* GridLayout rather than Grid, because a Grid has no notion of a cell
+       spanning columns and a wide button is the whole point of Span. The
+       explicit cellW is kept: GridLayout would otherwise distribute width by
+       content, so a labelled button would starve the glyph-only ones beside
+       it. */
+    GridLayout {
         id: grid
         width: parent.width
         columns: ButtonsModel.perRow
-        spacing: root.gap
+        columnSpacing: root.gap
+        rowSpacing: root.gap
 
         Repeater {
             model: ButtonsModel
@@ -41,8 +47,13 @@ Item {
                 required property string tooltip
                 required property bool isToggle
                 required property bool active
+                required property int span
 
-                width: root.cellW
+                /* Its own cells plus the gaps it swallows between them. */
+                Layout.columnSpan: Math.min(cell.span, ButtonsModel.perRow)
+                Layout.preferredWidth: root.cellW * Layout.columnSpan
+                                     + root.gap * (Layout.columnSpan - 1)
+                Layout.preferredHeight: Style.px(40)
                 height: Style.px(40)
                 radius: Style.px(12)
 
@@ -57,24 +68,35 @@ Item {
 
                 Behavior on color { ColorAnimation { duration: 120 } }
 
-                Image {
-                    anchors.centerIn: parent
-                    visible: cell.iconName !== ""
-                    width: Style.px(18)
-                    height: Style.px(18)
-                    source: cell.iconName ? Icons.source(cell.iconName) : ""
-                    sourceSize.width: width * 3
-                    sourceSize.height: height * 3
-                    smooth: true
-                }
+                /* Glyph and words together when there is room for both. A
+                   one-cell button shows the glyph alone and keeps its name in
+                   the tooltip; a spanning one can say what it is outright,
+                   which is the reason to give it the width. */
+                readonly property bool showsLabel: cell.label !== "" && cell.span > 1
 
-                Text {
+                Row {
                     anchors.centerIn: parent
-                    visible: cell.iconName === ""
-                    text: cell.label
-                    color: cell.active ? "#ffffff" : Style.foreground
-                    font.family: Style.fontFamily
-                    font.pointSize: Style.fontSize
+                    spacing: Style.px(8)
+
+                    Image {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: cell.iconName !== ""
+                        width: Style.px(18)
+                        height: Style.px(18)
+                        source: cell.iconName ? Icons.source(cell.iconName) : ""
+                        sourceSize.width: width * 3
+                        sourceSize.height: height * 3
+                        smooth: true
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: cell.iconName === "" || cell.showsLabel
+                        text: cell.label !== "" ? cell.label : cell.tooltip
+                        color: cell.active ? "#ffffff" : Style.foreground
+                        font.family: Style.fontFamily
+                        font.pointSize: Style.fontSize
+                    }
                 }
 
                 MouseArea {
@@ -88,7 +110,7 @@ Item {
                 /* The tooltip is the only place the name survives once an icon
                    is set, so a grid of bare glyphs stays discoverable. */
                 Rectangle {
-                    visible: area.containsMouse && cell.tooltip !== ""
+                    visible: area.containsMouse && cell.tooltip !== "" && !cell.showsLabel
                     anchors.bottom: parent.top
                     anchors.bottomMargin: Style.px(6)
                     anchors.horizontalCenter: parent.horizontalCenter

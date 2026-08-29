@@ -62,6 +62,7 @@ void ButtonsModel::load()
         b.command = cg.readEntry("Command", QString());
         b.action = cg.readEntry("Action", QString());
         b.order = cg.readEntry("Order", 100);
+        b.span = qBound(1, cg.readEntry("Span", 1), 10);
 
         if (b.icon.isEmpty() && b.label.isEmpty()) {
             qWarning("glassosd: [%s] has neither Icon nor Label; skipping",
@@ -90,6 +91,7 @@ QHash<int, QByteArray> ButtonsModel::roleNames() const
     return {
         {NameRole, "name"},   {IconRole, "iconName"}, {LabelRole, "label"},
         {TooltipRole, "tooltip"}, {ToggleRole, "isToggle"}, {ActiveRole, "active"},
+        {SpanRole, "span"},
     };
 }
 
@@ -106,6 +108,8 @@ QVariant ButtonsModel::data(const QModelIndex &index, int role) const
         return b.icon;
     case LabelRole:
         return b.label;
+    case SpanRole:
+        return b.span;
     case TooltipRole:
         return b.tooltip;
     case ToggleRole:
