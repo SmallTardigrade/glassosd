@@ -3,15 +3,15 @@
 
   "accent": "rgba(86, 186, 245, 1.0)",
 
-  "_text": "Pushed harder than the opaque themes. Text over a blurred backdrop competes with whatever is behind it, so the secondary tier cannot sit as low as it does on a solid card — measured at 0.70 it dropped under 4.5:1 against a light backdrop.",
+  "_text": "Three tiers that are actually distinguishable. The previous values (0.94 / 0.84) were pushed up to survive a card that changed brightness with whatever was behind it, and the result measured 17.9 / 15.6 / 12.4 against its own card — a 1.45x span, so app name, title and body all read at one weight. With the surfaces held steadier below, the tiers can come back down: these measure 17.4 / 13.6 / 8.1 on a dark backdrop, and the secondary tier's worst case — over a white window, where the card lightens most — is 5.50:1, still clear of the 4.5 AA threshold.",
   "text.primary": "rgba(255, 255, 255, 1.0)",
-  "text.muted": "rgba(252, 253, 255, 0.94)",
-  "text.secondary": "rgba(248, 251, 255, 0.84)",
+  "text.muted": "rgba(250, 252, 255, 0.88)",
+  "text.secondary": "rgba(248, 251, 255, 0.66)",
 
-  "_surfaces": "0.78 rather than 0.72. The lower value looked better over a dark backdrop and failed badly over a bright one; blur softens detail but does not darken it.",
-  "card.background": "rgba(18, 21, 26, 0.78)",
-  "panel.background": "rgba(16, 19, 24, 0.80)",
-  "osd.background": "rgba(18, 21, 26, 0.72)",
+  "_surfaces": "The number that matters here is not how see-through the surface is, it is how much it *changes*. At 0.78 the card rendered rgb(21,23,28) over the desktop and rgb(66,68,73) over a bright window — a 6.8x luminance shift, so the same card had no settled colour of its own. 0.83 brings that to 5.0x while staying properly translucent. For reference, the swaync config frosted.json was ported from floats its popups at 0.50 and its control centre at 0.22, but it runs under Hyprland with `layerrule = ignorezero`, which blurs fully transparent pixels so the blur carries the surface and the fill barely matters. KWin has no equivalent, so those numbers do not transfer even though the look they are after is the same one.",
+  "card.background": "rgba(18, 21, 26, 0.83)",
+  "panel.background": "rgba(16, 19, 24, 0.85)",
+  "osd.background": "rgba(18, 21, 26, 0.79)",
 
   "_content": "Rows stay clearly more solid than the sheet they sit on. Translucent content over translucent glass is where legibility actually falls apart.",
   "entry.background": "rgba(44, 51, 62, 0.90)",
@@ -21,21 +21,6 @@
   "_edge": "Halved from the first attempt. At 0.34 the edge read as a drawn outline round the card rather than as light catching a pane — which is exactly the 'unseamless' look this was meant to avoid. A glass edge should be sensed, not seen.",
   "glass.edge": "rgba(255, 255, 255, 0.17)",
   "glass.sheen": "rgba(255, 255, 255, 0.06)",
-  "card.sheen": "rgba(255, 255, 255, 0.04)",
-  "edge.outer": "rgba(255, 255, 255, 0.09)",
-  "edge.width": 1,
-
-  "control.fill": "rgba(255, 255, 255, 0.14)",
-  "control.fillHover": "rgba(255, 255, 255, 0.24)",
-  "control.edge": "rgba(255, 255, 255, 0.16)",
-
-  "slider.track": "rgba(255, 255, 255, 0.16)",
-  "chip.idle": "rgba(255, 255, 255, 0.09)",
-  "urgency.critical": "#ff6b78",
-
-  "radius.card": 18,
-  "radius.chipRatio": 0.32,
-
   "_blur_strength": "How hard the blur is is NOT set here and cannot be — ext-background-effect-v1 lets a client name the region to blur, not the radius. That is the compositor's setting: on KWin, System Settings > Desktop Effects > Blur, or kwriteconfig6 --file kwinrc --group Effect-blur --key BlurStrength <1-15>. Note a stronger blur samples a wider area, so over a bright window it pulls that brightness in and the surface goes lighter as well as hazier.",
 
   "_blur": "Saturation carries the material — at 1.0 a translucent surface reads as grey haze. But it is also what fringes the edge: the outermost pixel of the card is only partly opaque, so a boosted backdrop shows through it as colour, cyan over a blue banner. 1.25 keeps the chroma without the fringe. 1.85 and above fringe visibly.",
@@ -43,11 +28,11 @@
   "blur.contrast": 0.34,
   "blur.intensity": 0.90,
 
-  "_depth": "Wider and softer than the opaque themes. At low alpha the fill no longer separates the surface from the desktop, so the shadow has to do that work alone.",
-  "shadow.opacity": 0.55,
-  "shadow.blur": 50,
-  "shadow.offsetY": 9,
+  "_depth": "Wider and softer than the opaque themes. At low alpha the fill no longer separates the surface from the desktop, so the shadow has to do that work alone. shadow.pad is the transparent margin the surface reserves for the shadow to render into, and it MUST cover blur plus offsetY or the falloff is clipped flat against the window edge — which reads as a weak shadow rather than a soft one, and is exactly what made the cards look like stickers. This theme raised blur to 50 and left pad on its 42 default, so it was clipping itself by 8px at the sides and 17 at the bottom. Blur is now 26 rather than 50: at 50 the falloff was spread so thin over so large an area that it read as nothing at all, and a tighter shadow close to the card separates it far better than a wide faint one. 40 covers 26 plus the 7px offset.",
+  "shadow.opacity": 0.5,
+  "shadow.blur": 26,
+  "shadow.offsetY": 7,
+  "shadow.pad": 40,
 
-  "motion.in": 150,
-  "motion.out": 190
+  "_motion": "Deliberately not set. Style.qml carries Material's emphasized figures (225 in / 195 out) and this file used to override them back down to 150/190, which quietly undid the arrival animation everywhere the theme was active. If this theme ever wants its own timing it should say so on purpose, not by inheritance."
 }

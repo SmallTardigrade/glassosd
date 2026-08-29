@@ -8,7 +8,7 @@
   "text.muted": "rgba(230, 235, 240, 0.90)",
   "text.secondary": "rgba(215, 220, 225, 0.78)",
 
-  "_note": "swaync's 0.22 panel alpha relies on GTK blur behind it. Ours is raised because the same value over an unblurred wallpaper failed contrast; drop it to 0.30 if your compositor blurs hard.",
+  "_note": "swaync's 0.22 panel alpha relies on the compositor, not on GTK: the README tells Hyprland `layerrule = ignorezero, swaync-control-center`, which blurs even fully transparent pixels, so there the blur carries the surface and the fill is close to decorative. KWin has no equivalent — an empty region is simply a hole — which is why these are raised and why they should not be 'corrected' back to the upstream numbers. If this wants re-tuning, pick the alpha by how much the surface shifts between a dark and a bright backdrop, the way liquid-glass was done, rather than by how see-through it looks over the wallpaper.",
   "panel.background": "rgba(22, 22, 28, 0.88)",
   "osd.background": "rgba(20, 25, 25, 0.80)",
   "card.background": "rgba(20, 25, 25, 0.95)",

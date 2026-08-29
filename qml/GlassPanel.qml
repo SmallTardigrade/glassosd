@@ -80,7 +80,16 @@ Rectangle {
     /* Specular sheen: light catches the upper face of a pane. Drawn as a
        gradient inside the rounded rect rather than as a separate strip — an
        earlier attempt anchored a 1px line with margins and it landed *below*
-       the edge, reading as a stray rule across the surface. */
+       the edge, reading as a stray rule across the surface.
+
+       Deliberately top-only. A directional edge — lit along the top, shaded
+       along the bottom, the border-top-color / border-bottom-color split the
+       glass references use — was tried and removed. It works, but only over a
+       dark backdrop: the lip is white, so over a light window there is nothing
+       for it to lighten and the effect simply vanishes. That left a surface
+       that changed character depending on what was behind it, which is the
+       same failure the card alpha was just tuned to avoid. Separation on light
+       backgrounds is the shadow's job, not the edge's. */
     Rectangle {
         anchors.fill: parent
         radius: parent.radius

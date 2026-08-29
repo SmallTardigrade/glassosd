@@ -21,8 +21,16 @@ Window {
     flags: Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus
     color: "transparent"
 
-    width: panel.implicitWidth
-    height: panel.implicitHeight
+    /* Room round the panel for its shadow to render into. Without this the
+       window is exactly the panel and there is nowhere for a falloff to go,
+       which is why the OSD was the one surface with no shadow at all. */
+    width: panel.implicitWidth + Style.shadowPad * 2
+    height: panel.implicitHeight + Style.shadowPad * 2
+
+    /* The pad is transparent but it is still part of the surface, so anchoring
+       at osdTopMargin would push the *visible* panel down by the pad. Take it
+       back off the margin so the OSD sits exactly where it did before. */
+    readonly property int edgeMargin: Math.max(0, Style.osdTopMargin - Style.shadowPad)
 
     visible: Modules.osd && (OsdModel.active || panel.opacity > 0.001)
 
@@ -38,8 +46,8 @@ Window {
            fullscreen windows and the OSD would simply never appear. */
         const a = Appearance.osdAnchor
         Surface.initLayerShell(win, "glassosd-osd", a,
-                               a === 1 ? Style.osdTopMargin : 0, 0,
-                               a === 2 ? Style.osdTopMargin : 0, 0,
+                               a === 1 ? win.edgeMargin : 0, 0,
+                               a === 2 ? win.edgeMargin : 0, 0,
                                false, -1, 3)
         Surface.setOutput(win, Appearance.output)
     }
@@ -49,8 +57,8 @@ Window {
         function onChanged() {
             const a = Appearance.osdAnchor
             Surface.setPosition(win, a,
-                                a === 1 ? Style.osdTopMargin : 0, 0,
-                                a === 2 ? Style.osdTopMargin : 0, 0)
+                                a === 1 ? win.edgeMargin : 0, 0,
+                                a === 2 ? win.edgeMargin : 0, 0)
         }
     }
 
@@ -70,10 +78,15 @@ Window {
         id: panel
 
         glass: true
+        shadow: true
         implicitWidth: Math.max(OsdModel.showingProgress ? Style.minWidth : Style.minWidthText,
                                 content.implicitWidth + Style.pillPaddingH * 2)
         implicitHeight: Style.chipSize + Style.padding * 2
-        anchors.fill: parent
+        /* Centred inside the padded window rather than filling it, so the pad
+           stays clear on all four sides for the shadow. */
+        width: implicitWidth
+        height: implicitHeight
+        anchors.centerIn: parent
 
         opacity: OsdModel.active ? 1 : 0
         Behavior on opacity {
