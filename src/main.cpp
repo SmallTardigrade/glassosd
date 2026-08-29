@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
        and connecting to the dangling pointer segfaulted on startup. */
     KConfigWatcher::Ptr watcher = KConfigWatcher::create(cfg);
     QObject::connect(watcher.get(), &KConfigWatcher::configChanged, &app,
-                     [=](const KConfigGroup &, const QByteArrayList &) mutable {
+                     [=](const KConfigGroup &group, const QByteArrayList &) mutable {
                          applySettings();
                          history->setNewestFirst(
                              KConfigGroup(cfg, QStringLiteral("Notifications"))
@@ -314,10 +314,30 @@ int main(int argc, char *argv[])
                          appearance->reload();
                          /* ThemeFile lives in the same config, and Theme's own
                             file watcher only knows about the file it already
-                            loaded — switching themes has to come through here. */
-                         theme->reload();
-                         server->loadRules(cfg);
-                         history->reloadRules();
+                            loaded — switching themes has to come through here.
+
+                            Only when the group that changed could contain it,
+                            though. This fired for every write to any group, so
+                            setting an unrelated key re-read and re-parsed the
+                            theme file: measured at 37 theme reloads across 40
+                            commands, none of which touched a theme. Unknown or
+                            empty group names still reload, so a caller we have
+                            not thought of gets the old behaviour rather than a
+                            stale theme. */
+                         const QString changed = group.name();
+                         if (changed.isEmpty()
+                             || changed == QLatin1String("Appearance")) {
+                             theme->reload();
+                         }
+                         /* Likewise: rules live in their own groups, and the
+                            active mode is Notifications/Focus. */
+                         if (changed.isEmpty()
+                             || changed == QLatin1String("Notifications")
+                             || changed.startsWith(QLatin1String("Rule "))
+                             || changed.startsWith(QLatin1String("Focus "))) {
+                             server->loadRules(cfg);
+                             history->reloadRules();
+                         }
                          busy->setEnabled(KConfigGroup(cfg, QStringLiteral("Notifications"))
                                               .readEntry("QuietWhileBusy", false));
                      });

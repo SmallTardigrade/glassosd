@@ -49,6 +49,18 @@ Window {
                                a === 1 ? win.edgeMargin : 0, 0,
                                a === 2 ? win.edgeMargin : 0, 0,
                                false, -1, 3)
+        /* Confine input to the panel.
+
+           The window is shadowPad larger than the panel on every side so the
+           shadow has somewhere to render, and that padding is transparent but
+           still part of the surface — so without this the OSD captures pointer
+           events in an invisible 40px border around itself for as long as it
+           is on screen. It was harmless while the window was exactly the panel
+           and stopped being so the moment it grew.
+
+           The notification stack has always done this for the same reason; the
+           OSD simply never needed it before. */
+        Surface.setInputFollowsPanels(win, true)
         Surface.setOutput(win, Appearance.output)
     }
 
