@@ -1,0 +1,201 @@
+.\" SPDX-FileCopyrightText: 2026 glassosd contributors
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH GLASSOSDCTL 1 "2026-08-29" "glassosd" "User Commands"
+.SH NAME
+glassosdctl \- control and configure a running glassosd
+.SH SYNOPSIS
+.B glassosdctl
+.I command
+.RI [ arguments ]
+.SH DESCRIPTION
+Drives the daemon over D\-Bus and writes
+.BR glassosdrc (5).
+Nearly every setting applies live; the exceptions are noted.
+.PP
+Most commands print their current value when given no argument, so the same
+command reads and writes.
+.SH STATE
+.TP
+.B status
+Daemon state and every current setting.
+.TP
+.B version
+Daemon version.
+.TP
+.BI "get " key
+Read a Notifications setting.
+.TP
+.BI "set " "key value"
+Write a Notifications setting.
+.TP
+.B restart
+Restart the daemon. Needed only after changing
+.BR Modules .
+.TP
+.B log
+Follow the journal.
+.SH NOTIFICATIONS
+.TP
+.BR dnd " [on|off|toggle]"
+Do Not Disturb.
+.TP
+.BR history " [show|hide]"
+Open or close the notification centre.
+.TP
+.B dismiss
+Close every popup on screen, including ones with
+.B expire_timeout 0
+or critical urgency, which the specification requires to stay until acted on.
+.TP
+.BI "search " text
+Open the centre with history filtered to
+.IR text .
+.TP
+.BR snooze " [" minutes ]
+How long the snooze button defers a notification. Default 10.
+.TP
+.B snoozed
+What is snoozed, and when each is due.
+.TP
+.BR badge " [on|off]"
+Mark the tray icon when notifications arrived while the centre was closed. The
+count is in the tooltip, because no icon theme ships numerals.
+.TP
+.B test
+Fire the demo sequence.
+.SH RULES AND FOCUS MODES
+.TP
+.B rules
+List notification rules.
+.TP
+.BI "rule\-set " "name key=value ..."
+Create or update a rule. See
+.BR glassosdrc (5)
+for the matchers and actions.
+.TP
+.BI "rule\-del " name
+Delete a rule.
+.TP
+.BR focus " [" name |off]
+Switch focus mode.
+.TP
+.BI "focus\-set " name
+.RB [ allow= A,B ]
+.RB [ block= C,D ]
+Define or amend a mode.
+.TP
+.BI "focus\-del " name
+Delete a mode.
+.TP
+.BR quiet\-while\-busy " [on|off]"
+Stay quiet while an application is holding the screen awake. Off by default,
+and not literal fullscreen: a Wayland client cannot see that.
+.SH OSD
+.TP
+.BR "osd volume" " [raise|lower|mute|" 0\-100 ]
+.TQ
+.BR "osd mic" " [mute|" 0\-100 ]
+.TQ
+.BR "osd brightness" " [raise|lower|" 0\-100 ]
+.TQ
+.BI "osd text " "icon text"
+Bind these to your compositor's media keys when you are not on Plasma. On
+Plasma the OSD is driven automatically and they are not needed.
+.SH APPEARANCE
+.TP
+.BR theme " [dark|light]"
+Light or dark palette.
+.TP
+.BR theme\-file " [" name ]
+Load a JSON theme.
+.TP
+.B themes
+List available themes and where they live.
+.TP
+.B edit\-theme
+Copy the current theme to
+.I ~/.config/glassosd/
+and open it.
+.TP
+.BR accent " [" #rrggbb ]
+Accent colour. Darkened automatically if it would fail contrast.
+.TP
+.BR scale " [0.6\-2.0]"
+Size multiplier for all text and spacing.
+.TP
+.BR font " [6\-32]"
+Text point size, independent of scale. Use this for bigger text in the same
+layout. 0 or
+.B auto
+derives it from scale.
+.TP
+.BR width " [240\-900]"
+Popup width in logical pixels.
+.TP
+.BR solidity " [0.0\-1.0]"
+Push glass toward opaque. 0 keeps the tuned glass; raise it on compositors that
+do not blur.
+.TP
+.BR level " [segmented|bar]"
+Volume and brightness indicator style.
+.TP
+.BR lines " [1\-20]"
+.TQ
+.BR centre\-lines " [1\-20]"
+Body lines a popup, and an entry in the centre, show before eliding. Defaults 4
+and 3.
+.SH PLACEMENT
+.TP
+.BR position " [" where ]
+Which corner or edge popups appear at:
+.BR top\-left ,
+.BR top\-centre ,
+.B top\-right
+(default),
+.BR bottom\-left ,
+.BR bottom\-centre ,
+.BR bottom\-right .
+.TP
+.BR offset " [" X "] [" Y ]
+Extra clearance from the anchored screen edges, in logical pixels. 0 is not
+flush, since the shadow already insets the cards. One number sets both.
+.TP
+.BR centre\-position " [left|right]"
+Which side the notification centre slides in from.
+.TP
+.BR osd\-position " [top|centre|bottom]"
+Where the OSD sits.
+.TP
+.BR layer " [top|overlay]"
+Where popups sit relative to fullscreen windows.
+.B top
+stays below them;
+.B overlay
+covers them.
+.TP
+.BR output " [current|primary|" name ]
+Which screen surfaces appear on.
+.SH CONTENTS
+.TP
+.BR widgets " [" list |default]
+Which widgets the centre shows, and in what order. See
+.BR glassosdrc (5).
+.TP
+.BR module " " name " [on|off]"
+Toggle a half of the daemon on its own. Read at startup, so follow with
+.BR restart .
+.SH SOUND
+.TP
+.BR sound " [on|off]"
+Notification sounds, by freedesktop sound\-theme name. On by default.
+.TP
+.BR osd\-sound " [on|off]"
+Feedback on volume steps and lock keys. Off by default.
+.TP
+.B sounds
+List every sound name your themes provide, and where to put your own.
+.SH SEE ALSO
+.BR glassosd (1),
+.BR glassosdrc (5)
+.SH AUTHORS
+The glassosd contributors.

@@ -1,0 +1,81 @@
+.\" SPDX-FileCopyrightText: 2026 glassosd contributors
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH GLASSOSD 1 "2026-08-29" "glassosd" "User Commands"
+.SH NAME
+glassosd \- unified notification daemon, OSD and control centre
+.SH SYNOPSIS
+.B glassosd
+.SH DESCRIPTION
+A single daemon replacing four Plasma shell surfaces with one consistent
+design: notification popups, the volume and brightness OSD, the lock\-key
+indicators, and a notification centre.
+.PP
+It implements
+.B org.freedesktop.Notifications
+and so replaces whatever notification server was serving that name. Normally
+started by its systemd user unit or on demand by D\-Bus activation, rather than
+run by hand.
+.PP
+Configuration lives in
+.BR glassosdrc (5)
+and is driven at runtime by
+.BR glassosdctl (1).
+.SH MODULES
+Each half runs independently, and off means never constructed \(em no bus name,
+no Wayland surface, no watchers. Modules are read at startup.
+.TP
+.B notifications
+The notification server and its popups.
+.TP
+.B centre
+The control centre and tray icon.
+.TP
+.B osd
+Volume, brightness and media OSD.
+.TP
+.B lockkeys
+Caps, num and Fn lock indicators.
+.PP
+.nf
+glassosdctl module
+glassosdctl module osd off
+glassosdctl restart
+.fi
+.SH REQUIREMENTS
+A compositor implementing
+.BR wlr\-layer\-shell\-unstable\-v1 :
+KDE Plasma, Hyprland, sway, river, Wayfire, labwc and other wlroots\-based
+compositors. It does not work on GNOME, which does not implement layer\-shell,
+nor on X11.
+.PP
+Compositor blur is optional. Without it, glass surfaces close up automatically
+rather than being merely see\-through; see
+.B Solidity
+in
+.BR glassosdrc (5).
+.SH SIGNALS
+.TP
+.B SIGTERM
+Saves history and snooze state, then exits.
+.SH FILES
+.TP
+.I ~/.config/glassosdrc
+Configuration; see
+.BR glassosdrc (5).
+.TP
+.I ~/.local/share/glassosd/history.json
+Notification history.
+.TP
+.I ~/.local/share/glassosd/snoozed.json
+Snoozed notifications and their wake times.
+.SH DIAGNOSTICS
+.nf
+glassosdctl status
+journalctl \-\-user \-u glassosd \-f
+.fi
+.SH SEE ALSO
+.BR glassosdctl (1),
+.BR glassosdrc (5),
+.BR notify\-send (1)
+.SH AUTHORS
+The glassosd contributors.

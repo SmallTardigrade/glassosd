@@ -1,0 +1,816 @@
+.\" SPDX-FileCopyrightText: 2026 glassosd contributors
+.\" SPDX-License-Identifier: GPL-2.0-or-later
+.TH GLASSOSDRC 5 "2026-08-29" "glassosd" "File Formats"
+.SH NAME
+glassosdrc \- configuration file for glassosd
+.SH SYNOPSIS
+.I ~/.config/glassosdrc
+.SH DESCRIPTION
+An INI file in the KConfig style: groups in square brackets, then
+.IR key = value
+lines.
+.PP
+Every key has a
+.BR glassosdctl (1)
+equivalent that applies live, without a restart, and writing the file by hand
+has the same effect. The exception is
+.BR Modules ,
+which is read once at startup.
+.SH THE NOTIFICATIONS GROUP
+.TP
+.B Enabled
+Whether popups appear at all. Default true.
+.TP
+.B Limit
+How many popups may be on screen at once. Default 4.
+.TP
+.B HistoryLength
+How many notifications history keeps. Default 200. Identical repeats collapse
+onto one counted entry, so a repeating sender occupies one slot rather than
+hundreds.
+.TP
+.B Timeout ", " TimeoutLow ", " TimeoutCritical
+How long popups stay, in milliseconds; 0 means until dismissed. Defaults 6000,
+4000 and 0. A notification's own requested timeout wins where it sets one.
+.TP
+.B HoverPause
+Hold a popup open while the pointer is on it. Default true.
+.TP
+.B CoalesceThreshold ", " CoalesceWindowMs
+How many notifications from one application within how long collapse into a
+single card. Defaults 3 and 20000.
+.TP
+.B AutoCollapseOver
+Group size at which the notification centre opens a group folded. Default 3.
+.TP
+.B IdleThresholdMs
+How long without input before the daemon considers you away. Default 120000.
+.TP
+.B NewestFirst
+Whether history lists the newest entry at the top. Default false, which puts it
+at the bottom the way a message thread does, since the centre opens scrolled
+there.
+.SH THE APPEARANCE GROUP
+.TP
+.B Theme
+.B dark
+or
+.BR light .
+.TP
+.B ThemeFile
+Name of a theme in the search path; see
+.B THEMES
+below.
+.TP
+.B AccentColor
+Overrides the theme's accent. Darkened automatically if it would fail contrast.
+.TP
+.B Scale
+Size multiplier for all text and spacing, 0.6 to 2.0. Applied on top of the
+display's own scale factor.
+.TP
+.B FontSize
+Base point size. Wins over the theme's
+.BR font.size .
+.TP
+.B NotifyWidth
+Popup width in logical pixels, 240 to 900.
+.TP
+.B Solidity
+Pushes every glass surface toward opaque, 0.0 to 1.0. 0 keeps the tuned glass.
+Intended for compositors that do not blur, where translucency is merely
+see\-through.
+.TP
+.B Position ", " OffsetX ", " OffsetY
+Where popups sit, and extra clearance from the anchored edges. See
+.B POSITION
+below.
+.TP
+.B CentrePosition ", " OsdPosition
+Which side the control centre opens on, and whether the OSD sits at the top,
+centre or bottom.
+.TP
+.B Widgets
+The control centre's contents, in order. See
+.B WIDGETS
+below.
+.TP
+.B ButtonsPerRow
+Columns in the button grid. Default 5.
+.TP
+.B Level
+.B segmented
+or
+.BR bar ,
+for the volume and brightness indicator.
+.TP
+.B Sound ", " OsdSound
+Notification sounds, and feedback on volume steps and lock keys. Default true
+and false.
+.TP
+.B QuietWhileBusy
+Hold notifications back while an application is asking that the screen not
+blank. Default false. See
+.B QUIET WHILE BUSY
+below.
+.SH POSITION
+.nf
+glassosdctl position bottom\-right
+glassosdctl offset 0 160
+.fi
+.PP
+Accepted positions are
+.BR top\-left ,
+.BR top\-centre ,
+.BR top\-right ,
+.BR bottom\-left ,
+.B bottom\-centre
+and
+.BR bottom\-right .
+.PP
+Popups clear your panel or taskbar automatically, whatever its thickness and
+whichever edge it is on: glassosd requests no exclusive zone of its own but
+respects everyone else's, so the compositor keeps it out of the way. Nothing to
+configure, and it follows the panel if you move it.
+.PP
+.B offset
+is for what panel awareness cannot cover \(em a browser's tab strip, a video
+player's controls, a game's HUD. None of those reserve an exclusive zone, so
+nothing tells the compositor they are there. Two numbers, X then Y, in logical
+pixels, applied only to the edges you are anchored to; one number sets both.
+Zero is not flush against the screen edge, because the card shadow already
+insets the stack.
+.PP
+The stack always grows away from its anchor, so the newest notification is the
+one nearest the corner you chose, whichever corner that is.
+.SH MODULES
+Each half runs independently. Off means never constructed: no bus name, no
+Wayland surface, no watchers. Modules are read at startup, so changing one
+needs
+.BR "glassosdctl restart" .
+.TP
+.B notifications
+The daemon and its popups.
+.TP
+.B centre
+The control centre and tray icon.
+.TP
+.B osd
+Volume, brightness and media OSD.
+.TP
+.B lockkeys
+Caps, num and Fn lock OSDs.
+.SH RULES
+A rule is a
+.BI "[Rule " name ]
+group. Matchers decide what it applies to; actions decide what happens. Every
+set matcher must match, and patterns are globs rather than regular expressions,
+matching
+.BR dunst (1)
+so that dunstrc entries can be copied across.
+.PP
+.nf
+glassosdctl rule\-set signal appname=Signal set_stack_tag=chat timeout=8000
+glassosdctl rule\-set noisy  appname=Steam skip_display=true
+glassosdctl rules
+.fi
+.SS Matchers
+.B appname
+.RB "\(bu " summary
+.RB "\(bu " body
+.RB "\(bu " category
+.RB "\(bu " desktop_entry
+.RB "\(bu " match_urgency
+.RB "\(bu " focus
+.SS Actions
+.TP
+.B set_stack_tag
+Give the notification a tag, so a later notification with the same tag replaces
+it rather than stacking beside it.
+.TP
+.B timeout
+Milliseconds on screen; 0 never expires.
+.TP
+.B set_urgency
+0 low, 1 normal, 2 critical.
+.TP
+.B skip_display
+No popup; still recorded. Takes true or false, and false is meaningful \(em it
+puts back something an earlier rule hid, which is how a focus mode's allow list
+works.
+.TP
+.B history_ignore
+Not recorded either.
+.TP
+.B always_collapsed
+The group opens folded in the centre.
+.TP
+.B sound
+A sound name, a file path, or
+.B none
+to silence this rule. See
+.BR SOUNDS .
+.TP
+.B focus
+Apply only while that focus mode is active.
+.TP
+.B run
+Run a command on match. See
+.B "THE RUN ACTION"
+below.
+.TP
+.B snooze
+Minutes to defer by. The notification is recorded immediately and shown later:
+it arrived, it is waiting, not lost.
+.TP
+.B repeat_window
+Seconds for which a byte\-identical repeat does not reopen a popup. History
+still records every copy.
+.RS
+.PP
+.B set_stack_tag
+alone is not enough for a sender that repeats indefinitely. It collapses copies
+onto the card already up, but only while that card exists: once it expires, the
+next copy has nothing to replace and opens a fresh popup. PowerDevil re\-sends
+an identical low\-battery warning once or twice a second for as long as a device
+is low, so without this you get a new card every time the last one times out.
+.PP
+Matched on app name, summary and body together, so a rule carrying this still
+lets 12%, then 9%, then 6% through as three separate pieces of news. It is the
+repeat that is suppressed, not the subject.
+.RE
+.SS The run action
+.nf
+glassosdctl rule\-set logmail appname=Thunderbird "run=/home/me/bin/log.sh %a %s"
+.fi
+.PP
+Placeholders are
+.B %a
+app,
+.B %s
+summary,
+.B %b
+body,
+.B %c
+category,
+.B %u
+urgency and
+.B %i
+id. The same values are exported as
+.BR $GLASSOSD_APP ,
+.BR $GLASSOSD_SUMMARY ,
+.BR $GLASSOSD_BODY ,
+.BR $GLASSOSD_CATEGORY ,
+.BR $GLASSOSD_URGENCY ,
+.B $GLASSOSD_ID
+and
+.BR $GLASSOSD_DESKTOP_ENTRY .
+.PP
+.B The command is not run through a shell.
+It is split into arguments and executed directly, and placeholders are
+substituted after the split \(em so a summary reading
+.I "x; rm \-rf ~"
+arrives as one argument, not as a command. Anyone can send you a notification;
+treating its text as shell input would be a hole.
+.PP
+That means shell syntax \(em pipes, redirection,
+.B &&
+\(em does not work inline. If you need it, call a shell explicitly and read the
+.IR environment ,
+never a placeholder:
+.PP
+.nf
+.RB "# safe: the value never passes through the parser"
+run=sh \-c 'echo "$GLASSOSD_SUMMARY" >> ~/notifications.log'
+
+.RB "# unsafe: %s is substituted into a string the shell then parses"
+run=sh \-c 'echo %s >> ~/notifications.log'
+.fi
+.SS Per-app settings in the centre
+The sliders icon on a group header writes these same rules, offering four
+outcomes rather than raw keys:
+.TP
+.B Mute
+.B skip_display
+\(em no popup, still kept in history.
+.TP
+.B Ignore
+.B history_ignore
+plus
+.B skip_display
+\(em dropped entirely.
+.TP
+.B "Never expire"
+.B timeout=0
+\(em popups stay until dismissed.
+.TP
+.B "Always collapsed"
+.B always_collapsed
+\(em the group opens folded.
+.PP
+Ignore holds Mute on for as long as it is set, because a notification kept
+nowhere but still flashing on screen is not what "ignore" means. Turning Ignore
+off clears both.
+.SH FOCUS MODES
+A bundle of rules and an allow or block list, switched as a unit.
+.PP
+.nf
+glassosdctl focus\-set work   allow=Signal,Jenkins
+glassosdctl focus\-set gaming block=Slack,Discord
+glassosdctl focus work
+glassosdctl focus off
+.fi
+.PP
+.B allow=
+silences everything except the applications named;
+.B block=
+silences only those. Names are matched against both the application name and
+its desktop entry, since the one you know is whichever you happen to have seen.
+.PP
+Rules can belong to a mode, which is the more powerful half:
+.PP
+.nf
+glassosdctl rule\-set standup focus=work appname=Calendar sound=bell
+.fi
+.PP
+A rule carrying
+.B focus=
+is simply not there when that mode is off, so a mode is a bundle rather than a
+set of edits to undo afterwards. Allow and block lists are compiled into rules
+and appended after the hand\-written ones, so there is one engine with one set
+of semantics, and a mode has the final say rather than being quietly undone by
+a rule written months ago. Silenced notifications are still recorded.
+.SH SOUNDS
+Names are standardised by the XDG sound naming specification, and themes ship
+them under
+.IR /usr/share/sounds/<theme>/stereo/ ,
+so glassosd asks for a name and lets your sound theme answer.
+.PP
+The sound is chosen by the notification's
+.I category
+first, since that says what the thing is, and by
+.I urgency
+second, since that only says how much it matters.
+.TP
+.B im.*
+message\-new\-instant
+.TP
+.B email.*
+message
+.TP
+.BR device.added / device.removed
+device\-added / device\-removed
+.TP
+.BR network.connected / network.disconnected
+network\-connectivity\-established / network\-connectivity\-lost
+.TP
+.BR transfer.complete / transfer.error
+complete / dialog\-error
+.PP
+Falling through to urgency: critical is
+.BR dialog\-warning ,
+normal is
+.BR message ,
+low is silent. Only categories with a matching name in the specification are
+mapped, rather than inventing names no theme ships.
+.PP
+.B glassosdctl sounds
+lists every name your installed themes provide and which theme is in use. Worth
+checking before writing a rule: the themes are not interchangeable. Freedesktop
+ships 35 names; KDE's
+.B ocean
+adds about 30 more of its own, so a rule naming one of those is silent unless
+ocean is your theme or inherits into it.
+.SS Custom sounds
+Two ways, and the first is better.
+.TP
+.B "As part of a theme"
+Drop the file at
+.I ~/.local/share/sounds/<theme>/stereo/<name>.oga
+and use it as
+.BR sound=<name> .
+It then follows theme switching and inheritance like any other name, and one
+name can have different files per theme.
+.TP
+.B "As a path"
+.B sound=/path/to/ding.ogg
+in a rule. No theming, but nothing to set up either.
+.B ~/
+is expanded. A path that does not exist is reported in the journal rather than
+failing silently.
+.PP
+Sounds follow the popup: a muted application, Do Not Disturb and an inhibition
+each silence the sound along with the card, because a notification nobody is
+shown should not announce itself. Bursts are rate limited, so twelve
+notifications arriving together make one sound rather than twelve.
+.PP
+Played through
+.BR canberra\-gtk\-play (1),
+which resolves the name against your theme and its inheritance chain. If that
+is missing,
+.BR paplay (1)
+or
+.BR pw\-play (1)
+play the freedesktop file directly: no theming, but not silence either.
+.SH QUIET WHILE BUSY
+.nf
+glassosdctl quiet\-while\-busy on
+.fi
+.PP
+Notifications are held back while an application is asking that the screen not
+blank \(em a video playing, a game, a presentation \(em and are still recorded,
+the same as Do Not Disturb.
+.PP
+.B This is not fullscreen detection.
+On Wayland a client cannot see another window's state, by design, and KWin
+implements no foreign\-toplevel protocol, which is why dunst reports it cannot
+do fullscreen detection here either. What is available is the signal
+applications already send through
+.BR org.freedesktop.PowerManagement.Inhibit ,
+and it is arguably the better question: whether an application says the user is
+watching something is closer to what a notification daemon wants to know than
+whether a window is the size of the screen. A long download can hold the screen
+awake without being fullscreen, and a fullscreen text editor holds nothing.
+.PP
+Measured rather than assumed: PowerDevil takes about five seconds to register
+an inhibition, so a notification arriving in the first few seconds of a video
+still appears. Nothing polls \(em the state is change\-signalled \(em the delay
+is upstream.
+.PP
+This is a third, separate reason to stay quiet, alongside Do Not Disturb and an
+application's own inhibition, so turning any one of them off does not cancel
+the others.
+.SH WIDGETS
+The control centre's contents are a list, using swaync's widget names so a
+migrated config reads the same way.
+.PP
+.nf
+glassosdctl widgets "title,mpris,search,notifications,volume,backlight,buttons\-grid"
+glassosdctl widgets default
+.fi
+.TP
+.B title
+The heading and the Clear button.
+.TP
+.B mpris
+Media player: art, title, artist, transport controls.
+.TP
+.B volume
+Volume slider; click the icon to mute.
+.TP
+.B dnd
+Do Not Disturb toggle row.
+.TP
+.B search
+Filters history as you type, matching app name, summary and body,
+case\-insensitively. Escape clears it; Escape again closes the centre. Searching
+is a whole\-history question, so typing while drilled into one application
+clears that filter rather than searching only that application while appearing
+to search everything.
+.TP
+.B notifications
+The grouped list, its empty state, and the per\-app settings panel.
+.TP
+.B backlight
+Brightness slider; needs
+.BR brightnessctl (1).
+.TP
+.B buttons\-grid
+The quick\-action grid.
+.PP
+Order in the list is the order on screen, and anything omitted is not built,
+.B notifications
+included.
+.PP
+That is why there is one special case. Before this key was an order it was a
+plain set, and no such list ever named
+.BR notifications ,
+so reading an old config literally would produce a centre with no notifications
+in it \(em which would look like a bad bug rather than a setting. A list that
+does not name
+.B notifications
+is therefore read the old way: the built\-in order, filtered to what was asked
+for, with
+.B title
+and
+.B notifications
+kept regardless. Naming
+.B notifications
+is how you opt in to ordering.
+.B glassosdctl widgets
+reports which of the two you are getting.
+.SH THE BUTTON GRID
+Buttons are
+.BI "[Button " name ]
+groups.
+.PP
+.nf
+[Button dnd]
+Icon=dnd
+Label=Do Not Disturb
+Span=2
+Action=toggle\-dnd
+Order=0
+.fi
+.TP
+.B Icon
+A bundled name, or any icon from your theme. Bundled:
+.BR wifi ,
+.BR bluetooth ,
+.BR dnd ,
+.BR settings ,
+.BR lock ,
+.BR power ,
+.BR reboot ,
+.BR media ,
+.BR brightness ,
+.BR volume\-high ,
+.BR volume\-muted ,
+.BR mic\-on ,
+.BR mic\-muted .
+.TP
+.B Label
+Text, or a Nerd Font glyph. Shown instead of an icon when no icon is set, and
+alongside one when
+.B Span
+is greater than 1.
+.TP
+.B Span
+How many grid columns this button occupies. Default 1. A spanning button shows
+its glyph and its label together and drops its tooltip, having said what it is.
+.TP
+.B Tooltip
+Shown on hover. The only place a single\-cell button's name survives.
+.TP
+.B Order
+Sort position.
+.TP
+.B Command
+Any shell command.
+.TP
+.B Action
+One of the built\-ins, which need no external program:
+.BR toggle\-dnd ,
+.BR toggle\-wifi " (via " nmcli ),
+.BR toggle\-bluetooth " (via " rfkill ),
+.BR toggle\-power\-saver " (via power\-profiles\-daemon),"
+.BR clear\-all ,
+.BR lock ,
+.BR reboot ,
+.BR poweroff ,
+.BR logout .
+.PP
+Every
+.B toggle\-
+action renders as a toggle showing live state rather than as a plain button,
+and the state is read fresh each time the grid is drawn, so it stays right when
+something else changes it.
+.PP
+Prefer these to a
+.B Command
+that opens a settings page. A quick action should do the thing:
+.B plasma\-open\-settings kcm_networkmanagement
+starts the whole System Settings shell, which takes seconds, where
+.B toggle\-wifi
+is immediate.
+.SH THEMES
+glassosd does not parse CSS. Its surfaces are QML, which has no CSS engine, and
+pretending otherwise would mean shipping a fake one. What it has instead is a
+JSON theme file covering the part of a swaync
+.I style.css
+people actually edit: the
+.B @define\-color
+block, the radii, the shadows and the font.
+.PP
+.nf
+glassosdctl themes
+glassosdctl theme\-file nord
+glassosdctl edit\-theme
+.fi
+.PP
+Themes live in
+.IR ~/.config/glassosd/themes/NAME.json ,
+which overrides
+.IR ~/.local/share/glassosd/themes/ ,
+which overrides
+.IR /usr/share/glassosd/themes/ .
+Saving the file re\-themes the running daemon: no restart, no reload command.
+.PP
+Every value is looked up in your theme first and falls back to the built\-in, so
+a theme file only needs the keys you want to change. A two\-line theme is a
+valid theme.
+.SS Colours
+Accepting
+.BR #rgb ,
+.BR #rrggbb ,
+.BR #rrggbbaa ,
+or
+.B rgba(r, g, b, a)
+exactly as written in a swaync stylesheet.
+.TP
+.B accent
+Progress fill, active toggles, focus, the lock\-on chip.
+.TP
+.BR text.primary ", " text.muted ", " text.secondary
+Summaries and headings; the app\-name line; body copy and timestamps.
+.TP
+.BR osd.background ", " panel.background ", " card.background
+The OSD surface, the control centre sheet, the popup surface.
+.TP
+.BR entry.background ", " entry.backgroundHover ", " entry.edge
+Rows inside the control centre, hovered, and the hairline between them.
+.TP
+.B surface.solid
+Tooltips and other fully opaque surfaces.
+.TP
+.BR glass.edge ", " glass.sheen ", " card.sheen ", " edge.outer
+The lit hairline around a glass surface, its top\-edge highlight, the same on a
+solid card, and the outer border on non\-glass surfaces.
+.TP
+.BR control.fill ", " control.fillHover ", " control.fillActive ", " control.edge
+Buttons, toggles and grid cells: idle, hovered, pressed, and their border.
+.TP
+.B slider.track
+The unfilled part of a slider or progress bar.
+.TP
+.B chip.idle
+An icon container in its inactive state.
+.TP
+.BR card.stackEdge ", " card.stackSeam
+The peeking edges of a grouped stack.
+.TP
+.B urgency.critical
+The critical\-urgency accent.
+.TP
+.B shadow.color
+Drop\-shadow colour.
+.SS Numbers
+.TP
+.B radius.card
+corner radius on cards and popups. Default 16.
+.TP
+.B radius.chipRatio
+icon-container roundness; 0.5 is a circle. Default 0.32.
+.TP
+.B radius.pill
+whether small controls are fully rounded. Default true.
+.TP
+.B edge.width
+border thickness. Default 1.
+.TP
+.B spacing.padding
+padding inside surfaces. Default 12.
+.TP
+.B spacing.gap
+gap between elements. Default 13.
+.TP
+.B spacing.cardGap
+gap between stacked popups. Default 8.
+.TP
+.B spacing.screenMargin
+distance from the screen edge. Default 10.
+.TP
+.B spacing.osdTopMargin
+how far down the OSD sits. Default 118.
+.TP
+.B size.icon
+icon size. Default 21.
+.TP
+.B size.notifyIcon
+notification icon size. Default 30.
+.TP
+.B size.centreWidth
+control centre width. Default 400.
+.TP
+.B level.segments
+blocks in the segmented indicator. Default 16.
+.TP
+.B stack.depth
+sheets showing behind a grouped card. Default 2.
+.TP
+.B stack.offset
+how far each sheet peeks below the one in front. Default 9.
+.TP
+.B stack.inset
+how far each sheet is drawn in at the sides. Default 8.
+.TP
+.B stack.falloff
+taper applied to each successive peek. Default 0.78.
+.TP
+.B stack.radius
+corner radius on the sheets. Default radius.card.
+.TP
+.B shadow.opacity
+shadow strength. Default 0.48.
+.TP
+.B shadow.blur
+shadow softness. Default 40.
+.TP
+.B shadow.offsetY
+shadow drop distance. Default 8.
+.TP
+.B shadow.pad
+room reserved for the shadow to render into. Default 42.
+.TP
+.B blur.saturation
+backdrop saturation; 1.0 is off. Default 1.8.
+.TP
+.B blur.contrast
+backdrop contrast, KWin only. Default 0.32.
+.TP
+.B blur.intensity
+backdrop intensity, KWin only. Default 0.92.
+.TP
+.B motion.in
+arrival duration, ms. Default 225.
+.TP
+.B motion.out
+dismissal duration, ms. Default 195.
+.TP
+.B motion.rise
+how far a card rises as it arrives. Default 14.
+.TP
+.B font.family
+typeface. Default Noto Sans.
+.TP
+.B font.size
+base point size. Default 11.
+.PP
+.B shadow.pad
+must cover
+.B shadow.blur
+plus
+.BR shadow.offsetY ,
+or the falloff is clipped against the surface edge and the shadow looks weak
+rather than soft.
+.SS A minimal theme
+.nf
+{
+  "accent": "#ff7043",
+  "card.background": "#1a1a1a",
+  "radius.card": 4
+}
+.fi
+.SS Referencing other keys
+A value starting with
+.B @
+resolves to another key, the way
+.B @define\-color
+values get reused in a stylesheet:
+.PP
+.nf
+{
+  "accent": "#88c0d0",
+  "control.edge": "@glass.edge",
+  "slider.track": "@control.fill"
+}
+.fi
+.SS Making it not look like glass
+Set opaque surfaces and turn the sheen off.
+.I material\-dark.json
+and
+.I nord.json
+both do this and are worth reading as worked examples.
+.PP
+.nf
+{
+  "card.background": "#211f26",
+  "panel.background": "#1d1b20",
+  "glass.sheen": "rgba(0, 0, 0, 0)",
+  "card.sheen": "rgba(0, 0, 0, 0)",
+  "blur.saturation": 1.0
+}
+.fi
+.PP
+There is also a one\-shot escape hatch needing no theme file:
+.B glassosdctl solidity 1.0
+pushes every glass surface toward opaque.
+.SS If a theme does not load
+A malformed file is reported with the exact byte offset, and the daemon falls
+back to the next theme in the search path rather than starting unstyled. Watch
+for it with
+.BR "journalctl \-\-user \-u glassosd \-f" .
+.SH FILES
+.TP
+.I ~/.config/glassosdrc
+This file.
+.TP
+.I ~/.config/glassosd/themes/
+Themes, highest priority.
+.TP
+.I ~/.local/share/glassosd/themes/
+Themes, per user.
+.TP
+.I /usr/share/glassosd/themes/
+Themes, shipped.
+.TP
+.I ~/.local/share/glassosd/history.json
+Notification history.
+.TP
+.I ~/.local/share/glassosd/snoozed.json
+Snoozed notifications and their wake times.
+.SH SEE ALSO
+.BR glassosd (1),
+.BR glassosdctl (1)
+.SH AUTHORS
+The glassosd contributors.

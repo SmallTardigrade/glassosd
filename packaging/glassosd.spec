@@ -95,6 +95,9 @@ install -Dpm0755 tools/input-audit.sh        %{buildroot}%{_datadir}/%{name}/inp
 %{_bindir}/glassosd
 %{_bindir}/glassosdctl
 %{_bindir}/glassosd-setup
+%{_mandir}/man1/glassosd.1*
+%{_mandir}/man1/glassosdctl.1*
+%{_mandir}/man5/glassosdrc.5*
 %{_datadir}/glassosd/themes/
 %{_userunitdir}/glassosd.service
 %{_datadir}/dbus-1/services/org.freedesktop.Notifications.service

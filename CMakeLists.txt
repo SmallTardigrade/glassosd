@@ -162,3 +162,13 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service
 install(DIRECTORY themes/
         DESTINATION ${CMAKE_INSTALL_DATADIR}/glassosd/themes
         FILES_MATCHING PATTERN "*.json")
+
+# Man pages are committed as roff rather than generated from markdown, so that
+# building needs no scdoc or pandoc and a packager gets them either way. The
+# config reference in particular has to be readable offline: it is where every
+# setting is documented, and someone editing glassosdrc is often doing so
+# because something is not working.
+install(FILES man/glassosd.1 man/glassosdctl.1
+        DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+install(FILES man/glassosdrc.5
+        DESTINATION ${CMAKE_INSTALL_MANDIR}/man5)
