@@ -559,7 +559,8 @@ glassosdctl rules
 `match_urgency`, `focus`.
 
 **Actions:** `set_stack_tag`, `timeout`, `set_urgency`, `skip_display`,
-`history_ignore`, `always_collapsed`, `sound`, `run`, `snooze`.
+`history_ignore`, `always_collapsed`, `sound`, `run`, `snooze`,
+`repeat_window`.
 
 `skip_display` takes `true` or `false`, and setting it false is meaningful —
 it puts back something an earlier rule hid, which is how a focus mode's
@@ -605,6 +606,28 @@ glassosdctl rule-set standup appname=Calendar summary='Standup*' snooze=5
 
 The notification is recorded in history immediately and shown 5 minutes later.
 It arrived; it is waiting, not lost.
+
+#### repeat_window= — for a sender that will not stop
+
+```bash
+glassosdctl rule-set wacom-pen appname='Power Management' \
+    summary='Device Battery Low*' set_stack_tag=wacom-battery \
+    timeout=8000 repeat_window=600
+```
+
+Suppresses a byte-identical repeat for that many seconds. Only the popup —
+history still records every copy.
+
+`set_stack_tag` on its own is not enough for a sender that repeats
+indefinitely. It collapses copies onto the card that is already up, but only
+while that card exists: once it expires, the next copy has nothing to replace
+and opens a fresh popup. PowerDevil re-sends the identical "Device Battery Low
+(6% Remaining)" once or twice a second for as long as the pen is low, so
+without this you get a new card every time the last one times out.
+
+Matched on app name, summary and body together, so a rule carrying this still
+lets `12%` then `9%` then `6%` through as three separate pieces of news. It is
+the repeat that is suppressed, not the subject.
 
 The same rules are what the notification centre's per-app settings panel
 writes — click the sliders icon on any group header. It offers four outcomes
