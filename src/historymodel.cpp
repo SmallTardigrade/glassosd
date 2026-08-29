@@ -69,6 +69,7 @@ void HistoryModel::load()
         n.body = o.value(QStringLiteral("body")).toString();
         n.urgency = static_cast<Urgency>(o.value(QStringLiteral("urgency")).toInt(1));
         n.received = QDateTime::fromString(o.value(QStringLiteral("at")).toString(), Qt::ISODate);
+        n.repeatCount = o.value(QStringLiteral("repeats")).toInt(1);
         m_maxLoadedId = qMax(m_maxLoadedId, n.id);
         m_all.append(n);
         if (m_all.size() >= m_capacity) {
@@ -87,6 +88,31 @@ void HistoryModel::load()
                          return a.received > b.received;
                      });
 
+    /* Collapse identical entries a previous build wrote as separate rows.
+
+       record() merges on arrival, but a file written before it did carries the
+       repeats one row each — 158 copies of the same low-battery warning here.
+       Nothing else would ever fold those together, since only a *new* arrival
+       triggers a merge. Doing it on load is the same reasoning as the sort
+       above: the on-disk format is not load-bearing, and an old or hand-edited
+       file should come back sane.
+
+       Newest wins the position, and the counts add up. */
+    QHash<QString, int> firstAt;
+    for (int i = 0; i < m_all.size(); ) {
+        const Notification &n = m_all.at(i);
+        const QString key = n.appName + QLatin1Char('\x1f')
+                          + n.summary + QLatin1Char('\x1f') + n.body;
+        const auto seen = firstAt.constFind(key);
+        if (seen == firstAt.constEnd()) {
+            firstAt.insert(key, i);
+            ++i;
+            continue;
+        }
+        m_all[*seen].repeatCount += n.repeatCount;
+        m_all.removeAt(i);   // indices after i shift down, but *seen < i so it stands
+    }
+
     rebuild();
 }
 
@@ -103,6 +129,9 @@ void HistoryModel::save() const
         o[QStringLiteral("body")] = n.body;
         o[QStringLiteral("urgency")] = int(n.urgency);
         o[QStringLiteral("at")] = n.received.toString(Qt::ISODate);
+        if (n.repeatCount > 1) {
+            o[QStringLiteral("repeats")] = n.repeatCount;
+        }
         /* Inline image-data is deliberately not persisted: it is raw pixels
            and would bloat the file badly. Such entries fall back to the app
            icon after a restart. */
@@ -150,6 +179,7 @@ QVariant HistoryModel::data(const QModelIndex &index, int role) const
     case BodyRole:    return n.body;
     case UrgencyRole: return static_cast<int>(n.urgency);
     case WhenRole:    return n.received.toLocalTime().toString(QStringLiteral("HH:mm"));
+    case RepeatCountRole: return n.repeatCount;
     case IconSourceRole:
         if (n.image.isValid()) {
             return QStringLiteral("image://notifyimage/h%1").arg(n.id);
@@ -171,6 +201,7 @@ QHash<int, QByteArray> HistoryModel::roleNames() const
         {HeaderIconRole, "headerIcon"},
         {UrgencyRole, "urgency"},
         {WhenRole, "when"},
+        {RepeatCountRole, "repeatCount"},
         {IsHeaderRole, "isHeader"},
         {GroupKeyRole, "groupKey"},
         {GroupCountRole, "groupCount"},
@@ -202,6 +233,38 @@ void HistoryModel::record(const Notification &n)
     for (int i = 0; i < m_all.size(); ++i) {
         if (m_all.at(i).id == n.id && m_all.at(i).appName == n.appName) {
             m_all[i] = n;
+            rebuild();
+            return;
+        }
+    }
+
+    /* A byte-identical repeat becomes a count on the existing entry rather
+       than another row.
+
+       PowerDevil re-sends the same "Device Battery Low (6% Remaining)" once or
+       twice a second for as long as the pen is low. repeat_window keeps that
+       off the screen, but every copy still reached history, and 129 identical
+       rows under one group header is the same spam in a different place.
+
+       Matched on the text rather than on a window, because there is no honest
+       window here: the interesting question is "have I already been told this",
+       and the answer does not expire after five minutes. It is moved back to
+       the front, since it did just happen again — history is ordered by when
+       something last occurred, not by when it first did.
+
+       Only exact matches merge. A changed percentage is a different message
+       and gets its own row. */
+    for (int i = 0; i < m_all.size(); ++i) {
+        const Notification &old = m_all.at(i);
+        if (old.appName == n.appName && old.summary == n.summary
+            && old.body == n.body) {
+            Notification merged = n;
+            merged.repeatCount = old.repeatCount + 1;
+            if (merged.appIcon.isEmpty() && !merged.image.isValid()) {
+                merged.appIcon = old.appIcon;
+            }
+            m_all.removeAt(i);
+            m_all.prepend(merged);
             rebuild();
             return;
         }
@@ -387,13 +450,28 @@ void HistoryModel::rebuild()
            is oldest-first when the newest is being shown at the bottom. */
         const Notification &newest = m_newestFirst ? items.first() : items.last();
 
+        /* Occurrences, not rows. Since identical repeats collapse onto one
+           entry, a group can be a single row that stands for 156 arrivals, and
+           the two numbers stopped meaning the same thing. */
+        int occurrences = 0;
+        for (const Notification &it : items) {
+            occurrences += qMax(1, it.repeatCount);
+        }
+
         /* A group of one gets no header. The header exists to say "these N
            belong together and here is how to collapse them"; with a single
            entry it says nothing the entry does not already say, and a column
            of one-item headers is most of the panel's vertical space spent on
            repeating each app's name directly above itself. The entry still
-           carries the app icon, so nothing is lost. */
-        if (items.size() == 1) {
+           carries the app icon, so nothing is lost.
+
+           One arrival, though, not one row. A deduplicated row is a group of
+           one by row count while standing for many notifications, and dropping
+           its header left it looking like a member of whatever group happened
+           to be above it — a x156 battery warning reading as part of the app
+           listed overhead. If it represents more than one arrival it keeps its
+           header and its own name. */
+        if (items.size() == 1 && occurrences == 1) {
             Row row;
             row.groupKey = key;
             row.entry = items.first();
@@ -406,7 +484,9 @@ void HistoryModel::rebuild()
         header.groupKey = key;
         header.appName = newest.appName;          // same app throughout the group
         header.icon = newest.appIcon;             // so a collapsed group is scannable
-        header.count = items.size();
+        /* The number of notifications, which is what the user counts — not
+           the number of rows we chose to draw them in. */
+        header.count = occurrences;
         header.collapsed = collapsed;
         m_rows.append(header);
 

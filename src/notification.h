@@ -98,6 +98,11 @@ struct Notification {
     /* Seconds for which an identical repeat should not re-open a popup.
        -1 == no suppression. Set by a rule; see Rule::repeatWindowSec. */
     int repeatWindowSec = -1;
+    /* How many times this exact message has arrived. History collapses
+       byte-identical repeats onto one entry and counts them here rather than
+       keeping a row each; 1 means it has only happened once. Popup cards never
+       set this — it is a property of the record, not of the notification. */
+    int repeatCount = 1;
     bool historyIgnore = false;  // rule said: do not even record it
 
     QString groupKey() const

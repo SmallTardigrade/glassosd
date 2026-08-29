@@ -871,6 +871,22 @@ Window {
                                                 font.pointSize: Style.fontSize - 3
                                             }
 
+                                            /* How many times this exact message
+                                               arrived. History keeps one row and
+                                               counts, rather than a row each —
+                                               without the count the collapse
+                                               would be silent, and "it happened
+                                               129 times" is the interesting part
+                                               of a repeating warning. */
+                                            Text {
+                                                Layout.alignment: Qt.AlignRight
+                                                visible: (model.repeatCount || 1) > 1
+                                                text: "×" + model.repeatCount
+                                                color: Style.foregroundDim
+                                                font.family: Style.fontFamily
+                                                font.pointSize: Style.fontSize - 3
+                                            }
+
                                             CardButton {
                                                 Layout.alignment: Qt.AlignRight
                                                 opacity: entryHover.containsMouse ? 1 : 0

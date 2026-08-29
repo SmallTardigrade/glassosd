@@ -67,6 +67,7 @@ public:
         GroupCountRole,
         CollapsedRole,
         HeaderIconRole,
+        RepeatCountRole,
     };
     Q_ENUM(Roles)
 
