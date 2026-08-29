@@ -70,19 +70,24 @@ fi
 # ---------------------------------------------------------------------------
 hdr "3. Full-screen surfaces take keyboard focus only while visible"
 HP="$(dirname "$0")/../qml/HistoryPanel.qml"
-if grep -q 'onVisibleChanged: Surface.setKeyboardFocus' "$HP" 2>/dev/null; then
+# tr -d '\n' first: these calls are wrapped across several lines, and a
+# line-oriented grep silently stopped matching when they were reformatted —
+# so both of these checks reported FAIL against correct code. A standing
+# safety check that cries wolf is worse than no check, because the next real
+# failure is the one nobody looks at.
+if tr -d '\n' < "$HP" 2>/dev/null | grep -q 'onVisibleChanged:[[:space:]]*{\?[[:space:]]*Surface.setKeyboardFocus'; then
   pass "the centre releases keyboard focus when hidden"
 else
   bad "the centre does not release keyboard focus on hide"
 fi
-if grep -qE '"glassosd-history", 1 \| 2 \| 4 \| 8,\s*$' "$HP" 2>/dev/null; then
+if tr -d '\n' < "$HP" 2>/dev/null | grep -qE '"glassosd-history", *1 *\| *2 *\| *4 *\| *8'; then
   info "centre is anchored on all four edges (covers the screen) — expected"
 fi
 
 # ---------------------------------------------------------------------------
 hdr "4. The notification surface never takes keyboard focus unprompted"
 NS="$(dirname "$0")/../qml/NotificationStack.qml"
-if grep -q 'initLayerShell(win, "glassosd-notifications".*false' "$NS" 2>/dev/null; then
+if tr -d '\n' < "$NS" 2>/dev/null | grep -q 'initLayerShell(win, "glassosd-notifications".*false'; then
   pass "notification stack starts with keyboard focus off"
 else
   bad "notification stack may request keyboard focus at startup — it will steal the next keypress"
