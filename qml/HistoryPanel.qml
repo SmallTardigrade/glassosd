@@ -648,11 +648,11 @@ Window {
                         Rectangle {
                             anchors.right: parent.right
                             anchors.rightMargin: 1
-                            width: 3
-                            radius: 1.5
+                            width: 4
+                            radius: 2
                             color: Style.foregroundDim
                             visible: list.contentHeight > list.height
-                            opacity: list.moving || scrollAnim.running ? 0.55 : 0.18
+                            opacity: list.moving || scrollAnim.running ? 0.70 : 0.34
                             Behavior on opacity { NumberAnimation { duration: 250 } }
 
                             height: Math.max(24, list.height * (list.height / list.contentHeight))
@@ -663,6 +663,48 @@ Window {
                             y: list.contentY + (list.contentHeight <= list.height ? 0
                                : (list.contentY / (list.contentHeight - list.height))
                                  * (list.height - height))
+                        }
+
+                        /* Edge fades: the list says whether it continues past
+                           what you can see.
+
+                           The scroll indicator alone was not doing this job. It
+                           is three pixels wide and sits at 0.18 until you touch
+                           the list, so "there is more below" had to be inferred
+                           from a mark you had to go looking for — and a group of
+                           entries that happens to end flush at the bottom edge
+                           looks exactly like the end of the list.
+
+                           Both are offset by contentY for the same reason the
+                           indicator is: a visual child of a Flickable belongs to
+                           its contentItem, so without it they would scroll away
+                           with the entries they are describing. */
+                        Rectangle {
+                            z: 5
+                            width: list.width
+                            height: Style.px(22)
+                            y: list.contentY
+                            visible: list.contentY > 1
+                            opacity: visible ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 140 } }
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: Style.panelGlass }
+                                GradientStop { position: 1.0; color: "transparent" }
+                            }
+                        }
+
+                        Rectangle {
+                            z: 5
+                            width: list.width
+                            height: Style.px(22)
+                            y: list.contentY + list.height - height
+                            visible: list.contentHeight - list.contentY - list.height > 1
+                            opacity: visible ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 140 } }
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: "transparent" }
+                                GradientStop { position: 1.0; color: Style.panelGlass }
+                            }
                         }
 
                         delegate: Loader {
