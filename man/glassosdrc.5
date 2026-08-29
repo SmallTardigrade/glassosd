@@ -778,6 +778,44 @@ typeface. Default Noto Sans.
 .TP
 .B font.size
 base point size. Default 11.
+.TP
+.B size.barHeight
+height of the continuous level bar. Default 6.
+.TP
+.B size.osdMinWidth
+minimum OSD width when a level bar is showing. Default 268.
+.TP
+.B size.osdMinWidthText
+minimum OSD width for a text\-only OSD, which needs no room for a bar.
+Default 150.
+.TP
+.B level.segmentHeight
+height of one block in the segmented indicator. Default 14.
+.TP
+.B level.segmentGap
+gap between blocks in the segmented indicator. Default 3.
+.TP
+.B spacing.pillPaddingH
+horizontal padding inside a fully\-rounded control. Larger than
+.BR spacing.padding ,
+because a pill curves inward at the ends and uniform padding leaves content
+crowding the edge. Default 20.
+.TP
+.B chip.haloWidth
+width of the glow around an active lock chip. Default 5.
+.TP
+.B icon.dimmedOpacity
+opacity of an icon standing in for an off state where there is no distinct
+glyph. Default 0.32.
+.TP
+.B shadow.spread
+how much of
+.B blurMax
+the shadow uses, 0 to 1. Default 1.0.
+.TP
+.B edge.inner
+second, inner hairline. Unused by the shipped themes; kept because a two\-tone
+edge is what sells glass at OSD size.
 .PP
 .B shadow.pad
 must cover

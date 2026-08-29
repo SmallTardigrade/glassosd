@@ -27,6 +27,23 @@ HistoryModel::HistoryModel(QObject *parent)
     connect(&m_saveTimer, &QTimer::timeout, this, [this] {
         save();
     });
+
+    /* Capacity before load, and read here rather than waited for.
+
+       load() truncates to m_capacity as it reads, and this is a QML singleton
+       the engine constructs, so main.cpp cannot hand a capacity to the
+       constructor — it can only call setCapacity() afterwards, by which point
+       the file has already been read and cut short. Anyone raising
+       HistoryLength above the 200 default therefore kept the larger history
+       for the session and silently lost everything past 200 on the next
+       start, while glassosdctl status went on reporting the number they
+       asked for.
+
+       setCapacity() still exists for live changes; this only makes sure the
+       first read already knows the answer. */
+    m_capacity = qMax(1, KSharedConfig::openConfig(QStringLiteral("glassosdrc"))
+                             ->group(QStringLiteral("Notifications"))
+                             .readEntry("HistoryLength", 200));
     load();
 }
 

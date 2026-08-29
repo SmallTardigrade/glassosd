@@ -314,7 +314,21 @@ case "$cmd" in
     running || { echo "daemon not running" >&2; exit 1; }
     call Version | sed 's/^s //; s/"//g' ;;
   get) cfg_read $G "$1" ;;
-  set) cfg_write $G "$1" "$2"; echo "$1 = $2 (applied live)" ;;
+  set)
+    # Warn on a key the daemon does not read, but write it anyway.
+    #
+    # cfg_write takes anything, so `set Limitt 5` reported "applied live" and
+    # wrote a key nothing ever reads — a confident success message for a
+    # setting that does nothing. Rejecting unknown keys would be worse: this
+    # CLI has already shipped a whitelist that turned away a key the daemon
+    # had grown, so the list is a hint, not an authority.
+    case " Enabled Limit IndicateHidden CoalesceThreshold CoalesceWindowMs \
+DoNotDisturb AutoCollapseOver HistoryLength IdleThresholdMs HoverPause \
+NewestFirst Timeout TimeoutLow TimeoutCritical " in
+      *" $1 "*) ;;
+      *) echo "warning: '$1' is not a setting glassosd reads; writing it anyway" >&2 ;;
+    esac
+    cfg_write $G "$1" "$2"; echo "$1 = $2 (applied live)" ;;
   dnd)
     case "${1:-}" in
       on)     call SetDoNotDisturb b true  >/dev/null; echo "DND on" ;;
