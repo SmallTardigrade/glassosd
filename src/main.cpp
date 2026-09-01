@@ -30,6 +30,8 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QElapsedTimer>
+#include <QThread>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QDBusConnection>
@@ -104,21 +106,53 @@ int main(int argc, char *argv[])
 
        The compositor's socket is the fact on the ground, so use that rather
        than trusting the variable to have arrived. */
+    /* Wait for the socket rather than checking once.
+       Looking exactly once loses a race we do not control: on a cold boot the
+       unit can be started before the compositor has created its socket at all,
+       and then there is nothing to discover. Observed here on a fresh boot —
+       started 10:36:31, "no WAYLAND_DISPLAY", gone by :32, and because exit 0
+       is deliberately not restartable the session ran without its notification
+       daemon until the next login.
+       Ten seconds is generous for a socket that normally exists before the
+       unit is even queued, and costs nothing when it does: the first pass
+       finds it and falls straight through. */
     if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
         const QString runtimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR");
-        if (!runtimeDir.isEmpty()) {
-            const QStringList sockets =
-                QDir(runtimeDir).entryList({QStringLiteral("wayland-*")},
-                                           QDir::System | QDir::NoDotAndDotDot);
-            for (const QString &name : sockets) {
-                /* The compositor keeps a wayland-N.lock beside the socket. */
-                if (name.endsWith(QLatin1String(".lock"))) {
-                    continue;
+        /* Only worth waiting if there is somewhere for a socket to appear. Run
+           over SSH with no runtime dir and this should say so immediately
+           rather than hanging for ten seconds first. */
+        if (!runtimeDir.isEmpty() && QDir(runtimeDir).exists()) {
+            QElapsedTimer waited;
+            waited.start();
+            bool announced = false;
+            while (true) {
+                const QStringList sockets =
+                    QDir(runtimeDir).entryList({QStringLiteral("wayland-*")},
+                                               QDir::System | QDir::NoDotAndDotDot);
+                QString found;
+                for (const QString &name : sockets) {
+                    /* The compositor keeps a wayland-N.lock beside the socket. */
+                    if (name.endsWith(QLatin1String(".lock"))) {
+                        continue;
+                    }
+                    found = name;
+                    break;
                 }
-                qputenv("WAYLAND_DISPLAY", name.toLocal8Bit());
-                qWarning("glassosd: WAYLAND_DISPLAY was not set; using %s found in "
-                         "XDG_RUNTIME_DIR", qUtf8Printable(name));
-                break;
+                if (!found.isEmpty()) {
+                    qputenv("WAYLAND_DISPLAY", found.toLocal8Bit());
+                    qWarning("glassosd: WAYLAND_DISPLAY was not set; using %s found in "
+                             "XDG_RUNTIME_DIR", qUtf8Printable(found));
+                    break;
+                }
+                if (waited.hasExpired(10000)) {
+                    break;
+                }
+                if (!announced) {
+                    qWarning("glassosd: no Wayland socket yet; waiting up to 10s "
+                             "for the compositor");
+                    announced = true;
+                }
+                QThread::msleep(250);
             }
         }
     }
