@@ -73,11 +73,43 @@ Item {
         y: (1.0 - root.reveal) * Style.animRise
     }
 
-    /* Compositor blur cannot be animated — a surface is blurred or it is not,
-       there is no alpha — so the region has to be re-sent as the card travels
-       or the blurred patch sits still while the card moves off it. Same reason
-       the delegate refreshes when the ListView moves it. */
+    /* Set once the blur region has been dropped, so it is not dropped again on
+       every remaining frame of the exit. */
+    property bool blurDropped: false
+
     onRevealChanged: {
+        /* Give the blurred region back before the card has finished fading,
+           rather than when the delegate is destroyed.
+
+           Compositor blur is binary — a region is blurred or it is not, there
+           is no alpha to fade — so while the card's own pixels drop to nothing
+           the rectangle behind it stays exactly as blurred as ever. The last
+           frames of a dismissal are therefore a lit glass panel with no card
+           in it, and it outlives the card by another frame or two while the
+           region update makes its way to the compositor.
+
+           0.3 rather than 0 because the exit accelerates (InQuint): by the
+           time reveal is this low the card is nearly gone, so losing the blur
+           underneath does not read as a change, where dropping it at the start
+           of the animation plainly would. */
+        if (root.leaving && reveal < 0.3) {
+            if (!root.blurDropped) {
+                root.blurDropped = true
+                if (Window.window) {
+                    Surface.clearPanelRegion(Window.window, card)
+                    for (let i = 0; i < sheets.count; ++i) {
+                        const s = sheets.itemAt(i)
+                        if (s) Surface.clearPanelRegion(Window.window, s)
+                    }
+                }
+            }
+            return
+        }
+
+        /* Compositor blur cannot be animated, so the region has to be re-sent
+           as the card travels or the blurred patch sits still while the card
+           moves off it. Same reason the delegate refreshes when the ListView
+           moves it. */
         card.refreshBlur()
         for (let i = 0; i < sheets.count; ++i) {
             const s = sheets.itemAt(i)
