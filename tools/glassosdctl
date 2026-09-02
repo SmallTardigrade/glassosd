@@ -166,10 +166,14 @@ glassosdctl <command>
   solidity [0.0-1.0]     Push glass toward opaque. 0 keeps the tuned glass;
                          raise it on compositors that do not blur (sway, river)
   layer [top|overlay]    Where popups sit relative to fullscreen windows.
-                         top (default) stays below them; overlay covers them.
+                         overlay (default) covers them; top stays below.
                          No layer exists in between — fullscreen sits exactly
                          there. Neither survives KWin's Show Desktop, which
                          hides every layer-shell surface regardless.
+                         Use top if you would rather a fullscreen window hide
+                         popups, but prefer dnd or quiet-while-busy: those say
+                         what they are doing, where a layer just makes the
+                         popup not appear.
   blur [auto|on|off]     Whether the compositor can blur behind us. auto
                          assumes yes on Wayland; set off on sway/river/labwc,
                          which have no blur and would render unreadable glass
@@ -298,7 +302,7 @@ case "$cmd" in
       "Theme|dark" "ThemeFile|(built-in)" "AccentColor|#3daee9" \
       "LevelStyle|segmented" "Output|current" "Scale|1.0" \
       "FontSize|auto (from scale)" "BodyLines|4" "CentreBodyLines|3" \
-      "NotifyWidth|380" "Solidity|0.0" "Blur|auto" "NotifyLayer|top" \
+      "NotifyWidth|380" "Solidity|0.0" "Blur|auto" "NotifyLayer|overlay" \
       "NotifyPosition|top-right" "NotifyMarginX|0" "NotifyMarginY|0" \
       "CentrePosition|right" "OsdPosition|top" \
       "Widgets|title,mpris,volume,dnd,notifications,backlight,buttons-grid" \
@@ -469,7 +473,7 @@ NewestFirst Timeout TimeoutLow TimeoutCritical " in
     case "${1:-}" in
       top|overlay) cfg_write Appearance NotifyLayer "$1"; echo "layer = $1"
                    echo "run: glassosdctl restart" ;;
-      "")  echo "layer: $(cfg_or Appearance NotifyLayer top)" ;;
+      "")  echo "layer: $(cfg_or Appearance NotifyLayer overlay)" ;;
       *)   echo "usage: glassosdctl layer [top|overlay]" >&2; exit 1 ;;
     esac ;;
   blur)

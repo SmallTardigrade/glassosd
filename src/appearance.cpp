@@ -105,8 +105,24 @@ void Appearance::reload()
     const int fs = g.readEntry("FontSize", 0);
     m_fontSize = (fs == 0) ? 0 : qBound(6, fs, 32);
 
-    const QString layer = g.readEntry("NotifyLayer", QStringLiteral("top")).toLower();
-    m_notifyLayer = (layer == QLatin1String("overlay")) ? 3 : 2;
+    /* Overlay by default, so a popup is not silently hidden by a fullscreen
+       window.
+
+       top uses window stacking to decide "do not interrupt me", which reads as
+       reasonable until you notice it cannot be distinguished from a fault: the
+       notification is recorded, never shown, and nothing says why. There are
+       already three explicit ways to ask for quiet — Do Not Disturb, an
+       application's own inhibition, and QuietWhileBusy — and all three say so
+       when they act. A layer that quietly enforces a fourth policy nobody
+       asked for is the one that should go.
+
+       It also makes this consistent with the OSD, which has always used
+       overlay for exactly the same reason and said so in a comment.
+       swaync defaults its notifications to overlay too; mako defaults to top.
+
+       NotifyLayer=top restores the old behaviour. */
+    const QString layer = g.readEntry("NotifyLayer", QStringLiteral("overlay")).toLower();
+    m_notifyLayer = (layer == QLatin1String("top")) ? 2 : 3;
 
     /* Where popups appear. Both spellings of centre are accepted — the config
        should not be the place a user finds out which side of the Atlantic the

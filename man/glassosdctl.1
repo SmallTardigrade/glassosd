@@ -182,10 +182,18 @@ Where the OSD sits.
 .TP
 .BR layer " [top|overlay]"
 Where popups sit relative to fullscreen windows.
-.B top
-stays below them;
 .B overlay
-covers them.
+(the default) covers them;
+.B top
+stays below. No layer exists in between \(em fullscreen sits exactly there.
+.RS
+.PP
+.B top
+was the default until it became clear that it cannot be told apart from a
+fault: the notification is recorded, never shown, and nothing says why. Prefer
+.BR dnd " or " quiet\-while\-busy
+to ask for quiet, since both say what they are doing.
+.RE
 .TP
 .BR output " [current|primary|" name ]
 Which screen surfaces appear on.
