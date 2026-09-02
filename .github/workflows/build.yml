@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora:44
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -57,7 +57,7 @@ jobs:
       - name: Install packaging tools
         run: dnf install -y rpm-build rpmdevtools dnf5-plugins git make
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Trust the checkout
         run: git config --global --add safe.directory "$PWD"
@@ -84,5 +84,5 @@ jobs:
   reuse:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: fsfe/reuse-action@v5

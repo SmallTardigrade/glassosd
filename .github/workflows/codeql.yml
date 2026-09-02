@@ -33,7 +33,7 @@ jobs:
             kf6-kstatusnotifieritem-devel kf6-kidletime-devel \
             systemd-devel git nodejs
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: github/codeql-action/init@v4
         with:
