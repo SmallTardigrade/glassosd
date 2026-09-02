@@ -137,6 +137,9 @@ sudo dnf copr enable smalltardigrade/glassosd
 sudo dnf install glassosd
 ```
 
+The package installs `man glassosd`, `man glassosdctl` and `man glassosdrc`,
+so the full configuration reference is available offline.
+
 Built for Fedora 43, 44 and Rawhide (x86_64). `glassosd --help` and
 `glassosdctl --help` both work without a session, so you can check what you
 got before logging in to a desktop.
