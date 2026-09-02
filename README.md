@@ -8,6 +8,8 @@ popup, and a separate control centre. glassosd draws all three from one
 stylesheet, and behaves the way a notification daemon should when the desktop
 gets busy.
 
+![A notification over the desktop](screenshots/01-notification.png)
+
 It ships with a glass look because that is what it was built for. It is not
 locked to it — every colour, radius, shadow and font comes from a JSON theme
 file, and the repository includes Material, Nord and flat themes with no
@@ -76,6 +78,21 @@ discrete segments.
 Notification history grouped by app, plus optional widgets: an MPRIS media
 player, volume and brightness sliders, a Do Not Disturb toggle, and a
 configurable quick-action button grid.
+
+### What that looks like
+
+| | |
+|---|---|
+| ![Grouping, mixed apps and a critical notification](screenshots/02-grouping.png) | ![Inline reply, actions and a progress bar](screenshots/03-actions.png) |
+| Five messages from one app collapse into one counted card. Critical urgency is marked on the app name and nowhere else. | Inline reply, action buttons and progress bars appear because the sender published them — nothing is special-cased per application. |
+| ![The notification centre](screenshots/05-centre.png) | ![A busy desktop](screenshots/06-busy.png) |
+| History grouped by app, searchable, with per-app settings behind the sliders icon on any group header. | At most *N* on screen and the rest queued behind a count, rather than thirty cards covering the desktop. |
+
+![Volume, brightness, microphone and the lock-key indicators](screenshots/04-osd.png)
+
+The OSD covers volume, microphone, brightness and the caps, num and Fn lock
+indicators. A locked key fills its chip with the accent colour, so the state
+reads without stopping to read the words.
 
 ---
 

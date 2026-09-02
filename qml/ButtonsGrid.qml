@@ -74,11 +74,18 @@ Item {
                    which is the reason to give it the width. */
                 readonly property bool showsLabel: cell.label !== "" && cell.span > 1
 
+                /* Breathing room at the ends. The row was centred with no width
+                   of its own, so a label just long enough ran to both edges of
+                   the button and sat against them. */
+                readonly property int labelPad: Style.px(10)
+
                 Row {
+                    id: face
                     anchors.centerIn: parent
-                    spacing: Style.px(8)
+                    spacing: cell.showsLabel ? Style.px(8) : 0
 
                     Image {
+                        id: glyph
                         anchors.verticalCenter: parent.verticalCenter
                         visible: cell.iconName !== ""
                         width: Style.px(18)
@@ -96,6 +103,13 @@ Item {
                         color: cell.active ? "#ffffff" : Style.foreground
                         font.family: Style.fontFamily
                         font.pointSize: Style.fontSize
+                        /* Never wider than the room actually left over, so a
+                           label that does not fit is shortened rather than
+                           being drawn over the edge of its own button. */
+                        width: Math.min(implicitWidth,
+                                        Math.max(0, cell.width - cell.labelPad * 2
+                                                    - (glyph.visible ? glyph.width + face.spacing : 0)))
+                        elide: Text.ElideRight
                     }
                 }
 
