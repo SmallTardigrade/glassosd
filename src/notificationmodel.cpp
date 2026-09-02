@@ -487,6 +487,24 @@ int NotificationModel::dismissAll()
     return int(ids.size());
 }
 
+int NotificationModel::hideForCentre()
+{
+    /* Same collect-then-close shape as dismissAll(), and for the same reason:
+       closeId() mutates the containers being iterated. */
+    QList<uint> ids;
+    ids.reserve(m_displayed.size() + m_waiting.size());
+    for (const Notification &n : std::as_const(m_displayed)) {
+        ids << n.id;
+    }
+    for (const Notification &n : std::as_const(m_waiting)) {
+        ids << n.id;
+    }
+    for (uint id : std::as_const(ids)) {
+        closeId(id, CloseReason::Expired);
+    }
+    return int(ids.size());
+}
+
 void NotificationModel::setHoverPause(bool on)
 {
     if (m_hoverPause == on) {

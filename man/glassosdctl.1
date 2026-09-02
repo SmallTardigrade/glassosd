@@ -63,6 +63,20 @@ count is in the tooltip, because no icon theme ships numerals.
 .TP
 .B test
 Fire the demo sequence.
+.TP
+.BR export " [" file "] [" \-\-with\-history ]
+Save settings, rules, focus modes, buttons and your themes to a tarball.
+History and snoozed wake times are left out unless
+.B \-\-with\-history
+is given: they are a record of what happened on one machine rather than
+configuration, and restoring one machine's backlog onto another is not what
+"my config" means.
+.TP
+.BI "import " file
+Restore an export. What is already there is backed up first, since restoring a
+configuration should never be the thing that loses one. Modules are read at
+startup, so follow with
+.BR restart .
 .SH RULES AND FOCUS MODES
 .TP
 .B rules

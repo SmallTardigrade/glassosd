@@ -248,6 +248,21 @@ int main(int argc, char *argv[])
 
     /* Flush on shutdown so the last few notifications are not lost to the
        debounce window. */
+    /* Popups come off screen while the centre is open.
+       Otherwise the same notification is on screen twice at once, in two
+       different styles — a transient preview of the thing, floating over the
+       list that shows it properly. macOS and Windows both take the preview
+       away for the same reason. History already has them: it records on
+       arrival, not on close, so nothing is lost and no count is double-counted.
+       They are not brought back when the centre closes. A popup is a
+       notification asking to be noticed, and it has been. */
+    QObject::connect(history, &HistoryModel::panelOpenChanged, notifications,
+                     [history, notifications]() {
+                         if (history->panelOpen()) {
+                             notifications->hideForCentre();
+                         }
+                     });
+
     QObject::connect(&app, &QCoreApplication::aboutToQuit, history, [history] { history->save(); });
 
     auto *server = new NotificationServer(notifications, history, &app);

@@ -131,6 +131,11 @@ public:
        by the spec to stay until acted on — correct, but it means a misbehaving
        app can pin a card indefinitely with no way out but a restart. */
     Q_INVOKABLE int dismissAll();
+    /* Take the popups off screen because the centre is now showing the same
+       notifications properly. Closed as Expired rather than Dismissed: the
+       user opened a window, they did not act on any particular notification,
+       and telling every sender otherwise would be a lie about intent. */
+    int hideForCentre();
     /* Hovering pauses the dwell timer: a notification should not expire out
        from under someone who is visibly reading it. Off by request for people
        who would rather popups clear on schedule regardless. */

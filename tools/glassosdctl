@@ -174,6 +174,12 @@ glassosdctl <command>
                          assumes yes on Wayland; set off on sway/river/labwc,
                          which have no blur and would render unreadable glass
 
+  export [file] [--with-history]
+                         Save settings, rules, focus modes, buttons and your
+                         themes to a tarball. History and snoozes are left out
+                         unless asked for: they are this machine's log, not
+                         configuration.
+  import <file>          Restore an export. Backs up what is there first.
   test                   Fire the full demo sequence
   restart                Restart the daemon
   log                    Follow the daemon log
@@ -683,6 +689,61 @@ SNZ
     if [ -x "$SELF_DIR/demo-notifications.sh" ]; then exec "$SELF_DIR/demo-notifications.sh"
     elif [ -x /usr/share/glassosd/demo-notifications.sh ]; then exec /usr/share/glassosd/demo-notifications.sh
     else echo "demo script not found" >&2; exit 1; fi ;;
+  export)
+    # Everything a person configured, and nothing a machine generated.
+    #
+    # History and snoozed wake times are deliberately left out: they are this
+    # machine's log, not settings, and restoring one machine's backlog onto
+    # another is not what "my config" means. --with-history includes them for
+    # a genuine move rather than a copy.
+    out=${1:-glassosd-config-$(date +%Y%m%d).tar.gz}
+    case "$out" in --with-history) out=glassosd-config-$(date +%Y%m%d).tar.gz; with_history=1 ;; esac
+    [ "${2:-}" = "--with-history" ] && with_history=1
+    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+    mkdir -p "$tmp/glassosd"
+    [ -f "$CONF" ] && cp "$CONF" "$tmp/glassosd/glassosdrc"
+    [ -d "$HOME/.config/glassosd/themes" ] && cp -r "$HOME/.config/glassosd/themes" "$tmp/glassosd/themes-config"
+    [ -d "$HOME/.local/share/glassosd/themes" ] && cp -r "$HOME/.local/share/glassosd/themes" "$tmp/glassosd/themes-data"
+    if [ -n "${with_history:-}" ]; then
+      [ -f "$HOME/.local/share/glassosd/history.json" ] && cp "$HOME/.local/share/glassosd/history.json" "$tmp/glassosd/"
+      [ -f "$HOME/.local/share/glassosd/snoozed.json" ] && cp "$HOME/.local/share/glassosd/snoozed.json" "$tmp/glassosd/"
+    fi
+    if [ -n "${with_history:-}" ]; then hist_note=included; else hist_note=excluded; fi
+    printf 'glassosd config export\nversion: %s\ndate: %s\nhistory: %s\n' \
+      "$(call Version 2>/dev/null | awk '{print $2}' | tr -d '"' || echo unknown)" \
+      "$(date -Is)" "$hist_note" > "$tmp/glassosd/MANIFEST"
+    tar -czf "$out" -C "$tmp" glassosd
+    echo "exported to $out"
+    tar -tzf "$out" | sed 's/^/  /'
+    ;;
+
+  import)
+    in=${1:-}
+    [ -n "$in" ] || { echo "usage: glassosdctl import <file.tar.gz>" >&2; exit 1; }
+    [ -f "$in" ] || { echo "no such file: $in" >&2; exit 1; }
+    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+    tar -xzf "$in" -C "$tmp" || { echo "could not read $in" >&2; exit 1; }
+    [ -d "$tmp/glassosd" ] || { echo "$in is not a glassosd export" >&2; exit 1; }
+    # Back up what is there before overwriting it. Restoring a config should
+    # never be the thing that loses one.
+    backup="$HOME/.config/glassosd-backup-$(date +%Y%m%d%H%M%S).tar.gz"
+    "$0" export "$backup" >/dev/null 2>&1 && echo "existing config backed up to $backup"
+    [ -f "$tmp/glassosd/glassosdrc" ] && cp "$tmp/glassosd/glassosdrc" "$CONF" && echo "  restored glassosdrc"
+    if [ -d "$tmp/glassosd/themes-config" ]; then
+      mkdir -p "$HOME/.config/glassosd/themes"
+      cp -r "$tmp/glassosd/themes-config/." "$HOME/.config/glassosd/themes/" && echo "  restored ~/.config themes"
+    fi
+    if [ -d "$tmp/glassosd/themes-data" ]; then
+      mkdir -p "$HOME/.local/share/glassosd/themes"
+      cp -r "$tmp/glassosd/themes-data/." "$HOME/.local/share/glassosd/themes/" && echo "  restored ~/.local/share themes"
+    fi
+    for j in history.json snoozed.json; do
+      [ -f "$tmp/glassosd/$j" ] && cp "$tmp/glassosd/$j" "$HOME/.local/share/glassosd/$j" && echo "  restored $j"
+    done
+    echo "imported from $in"
+    echo "Modules are read at startup; run 'glassosdctl restart' to apply everything."
+    ;;
+
   restart) systemctl --user restart glassosd.service; echo "restarted" ;;
   log) exec journalctl --user -u glassosd -f ;;
   -h|--help|help) usage ;;
