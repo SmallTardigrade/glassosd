@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           glassosd
-Version:        0.1.0
+Version:        0.2.0
 # Plain Release rather than %%autorelease: rpmautospec is not available in
 # every builder, and a spec that only builds on Fedora infrastructure is not
 # much use to someone packaging this for anything else.
@@ -125,5 +125,14 @@ To keep your existing notification daemon and use glassosd for the OSD only:
 EOF
 
 %changelog
+* Wed Sep 03 2026 glassosd contributors - 0.2.0-1
+- Snooze, focus modes, sounds by freedesktop name, history search
+- Structured rule actions: run= and snooze= and repeat_window=
+- Auto Do Not Disturb while the screen is shared, and quiet-while-busy
+- Man pages: glassosd(1), glassosdctl(1), glassosdrc(5)
+- Popups now appear over fullscreen windows by default
+- Identical history entries collapse onto one counted row
+- glassosdctl export and import
+
 * Tue Aug 25 2026 glassosd contributors - 0.1.0-1
 - First release.
