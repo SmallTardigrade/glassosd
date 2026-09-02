@@ -349,7 +349,22 @@ Item {
                 Text {
                     Layout.fillWidth: true
                     text: root.entry.appName
-                    color: Style.foregroundMuted
+                    /* Critical urgency is marked here and nowhere else.
+
+                       Until now nothing distinguished it at all: the card
+                       never expired, which is correct, but looked exactly like
+                       every other card, so the one notification that wanted
+                       attention was the one you could not pick out.
+
+                       The app-name line is the quietest place that still
+                       reads. It is already the label saying what sent this, so
+                       colouring it costs no layout and adds no furniture, and
+                       a screen full of critical notifications does not become
+                       a screen full of red bars. A tinted background or a
+                       stripe was the alternative and both shout, which is
+                       wrong for something that is often merely a low battery. */
+                    color: root.entry.urgency === 2 ? Style.critical
+                                                    : Style.foregroundMuted
                     font.family: Style.fontFamily
                     font.pointSize: Style.fontSize - 1
                     font.capitalization: Font.AllUppercase
