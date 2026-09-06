@@ -58,6 +58,19 @@ QtObject {
         return !!key && custom[key] !== undefined
     }
 
+    /* Whether an icon is a single-colour glyph that should be tinted to match
+       the surface, rather than artwork to be shown as drawn.
+
+       Ours always are. So is anything the icon theme calls "-symbolic": that
+       suffix means monochrome by convention, and such icons are drawn in one
+       flat colour on the assumption the caller will recolour them. Plasma
+       hands us those names — a headset arrives as "portable-symbolic" — and
+       leaving them alone painted a dark glyph on a dark chip, which is
+       invisible rather than subtle. */
+    function isMonochrome(key) {
+        return isCustom(key) || (!!key && key.endsWith("-symbolic"))
+    }
+
     function source(key) {
         if (!key)
             return ""

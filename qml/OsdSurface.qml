@@ -156,18 +156,18 @@ Window {
                     source: Icons.source(OsdModel.iconName)
                     sourceSize: Qt.size(Style.iconSize * 3, Style.iconSize * 3)
                     smooth: true
-                    visible: !Icons.isCustom(OsdModel.iconName)
+                    visible: !Icons.isMonochrome(OsdModel.iconName)
                     opacity: OsdModel.iconDimmed ? Style.iconDimmedOpacity : 1.0
                     Behavior on opacity { NumberAnimation { duration: 140 } }
                 }
 
-                /* Our glyphs are white SVGs. Tint them so they read on an
-                   accent chip in dark mode and on a pale chip in light mode;
-                   full-colour app icons are left untouched. */
+                /* Single-colour glyphs get tinted so they read on an accent
+                   chip in dark mode and a pale chip in light mode. Full-colour
+                   app icons are left as they are. See Icons.isMonochrome. */
                 MultiEffect {
                     anchors.fill: osdGlyph
                     source: osdGlyph
-                    visible: Icons.isCustom(OsdModel.iconName)
+                    visible: Icons.isMonochrome(OsdModel.iconName)
                     colorization: 1.0
                     colorizationColor: OsdModel.iconAccent ? "#ffffff" : Style.foreground
                     opacity: OsdModel.iconDimmed ? Style.iconDimmedOpacity : 1.0
