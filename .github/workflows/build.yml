@@ -33,6 +33,12 @@ jobs:
       - name: Build
         run: cmake --build build -j$(nproc)
 
+      # The part of glassosd that can be checked without a compositor: the
+      # queue, history, the rules engine and sound selection. Every one of
+      # these tests is a bug that reached a user first.
+      - name: Run the unit tests
+        run: ctest --test-dir build --output-on-failure
+
       - name: Install into a staging root
         run: DESTDIR=$PWD/stage cmake --install build
 

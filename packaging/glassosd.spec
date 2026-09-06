@@ -82,6 +82,13 @@ manage their own keybindings.
 %cmake -GNinja
 %cmake_build
 
+# Run on every build, including COPR's. The tests need no display and no
+# session bus — they run offscreen against a temporary XDG tree — so a build
+# root can execute them, and a rebuild against a new Qt or KF6 proves the
+# behaviour still holds rather than only that it still compiles.
+%check
+%ctest
+
 %install
 %cmake_install
 install -Dpm0755 tools/demo-notifications.sh %{buildroot}%{_datadir}/%{name}/demo-notifications.sh

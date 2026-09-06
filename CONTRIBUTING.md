@@ -48,6 +48,34 @@ systemctl --user stop glassosd     # free the bus name
 ./build/glassosd
 ```
 
+### Tests
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j$(nproc)
+ctest --test-dir build --output-on-failure
+```
+
+The suite covers the logic that needs no compositor: the popup queue, history,
+the rules engine, and sound selection. It runs offscreen against a temporary
+XDG tree, so it neither needs a session nor touches your own history. CI runs
+it on every push and `%check` runs it on every RPM build.
+
+Almost every case in it is a bug that reached a user first — a tagged
+notification whose repeats reset the dwell clock and produced a card that
+could never expire, a `HistoryLength` read after the file had already been
+truncated, a queue that left "+2 more" on screen while four were waiting. If
+you fix something in `src/notificationmodel.cpp`, `src/historymodel.cpp`,
+`src/rules.cpp` or `src/soundplayer.cpp`, add the case that would have caught
+it. These four files are where the bugs live because they are where the
+decisions are; everything else is drawing.
+
+A few tests wait on real time, because expiry *is* real time. Their margins
+are deliberately wide — a test that fails when the machine is busy teaches
+people to ignore it.
+
+### By hand
+
 `tools/stress-test.sh` fires the awkward cases: empty bodies, 2000-character
 bodies, unwrappable single words, RTL, markup abuse, missing icons, zero and
 negative timeouts, and a 60-notification flood. Run it before opening a PR;

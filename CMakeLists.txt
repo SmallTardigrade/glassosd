@@ -129,6 +129,16 @@ target_link_libraries(glassosd PRIVATE
     PkgConfig::DBUS1
 )
 
+# Unit tests for the pure logic — the queue, history, rules and sound
+# selection. Nothing here needs a compositor or a session bus, which is the
+# whole point: it is the part that can be checked on every push. ON by default
+# so a contributor gets them without asking; packagers turn it off.
+option(BUILD_TESTING "Build the unit tests" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 include(GNUInstallDirs)
 
 # The unit used to hardcode /usr/local/bin, which is wrong for every packaged
