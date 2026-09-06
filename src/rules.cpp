@@ -43,10 +43,27 @@ bool Rule::matches(const Notification &n) const
 void Rules::load(const KSharedConfig::Ptr &config)
 {
     m_rules.clear();
+
+    /* Sorted by name, because KConfig::groupList() hands back an unordered
+       set and apply() below depends on the order — later rules refine earlier
+       ones. Taken as it came, which of two overlapping rules won was decided
+       by hash placement: stable within a run, arbitrary between builds, and
+       liable to change when an unrelated group was added to the file. An
+       allow-list, which is a catch-all hide followed by rules putting a few
+       back, was a coin toss.
+
+       dunst uses the order rules appear in dunstrc. KConfig cannot report
+       that, so the next best thing is an order the user can see and control:
+       name them 10-, 20-, 30- when it matters, as udev and systemd do. */
+    QStringList groups;
     for (const QString &groupName : config->groupList()) {
-        if (!groupName.startsWith(QLatin1String("Rule "))) {
-            continue;
+        if (groupName.startsWith(QLatin1String("Rule "))) {
+            groups.append(groupName);
         }
+    }
+    groups.sort();
+
+    for (const QString &groupName : std::as_const(groups)) {
         KConfigGroup g(config, groupName);
 
         Rule r;

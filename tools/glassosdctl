@@ -318,7 +318,8 @@ case "$cmd" in
     done
     echo
     echo "rules:"
-    grep -o '^\[Rule .*\]$' "$CONF" 2>/dev/null | sed 's/^\[Rule /  /; s/\]$//' || echo "  (none)"
+    grep -o '^\[Rule .*\]$' "$CONF" 2>/dev/null | sed 's/^\[Rule /  /; s/\]$//' | sort \
+      || echo "  (none)"
     ;;
   version)
     running || { echo "daemon not running" >&2; exit 1; }
@@ -366,12 +367,20 @@ NewestFirst Timeout TimeoutLow TimeoutCritical " in
       *) echo "usage: glassosdctl osd volume|mic|brightness|text …" >&2; exit 1 ;;
     esac ;;
   rules)
-    if grep -q '^\[Rule ' "$CONF" 2>/dev/null; then
-      # n is cleared at any other section header, not a separate flag: the old
-      # version set inr=0 while still testing n, so once it had seen one rule
-      # it went on printing every line of the file that followed.
-      awk '/^\[Rule /{n=$0; sub(/^\[Rule /,"",n); sub(/\]$/,"",n); print "\n" n ":"; next}
-           /^\[/{n=""} NF && n {print "  " $0}' "$CONF"
+    # Listed in the order they apply, which is by name: every matching rule is
+    # applied and later ones refine earlier ones, so when two disagree the one
+    # printed lower down is the one that took effect. Printing them in file
+    # order would show a precedence that is not the real one.
+    names=$(grep -o '^\[Rule .*\]$' "$CONF" 2>/dev/null \
+              | sed 's/^\[Rule //; s/\]$//' | sort) || names=""
+    if [ -n "$names" ]; then
+      while IFS= read -r n; do
+        printf '\n%s:\n' "$n"
+        # inr is cleared at any other section header: an earlier version went
+        # on printing every line of the file that followed the rule it wanted.
+        awk -v want="[Rule $n]" \
+            '$0 == want {inr = 1; next} /^\[/ {inr = 0} NF && inr {print "  " $0}' "$CONF"
+      done <<< "$names"
     else echo "(no rules)"; fi ;;
   rule-set)
     name=$1; shift

@@ -177,6 +177,19 @@ matching
 .BR dunst (1)
 so that dunstrc entries can be copied across.
 .PP
+Every matching rule is applied, in order of the rule's name, and later ones
+refine earlier ones rather than the first match winning. Where two rules
+disagree the alphabetically later name is the one that takes effect, so name
+them
+.BR 10\- ,
+.BR 20\- ,
+.B 30\-
+when the order matters \(em the same convention udev and systemd use. The
+position of a group in the file is not significant.
+.PP
+An allow\-list is written this way: a catch\-all that hides everything,
+followed by rules that put a few back.
+.PP
 .nf
 glassosdctl rule\-set signal appname=Signal set_stack_tag=chat timeout=8000
 glassosdctl rule\-set noisy  appname=Steam skip_display=true
