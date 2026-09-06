@@ -317,4 +317,21 @@ QtObject {
        card, so anything outside it is clipped by the surface itself — so this
        is a short rise into place rather than a journey. */
     readonly property int animRise: Math.round(tnum("motion.rise", 14))
+
+    /* Swipe-to-dismiss.
+
+       The card cannot slide off the screen. The layer-shell surface is only
+       as wide as the card plus its shadow padding, so a card translated
+       further than that is cut off by the surface edge rather than leaving
+       the screen — the same constraint that makes arrival a short rise
+       instead of a slide in.
+
+       So the finger travels as far as it likes and the card does not: the
+       translation is damped into the padding, and the fade carries the rest
+       of the meaning. swipeTravel is where the card saturates, swipeCommit
+       is how far the *finger* must go to actually dismiss, as a fraction of
+       the card's width. */
+    readonly property int swipeTravel: Math.round(tnum("motion.swipeTravel", shadowPad))
+    readonly property real swipeCommit: tnum("motion.swipeCommit", 0.28)
+    readonly property int swipeSpring: Math.round(tnum("motion.swipeSpring", 200))
 }

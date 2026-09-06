@@ -63,6 +63,7 @@ The behaviour that matters once the desktop is actually busy:
 | **Replace by tag** | stack tags and `replaces_id` update a card in place |
 | **Idle threshold** | popups that appeared while you were away wait for you to come back |
 | **Hover to hold** | the dwell timer pauses while the pointer is over a card |
+| **Swipe to dismiss** | drag a card aside with a pointer or a finger |
 | **Persistent history** | survives a restart, grouped by app, collapsible |
 | **Do Not Disturb** | persists across login |
 | **Per-app rules** | match on app, summary, body, category or urgency |

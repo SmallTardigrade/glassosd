@@ -786,6 +786,20 @@ dismissal duration, ms. Default 195.
 .B motion.rise
 how far a card rises as it arrives. Default 14.
 .TP
+.B motion.swipeTravel
+how far a card follows a swipe before it stops, in pixels. It cannot leave
+the screen \(em the surface is only as wide as the card and its shadow
+padding \(em so the travel saturates here and the fade carries the rest.
+Defaults to shadow.pad, 42.
+.TP
+.B motion.swipeCommit
+how far the pointer or finger must travel to dismiss, as a fraction of the
+card's width. Default 0.28. Raise it if cards are going away by accident.
+.TP
+.B motion.swipeSpring
+how long a swipe that did not go far enough takes to settle back, ms.
+Default 200.
+.TP
 .B font.family
 typeface. Default Noto Sans.
 .TP

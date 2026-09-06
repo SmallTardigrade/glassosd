@@ -51,7 +51,27 @@ Item {
        length of the animation after it has been closed. */
     property bool leaving: false
 
-    opacity: (stacked ? Style.cardBackground.a : 1.0) * reveal
+    /* Swipe-to-dismiss. swipeRaw is how far the finger or pointer has moved;
+       swipeX is how far the card is allowed to follow it.
+
+       They are not the same number because the card cannot leave the screen.
+       The layer-shell surface is the width of the card plus its shadow
+       padding, so a translation past that is clipped by the surface edge
+       rather than sliding off — a swipe that tracked the finger one-to-one
+       would simply be cut in half. tanh saturates at Style.swipeTravel while
+       staying near one-to-one for the first few pixels, so the gesture starts
+       out feeling direct and then resists, which is also the honest signal
+       that this card is not going to fly anywhere. The fade does the rest. */
+    property real swipeRaw: 0.0
+    property bool swipingOut: false
+    readonly property real swipeX:
+        Style.swipeTravel * Math.tanh(swipeRaw / Math.max(1, Style.swipeTravel))
+    /* How close the gesture is to committing, 0..1. Drives the fade, so the
+       card is visibly half gone by the time letting go would dismiss it. */
+    readonly property real swipeProgress:
+        Math.min(1.0, Math.abs(swipeRaw) / Math.max(1, root.width * Style.swipeCommit))
+
+    opacity: (stacked ? Style.cardBackground.a : 1.0) * reveal * (1.0 - 0.8 * swipeProgress)
     layer.enabled: stacked
 
     /* Quint rather than Cubic: Material's "emphasized" curves are far steeper
@@ -70,6 +90,7 @@ Item {
        of y, so the layout does not reflow every frame and the cards below stay
        put while this one arrives. */
     transform: Translate {
+        x: root.swipeX
         y: (1.0 - root.reveal) * Style.animRise
     }
 
@@ -110,12 +131,29 @@ Item {
            as the card travels or the blurred patch sits still while the card
            moves off it. Same reason the delegate refreshes when the ListView
            moves it. */
+        refreshRegions()
+    }
+
+    /* The card and its sheets register their regions in window coordinates,
+       and no binding notices when an ancestor moves them, so everything that
+       moves this delegate has to say so: the relayout when a card above goes
+       away, the rise on arrival, and a swipe.
+
+       Guarded on blurDropped because the exit gives the region back early —
+       re-registering it afterwards would put the blurred patch back on screen
+       for the last frames of a dismissal, which is the bug that guard exists
+       to prevent. */
+    function refreshRegions() {
+        if (root.blurDropped)
+            return
         card.refreshBlur()
         for (let i = 0; i < sheets.count; ++i) {
             const s = sheets.itemAt(i)
             if (s) s.refreshSheet()
         }
     }
+
+    onSwipeXChanged: refreshRegions()
     layer.effect: MultiEffect {
         shadowEnabled: true
         shadowColor: Style.shadowColor
@@ -135,14 +173,41 @@ Item {
        even highlights on hover. Binding through mapToItem() does not help:
        QML does not re-evaluate it when an ancestor moves. The delegate's own
        y is the thing that actually changes, so drive it from here. */
-    onYChanged: {
-        card.refreshBlur()
-        /* The sheets register in window coordinates too, so they go stale for
-           the same reason the card does when the ListView moves us. */
-        for (let i = 0; i < sheets.count; ++i) {
-            const s = sheets.itemAt(i)
-            if (s) s.refreshSheet()
+    /* The sheets register in window coordinates too, so they go stale for the
+       same reason the card does when the layout moves us. */
+    onYChanged: refreshRegions()
+
+    /* Settle back, or carry on out. Disabled while the finger is down so the
+       card tracks the gesture rather than chasing it. */
+    Behavior on swipeRaw {
+        enabled: !swipe.active
+        NumberAnimation {
+            duration: root.swipingOut ? Style.animOut : Style.swipeSpring
+            easing.type: root.swipingOut ? Easing.InCubic : Easing.OutCubic
         }
+    }
+
+    /* Let go: far enough is a dismissal, anything less springs back.
+
+       Measured on the finger's travel rather than the card's, because the
+       card saturates at Style.swipeTravel and every gesture past that point
+       would otherwise look identical. Velocity counts too, so a quick flick
+       does not have to be a long one — but distance alone is enough, which
+       keeps the gesture usable if the velocity reads as zero. */
+    function endSwipe() {
+        const committed = Math.abs(swipeRaw) > root.width * Style.swipeCommit
+                       || Math.abs(swipe.centroid.velocity.x) > 600
+        if (!committed) {
+            swipeRaw = 0
+            root.hoverChanged(cardHover.containsMouse)
+            return
+        }
+        /* Dismiss now and let the exit fade run alongside the last of the
+           travel: the model keeps the row for Style.animOut either way, so
+           waiting for the slide to finish first would only double the wait. */
+        swipingOut = true
+        swipeRaw = swipeRaw > 0 ? root.width : -root.width
+        root.dismissed()
     }
     signal dismissed()
     signal settingsRequested()
@@ -275,6 +340,49 @@ Item {
 
         Component.onCompleted: refreshBlur()
         onWidthChanged: refreshBlur()
+
+        /* Swipe to dismiss, with a pointer or a finger.
+
+           A DragHandler rather than MouseArea's own drag property: handlers
+           see touch points natively instead of through synthesised mouse
+           events, so the touchscreen works without a second code path, and a
+           handler can take the exclusive grab away from the MouseArea below
+           once the drag threshold is passed. That is what stops a swipe from
+           also counting as a click and running the notification's default
+           action on the way past. */
+        DragHandler {
+            id: swipe
+            /* Nothing for the handler to move. The card follows through
+               swipeRaw instead, damped, because it cannot travel as far as
+               the finger does — and because it is laid out by a ColumnLayout,
+               which would overwrite a directly assigned x on the next pass. */
+            target: null
+            yAxis.enabled: false
+            /* Once a reply is being typed, horizontal dragging belongs to the
+               text field, for selecting what was typed. */
+            enabled: !replyInput.activeFocus
+
+            /* Followed imperatively rather than through a Binding with
+               `when: active`. On release the binding's condition and this
+               handler both fire, in an order QML does not define, so a
+               spring-back assigned here could be overwritten by a binding
+               that had not been torn down yet. Assigning leaves nothing to
+               order. */
+            onActiveTranslationChanged: {
+                if (swipe.active)
+                    root.swipeRaw = swipe.activeTranslation.x
+            }
+
+            onActiveChanged: {
+                if (active) {
+                    /* A finger produces no hover, so without this a slow
+                       swipe could have the card expire underneath it. */
+                    root.hoverChanged(true)
+                    return
+                }
+                root.endSwipe()
+            }
+        }
 
         MouseArea {
             id: cardHover
