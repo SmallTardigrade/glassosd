@@ -30,7 +30,43 @@ note() { echo "$1" >> "$STATE"; }
 # ---------------------------------------------------------------- undo -----
 if [ "${1:-}" = "--undo" ]; then
   bold "Undoing glassosd setup"
-  [ -f "$STATE" ] || { warn "nothing recorded in $STATE"; exit 0; }
+
+  # Without a state file, check for the changes anyway rather than walking
+  # away.
+  #
+  # The README documents the same changes as single commands for people who
+  # would rather not run a script, and those leave nothing recorded here. One
+  # of them — disabling Plasma's own OSD — lives in the user's plasmarc, so
+  # uninstalling glassosd cannot undo it: a reporter removed the package
+  # entirely and was left with no volume or brightness popups at all, with
+  # nothing to connect the two. Anything this finds is put back; anything
+  # already correct is left alone.
+  if [ ! -f "$STATE" ]; then
+    warn "nothing recorded in $STATE — checking for the changes anyway"
+    found=0
+    if have kreadconfig6 \
+       && [ "$(kreadconfig6 --file plasmarc --group OSD --key Enabled 2>/dev/null)" = "false" ]; then
+      found=1
+      echo "    Plasma's built-in volume/brightness OSD is disabled."
+      if ask "Re-enable it?"; then
+        kwriteconfig6 --notify --file plasmarc --group OSD --key Enabled true
+        ok "Plasma's built-in OSD re-enabled"
+      fi
+    fi
+    for f in "$PORTAL_DIR/glassosd-portals.conf" "$PORTAL_DIR/portals.conf"; do
+      [ -f "$f" ] && grep -q glassosd "$f" 2>/dev/null || continue
+      found=1
+      echo "    Portal notification routing was pointed away from the default by glassosd."
+      if ask "Restore the desktop default?"; then
+        rm -f "$f"
+        systemctl --user restart xdg-desktop-portal.service 2>/dev/null
+        ok "portal notification routing restored"
+      fi
+    done
+    [ "$found" -eq 0 ] && ok "nothing left to undo"
+    exit 0
+  fi
+
   while read -r what; do
     case "$what" in
       portal)

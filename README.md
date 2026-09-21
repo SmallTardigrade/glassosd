@@ -190,6 +190,14 @@ systemctl --user disable --now dunst.service       # or swaync.service, mako.ser
 kwriteconfig6 --file plasmarc --group OSD --key Enabled false
 ```
 
+That setting lives in your own `plasmarc`, so removing glassosd later will not
+put it back and Plasma's volume and brightness popups stay gone. To restore
+them:
+
+```bash
+kwriteconfig6 --notify --file plasmarc --group OSD --key Enabled true
+```
+
 To keep the notification daemon you already have and use glassosd only for the
 OSD:
 
@@ -326,6 +334,30 @@ issue tracker.
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
+
+## Uninstalling
+
+Removing the package leaves the settings it asked you to change, because they
+are yours and live in your own config. Put them back first:
+
+```bash
+glassosd-setup --undo
+```
+
+That re-enables Plasma's built-in OSD and restores portal notification
+routing, asking before each one. It works whether or not you used
+`glassosd-setup` to make the changes in the first place.
+
+Then remove the package however you installed it. Your notification history,
+settings and themes stay in `~/.local/share/glassosd` and
+`~/.config/glassosdrc`; delete those too if you want nothing left.
+
+If you have already uninstalled and your volume and brightness popups are
+gone, that is Plasma's own OSD still switched off. One command brings it back:
+
+```bash
+kwriteconfig6 --notify --file plasmarc --group OSD --key Enabled true
+```
 
 ## Licence
 

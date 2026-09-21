@@ -147,6 +147,30 @@ To keep your existing notification daemon and use glassosd for the OSD only:
 
 EOF
 
+%postun
+# Only on uninstall, not on the removal half of an upgrade.
+#
+# The settings glassosd asks people to change are in their own config, so
+# neither rpm nor this script can revert them — and the one that bites is
+# Plasma's built-in OSD, which stays disabled after the package is gone. A
+# user removed glassosd entirely and was left with no volume or brightness
+# popups, with nothing connecting the two.
+if [ $1 -eq 0 ]; then
+cat <<'EOF'
+
+glassosd is removed, but two settings it may have changed are yours and stay
+as they are:
+
+  glassosd-setup --undo      restores both, asking before each
+
+If your volume and brightness popups have stopped appearing, that is Plasma's
+own OSD still switched off:
+
+  kwriteconfig6 --notify --file plasmarc --group OSD --key Enabled true
+
+EOF
+fi
+
 %changelog
 * Wed Sep 03 2026 glassosd contributors - 0.2.0-1
 - Snooze, focus modes, sounds by freedesktop name, history search
