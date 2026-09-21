@@ -412,9 +412,15 @@ Item {
             spacing: 3
 
             // ---- identity line ------------------------------------------
+            /* Contents and order come from [Appearance] NotifyHeader. An
+               empty list hides the row: Layouts skip an invisible item, so
+               nothing is left behind where it was. The summary and body are
+               deliberately not configurable here — a notification with neither
+               is not a notification. */
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 7
+                visible: Appearance.notifyHeader.length > 0
 
                 /* The squircle container is for *symbolic* glyphs, which need
                    something to sit in. An application icon is already a
@@ -428,6 +434,7 @@ Item {
                     Layout.preferredWidth: Style.notifyIconSize + 8
                     Layout.preferredHeight: Style.notifyIconSize + 8
                     visible: root.entry.iconSource !== ""
+                             && Appearance.notifyHeader.includes("icon")
                     radius: width * Style.chipRadiusRatio
                     color: appIcon.isSymbolic ? Style.chipIdle : "transparent"
 
@@ -456,6 +463,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
+                    visible: Appearance.notifyHeader.includes("appname")
                     text: root.entry.appName
                     /* Critical urgency is marked here and nowhere else.
 
@@ -486,6 +494,7 @@ Item {
                    They sit at low opacity so they stay quiet until wanted,
                    which keeps the card calm without hiding the affordance. */
                 Text {
+                    visible: Appearance.notifyHeader.includes("time")
                     text: root.entry.when
                     color: Style.foregroundDim
                     font.family: Style.fontFamily
@@ -499,16 +508,22 @@ Item {
                    dealt with. */
                 CardButton {
                     visible: root.entry.stackTag === ""
+                             && Appearance.notifyHeader.includes("snooze")
                     icon: "snooze"
                     onActivated: root.snoozeRequested()
                 }
 
                 CardButton {
+                    visible: Appearance.notifyHeader.includes("settings")
                     icon: "settings"
                     onActivated: root.settingsRequested()
                 }
 
+                /* Losing this does not trap a notification: clicking the
+                   card dismisses it, so does middle-click, and so does a
+                   swipe. */
                 CardButton {
+                    visible: Appearance.notifyHeader.includes("close")
                     icon: "close"
                     onActivated: root.dismissed()
                 }

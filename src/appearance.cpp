@@ -187,6 +187,42 @@ void Appearance::reload()
     /* The canonical order, and the default. Every widget the centre can draw
        appears here exactly once; the configured list is an ordering of these
        names, swaync-style. */
+    /* The popup's top row: app icon, app name, time, then the buttons.
+       Order is honoured, so this doubles as a way to move the time or put the
+       close button first. An empty value hides the row entirely, which is what
+       someone asking for "just the text" wants. */
+    static const QStringList headerParts{
+        QStringLiteral("icon"),     QStringLiteral("appname"),
+        QStringLiteral("time"),     QStringLiteral("snooze"),
+        QStringLiteral("settings"), QStringLiteral("close"),
+    };
+    m_notifyHeader.clear();
+    /* hasKey, not a default: the key being absent means "all of it", while the
+       key being present and empty means "none of it". readEntry cannot tell
+       those apart, and both are things people will write. */
+    if (!g.hasKey("NotifyHeader")) {
+        m_notifyHeader = headerParts;
+    } else {
+        const QStringList wantedHeader = g.readEntry("NotifyHeader", QStringList());
+        for (const QString &raw : wantedHeader) {
+            const QString w = raw.trimmed().toLower();
+            if (w.isEmpty()) {
+                continue;
+            }
+            if (!headerParts.contains(w)) {
+                qWarning("glassosd: unknown part '%s' in [Appearance] NotifyHeader — "
+                         "known names are %s",
+                         qUtf8Printable(w), qUtf8Printable(headerParts.join(QLatin1Char(' '))));
+                continue;
+            }
+            if (!m_notifyHeader.contains(w)) {
+                m_notifyHeader.append(w);
+            }
+        }
+    }
+
+    m_osdIcon = g.readEntry("OsdIcon", true);
+
     static const QStringList canonical{
         QStringLiteral("title"),   QStringLiteral("mpris"),
         QStringLiteral("volume"),  QStringLiteral("dnd"),

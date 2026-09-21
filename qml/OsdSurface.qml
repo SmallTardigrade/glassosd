@@ -125,7 +125,10 @@ Window {
                 Layout.preferredWidth: Style.chipSize
                 Layout.preferredHeight: Style.chipSize
                 Layout.alignment: Qt.AlignVCenter
-                visible: OsdModel.iconName !== ""
+                /* [Appearance] OsdIcon=false leaves the bar and the text and
+                   drops the chip, for people who want the OSD to be only the
+                   level. */
+                visible: OsdModel.iconName !== "" && Appearance.osdIcon
 
                 // Halo, only present when the lock is engaged
                 Rectangle {

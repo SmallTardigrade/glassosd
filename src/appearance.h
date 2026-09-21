@@ -94,6 +94,13 @@ class Appearance : public QObject
        obeying such a list literally would give a notification centre with no
        notifications in it. Appearance::reload() has the detail. */
     Q_PROPERTY(QStringList widgets READ widgets NOTIFY changed)
+    /* What the popup's top row contains, in order. Empty hides the row.
+       Separate from `widgets`, which is the centre — reported as confusing,
+       because a reader reasonably expects one "what is shown" key rather than
+       one per surface. */
+    Q_PROPERTY(QStringList notifyHeader READ notifyHeader NOTIFY changed)
+    /* Whether the OSD draws its icon chip at all. */
+    Q_PROPERTY(bool osdIcon READ osdIcon NOTIFY changed)
 
 public:
     explicit Appearance(QObject *parent = nullptr);
@@ -119,6 +126,8 @@ public:
     int centreBodyLines() const { return m_centreBodyLines; }
     int fontSize() const { return m_fontSize; }
     QStringList widgets() const { return m_widgets; }
+    QStringList notifyHeader() const { return m_notifyHeader; }
+    bool osdIcon() const { return m_osdIcon; }
     Q_INVOKABLE bool hasWidget(const QString &name) const { return m_widgets.contains(name); }
     Q_INVOKABLE int widgetOrder(const QString &name) const { return m_widgets.indexOf(name); }
 
@@ -150,4 +159,6 @@ private:
     int m_centreBodyLines = 3;
     int m_fontSize = 0;   // 0 = derive from Scale
     QStringList m_widgets;
+    QStringList m_notifyHeader;
+    bool m_osdIcon = true;
 };

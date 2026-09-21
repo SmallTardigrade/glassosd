@@ -99,9 +99,41 @@ Which side the control centre opens on, and whether the OSD sits at the top,
 centre or bottom.
 .TP
 .B Widgets
-The control centre's contents, in order. See
+The
+.I control centre's
+contents, in order \(em not the popups. See
 .B WIDGETS
-below.
+below. For what a popup shows, see
+.B NotifyHeader
+next.
+.TP
+.B NotifyHeader
+What the top row of a notification popup contains, in order:
+.BR icon ,
+.BR appname ,
+.BR time ,
+.BR snooze ,
+.BR settings ,
+.BR close .
+Unset means all of them. An empty value hides the row, leaving the summary and
+body alone \(em which is the setting for people who want the text and nothing
+else. Order is honoured, so it also moves the time or puts the close button
+first.
+.PP
+.nf
+glassosdctl header appname,time,close
+glassosdctl header none
+glassosdctl header default
+.fi
+.PP
+Removing
+.B close
+does not strand a notification: clicking the card dismisses it, so does
+middle\-clicking, and so does swiping it aside.
+.TP
+.B OsdIcon
+Whether the volume and brightness OSD draws its icon. Default true. False
+leaves the level and the text.
 .TP
 .B ButtonsPerRow
 Columns in the button grid. Default 5.
