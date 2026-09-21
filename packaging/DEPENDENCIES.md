@@ -43,19 +43,34 @@ application icons and the long tail.
 
 ### Packaging for Arch
 
+A ready PKGBUILD lives beside this file:
+
 ```
-depends=(qt6-base qt6-declarative qt6-svg layer-shell-qt kwindowsystem
-         kguiaddons kconfig ki18n kglobalaccel kstatusnotifieritem kidletime
-         dbus breeze-icons)
-optdepends=('plasma-integration: crisp themed icons at any size on Plasma'
-            'papirus-icon-theme: icons for third-party applications'
-            'wireplumber: volume widget and `glassosdctl osd volume`'
-            'brightnessctl: brightness widget')
-arch=('x86_64')
+cd packaging && makepkg -si
 ```
 
-`arch=('any')` is for packages with nothing compiled in them; glassosd builds
-C++ binaries.
+`arch=('x86_64')` because glassosd compiles C++ — `any` is for packages with
+nothing compiled in them, such as scripts or themes. Nothing in the source is
+x86-specific, so aarch64 would very likely work; it is not listed because
+nobody has built it there, and the honest list is the tested one. Adding an
+architecture to that array is a one-word change once someone confirms it.
+
+Tested by building it in an `archlinux:base-devel` container, which is also
+how to check a change without an Arch machine:
+
+```
+podman run --rm -v "$PWD":/src:ro archlinux:base-devel bash -c '
+  pacman -Syu --noconfirm --needed base-devel cmake ninja extra-cmake-modules \
+    qt6-base qt6-declarative qt6-svg qt6-wayland layer-shell-qt kwindowsystem \
+    kguiaddons kconfig ki18n kglobalaccel kstatusnotifieritem kidletime dbus \
+    breeze-icons
+  useradd -m b && cp -r /src/packaging /home/b/p && chown -R b /home/b
+  su b -c "cd /home/b/p && makepkg --noconfirm"'
+```
+
+`makepkg` refuses to run as root, hence the user. Use `makepkg` without `-s`
+in a container: `-s` wants sudo to install dependencies, which a container
+user does not have.
 
 Note `Papirus-Dark` on Fedora inherits `breeze-dark`, **not** `Papirus`, so
 plain `papirus-icon-theme` is the one that matters — see the Phase 2 notes.

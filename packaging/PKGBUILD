@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 glassosd contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Arch package. The counterpart of glassosd.spec, and kept beside it so the
+# two lists of dependencies are edited together — a packaging recipe written
+# somewhere else cannot know about a dependency this project has not declared,
+# which is how a package shipped without qt6-svg and drew every icon blank.
+#
+# Build and install it locally with:
+#   cd packaging && makepkg -si
+#
+# For the git version, change pkgname to glassosd-git, point source at
+# git+$url.git, and add a pkgver() — see the note at the bottom.
+
+pkgname=glassosd
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="Themeable notification daemon, on-screen display and control centre for Wayland"
+# Compiles C++, so not 'any'. Nothing here is x86-specific; other
+# architectures are simply untested, and belong here once someone has.
+arch=('x86_64')
+url="https://github.com/SmallTardigrade/glassosd"
+# The OSD event translation in src/osdmodel.cpp derives from plasma-workspace,
+# which forces GPL-2.0-or-later on the binary. The icon set is CC0-1.0.
+license=('GPL-2.0-or-later' 'CC0-1.0')
+
+depends=(
+  qt6-base
+  qt6-declarative
+  # Every glyph glassosd ships is an SVG, and so is every icon in Breeze.
+  # Without this plugin all of them render as blank space, and nothing says
+  # so: it is loaded at runtime, so no linker or dependency scanner can see
+  # that it is missing. glassosd warns at startup when it is absent.
+  qt6-svg
+  # Wayland platform plugin; the daemon has no other way onto the screen.
+  qt6-wayland
+  layer-shell-qt
+  kwindowsystem
+  kguiaddons
+  kconfig
+  ki18n
+  kglobalaccel
+  kstatusnotifieritem
+  kidletime
+  # libdbus-1, used directly by the OSD monitor: QtDBus exposes no
+  # BecomeMonitor.
+  dbus
+  # An icon theme, for the names glassosd does not draw itself — application
+  # icons on notifications, and the long tail of compositor icons.
+  breeze-icons
+)
+
+makedepends=(cmake extra-cmake-modules ninja pkgconf)
+
+optdepends=(
+  'plasma-integration: on Plasma, renders themed icons crisply at any size'
+  'papirus-icon-theme: icons for third-party applications'
+  'wireplumber: volume widget, and glassosdctl osd volume'
+  'brightnessctl: brightness widget'
+  'xdg-desktop-portal-gtk: routes sandboxed apps notifications to glassosd'
+)
+
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+# Pinned rather than SKIP, so a tampered or truncated download is caught.
+# Update it on every release: makepkg -g prints the new line.
+sha256sums=('bf9c29001a54a4f19ab1d7296e0b2a39998adb3c3f8a2ae3b7a42cfcadbbbb2e')
+
+build() {
+  cmake -B build -S "$pkgname-$pkgver" -G Ninja \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+
+  install -Dm755 "$pkgname-$pkgver/tools/demo-notifications.sh" \
+    "$pkgdir/usr/share/$pkgname/demo-notifications.sh"
+  install -Dm755 "$pkgname-$pkgver/tools/stress-test.sh" \
+    "$pkgdir/usr/share/$pkgname/stress-test.sh"
+  install -Dm644 "$pkgname-$pkgver/README.md" \
+    "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 "$pkgname-$pkgver/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+# For a -git package:
+#   source=("$pkgname::git+$url.git")
+#   pkgver() {
+#     cd "$srcdir/$pkgname"
+#     git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+#   }
+# Without a pkgver() a -git package reports the same version forever and
+# pacman will not see an update.
