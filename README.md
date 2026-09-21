@@ -73,7 +73,8 @@ The behaviour that matters once the desktop is actually busy:
 
 Volume, microphone, brightness, keyboard backlight, caps/num/Fn lock,
 touchpad, wifi, bluetooth and power profile — as a continuous bar or as
-discrete segments.
+discrete segments. Optional volume feedback sounds once as you start
+adjusting and once when you stop, rather than stuttering on every step.
 
 ### Control centre
 

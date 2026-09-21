@@ -6,13 +6,68 @@
 #include "soundplayer.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
 
+#include <csignal>
+#include <sys/types.h>
+
+bool BurstGate::event(qint64 nowMs)
+{
+    if (!m_active || nowMs - m_last >= m_quietMs) {
+        m_active = true;
+        m_swallowed = false;
+        m_last = nowMs;
+        return true;
+    }
+    m_last = nowMs;
+    m_swallowed = true;
+    return false;
+}
+
+bool BurstGate::finish(qint64 nowMs)
+{
+    /* Too early, or no run: leave any run active. The caller asks
+       remainingMs() how long to wait before asking again. */
+    if (!m_active || nowMs - m_last < m_quietMs) {
+        return false;
+    }
+    m_active = false;
+    const bool owed = m_swallowed;
+    m_swallowed = false;
+    return owed;
+}
+
+qint64 BurstGate::remainingMs(qint64 nowMs) const
+{
+    if (!m_active) {
+        return 0;
+    }
+    return qMax<qint64>(0, m_quietMs - (nowMs - m_last));
+}
+
 SoundPlayer::SoundPlayer(QObject *parent)
     : QObject(parent)
 {
+    m_clock.start();
+    m_volumeTrailing.setSingleShot(true);
+    connect(&m_volumeTrailing, &QTimer::timeout, this, [this] {
+        const qint64 now = m_clock.elapsed();
+        /* Fired early: wait out the rest instead of dropping the sound. This
+           was the bug — a held key made its first sound and never its last,
+           because the timer landed a few milliseconds inside the window,
+           finish() correctly said the run was not over, and nothing asked
+           again. */
+        if (const qint64 left = m_volumeGate.remainingMs(now); left > 0) {
+            m_volumeTrailing.start(int(left));
+            return;
+        }
+        if (m_volumeGate.finish(now)) {
+            playVolumeChange();
+        }
+    });
 }
 
 bool SoundPlayer::haveBackend() const
@@ -24,10 +79,10 @@ bool SoundPlayer::haveBackend() const
     return have;
 }
 
-void SoundPlayer::play(const QString &name)
+qint64 SoundPlayer::play(const QString &name)
 {
     if (name.isEmpty() || !haveBackend()) {
-        return;
+        return 0;
     }
 
     /* A path rather than a name. Themes are the better answer — they follow
@@ -46,16 +101,18 @@ void SoundPlayer::play(const QString &name)
         if (!file.isEmpty()) {
             if (!QFileInfo::exists(file)) {
                 qWarning("glassosd: sound file not found: %s", qUtf8Printable(file));
-                return;
+                return 0;
             }
-            QProcess::startDetached(canberra, {QStringLiteral("-f"), file});
-            return;
+            qint64 pid = 0;
+            QProcess::startDetached(canberra, {QStringLiteral("-f"), file}, QString(), &pid);
+            return pid;
         }
         /* -i takes a theme name and resolves it through the user's theme and
            its inheritance chain, which is the whole reason to go through
            canberra rather than play a file. */
-        QProcess::startDetached(canberra, {QStringLiteral("-i"), name});
-        return;
+        qint64 pid = 0;
+        QProcess::startDetached(canberra, {QStringLiteral("-i"), name}, QString(), &pid);
+        return pid;
     }
 
     /* No canberra: play the file, or the freedesktop copy of the name. Loses
@@ -66,15 +123,17 @@ void SoundPlayer::play(const QString &name)
         file = QStringLiteral("/usr/share/sounds/freedesktop/stereo/%1.oga").arg(name);
     }
     if (!QFileInfo::exists(file)) {
-        return;
+        return 0;
     }
     for (const QString &tool : {QStringLiteral("paplay"), QStringLiteral("pw-play")}) {
         const QString exe = QStandardPaths::findExecutable(tool);
         if (!exe.isEmpty()) {
-            QProcess::startDetached(exe, {file});
-            return;
+            qint64 pid = 0;
+            QProcess::startDetached(exe, {file}, QString(), &pid);
+            return pid;
         }
     }
+    return 0;
 }
 
 void SoundPlayer::playNotification(const QString &name)
@@ -95,6 +154,19 @@ void SoundPlayer::playOsd(const QString &name)
     if (!m_osd) {
         return;
     }
+
+    /* Volume goes through the burst gate: first and last of a run only. The
+       timer is re-armed by every swallowed step, so it fires quietMs after the
+       key is let go rather than quietMs after the run began. */
+    if (name == QLatin1String("audio-volume-change")) {
+        if (m_volumeGate.event(m_clock.elapsed())) {
+            playVolumeChange();
+        } else {
+            m_volumeTrailing.start(m_volumeGate.quietMs());
+        }
+        return;
+    }
+
     /* Deliberately outside the notification rate limit's reach in one
        direction only: holding a volume key is a stream of OSD events and
        should not be silenced by a notification that happened to arrive, but
@@ -105,6 +177,36 @@ void SoundPlayer::playOsd(const QString &name)
     }
     m_lastPlayed = now;
     play(name);
+}
+
+void SoundPlayer::playVolumeChange()
+{
+    stopPreviousVolumeChange();
+    m_volumePid = play(m_osdSound.isEmpty() ? QStringLiteral("audio-volume-change") : m_osdSound);
+}
+
+void SoundPlayer::stopPreviousVolumeChange()
+{
+    if (m_volumePid <= 0) {
+        return;
+    }
+    const qint64 pid = m_volumePid;
+    m_volumePid = 0;
+
+    /* Checked before signalling. The player is detached and exits on its own
+       after a third of a second, and a pid that has been freed can be handed
+       to something else — so a bare kill() on a remembered number could, in
+       principle, terminate an unrelated process of the user's. Only signal it
+       if it is still one of our players. comm is truncated to 15 characters,
+       hence the prefix match. */
+    QFile comm(QStringLiteral("/proc/%1/comm").arg(pid));
+    if (!comm.open(QIODevice::ReadOnly)) {
+        return;   // already gone
+    }
+    const QByteArray name = comm.readAll().trimmed();
+    if (name.startsWith("canberra-gtk-p") || name == "paplay" || name == "pw-play") {
+        ::kill(pid_t(pid), SIGTERM);
+    }
 }
 
 QString SoundPlayer::nameFor(const QString &category, int urgency)

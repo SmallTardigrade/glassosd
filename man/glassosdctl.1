@@ -235,8 +235,12 @@ Toggle a half of the daemon on its own. Read at startup, so follow with
 .BR sound " [on|off]"
 Notification sounds, by freedesktop sound\-theme name. On by default.
 .TP
-.BR osd\-sound " [on|off]"
-Feedback on volume steps and lock keys. Off by default.
+.BR osd\-sound " [on|off|" name |default]
+Feedback on volume steps and lock keys. Off by default. A run of volume steps
+sounds when it starts and once after it stops, not on every step. A sound name
+or path sets which sound volume changes make;
+.B default
+returns to the theme's.
 .TP
 .B sounds
 List every sound name your themes provide, and where to put your own.

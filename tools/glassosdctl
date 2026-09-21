@@ -138,8 +138,11 @@ glassosdctl <command>
   sound [on|off]         Notification sounds, by freedesktop sound-theme name
                          (on by default). Per-rule override: sound=NAME, or
                          sound=none to silence one app.
-  osd-sound [on|off]     Feedback on volume steps and lock keys (off by
-                         default — a click on every keypress is a taste).
+  osd-sound [on|off|NAME|default]
+                         Feedback on volume steps and lock keys (off by
+                         default). A held volume key sounds at the start and
+                         after release, not every step. NAME or a path picks
+                         the volume sound; default returns to the theme's.
   snooze [minutes]       How long the snooze button defers a notification
                          (default 10). The card closes and comes back later.
   snoozed                List what is snoozed and when each is due
@@ -596,10 +599,18 @@ NewestFirst Timeout TimeoutLow TimeoutCritical " in
     esac ;;
   osd-sound)
     case "${1:-}" in
-      "")      echo "osd-sound: $(cfg_or Sounds Osd false)" ;;
+      "")
+        echo "osd-sound: $(cfg_or Sounds Osd false)"
+        v=$(cfg_read Sounds OsdSound); echo "volume sound: ${v:-audio-volume-change (theme)}" ;;
       on|true)   cfg_write Sounds Osd true;  echo "osd-sound = on" ;;
       off|false) cfg_write Sounds Osd false; echo "osd-sound = off" ;;
-      *) echo "osd-sound takes 'on' or 'off'" >&2; exit 1 ;;
+      default)   cfg_write Sounds OsdSound ""; echo "volume sound = audio-volume-change (theme)" ;;
+      *)
+        case "$1" in
+          /*|"~/"*) [ -f "${1/#\~/$HOME}" ] || echo "warning: no file at $1" >&2 ;;
+        esac
+        cfg_write Sounds OsdSound "$1"; echo "volume sound = $1"
+        [ "$(cfg_or Sounds Osd false)" = true ] || echo "note: osd-sound is off; 'glassosdctl osd-sound on' to hear it" ;;
     esac ;;
   snooze)
     if [ -z "${1:-}" ]; then echo "snooze: $(cfg_or Notifications SnoozeMinutes 10) minutes"

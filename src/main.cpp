@@ -318,6 +318,7 @@ int main(int argc, char *argv[])
         KConfigGroup g(cfg, QStringLiteral("Sounds"));
         sounds->setNotificationsEnabled(g.readEntry("Enabled", true));
         sounds->setOsdEnabled(g.readEntry("Osd", false));
+        sounds->setOsdSound(g.readEntry("OsdSound", QString()).trimmed());
     };
     applySoundSettings();
     QObject::connect(notifications, &NotificationModel::soundWanted,

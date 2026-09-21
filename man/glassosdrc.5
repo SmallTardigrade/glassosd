@@ -446,6 +446,29 @@ ships 35 names; KDE's
 .B ocean
 adds about 30 more of its own, so a rule naming one of those is silent unless
 ocean is your theme or inherits into it.
+.SS The volume sound
+Off by default:
+.B [Sounds] Osd=true
+or
+.BR "glassosdctl osd\-sound on" .
+.PP
+Holding a volume key steps it about every 40 milliseconds, and the
+volume\-change sound in a typical theme lasts longer than that \(em Ocean's is
+300. Sounding on every step starts each copy before the last has finished,
+which comes out as a stutter of clipped clicks. So a run of steps makes at most
+two sounds: one as it begins, so you know the key worked, and one a quarter of
+a second after you let go, at the level you settled on. A single press is one
+sound. The first is cut off if the second catches it up.
+.TP
+.B OsdSound
+The sound to use: a theme name or a path. Empty, the default, is the theme's
+.BR audio\-volume\-change .
+.B /usr/share/sounds/freedesktop/stereo/audio\-volume\-change.oga
+is a short tick if your theme's is long.
+.PP
+On Plasma, turn off Plasma's own volume feedback when enabling this, or every
+change sounds twice: System Settings, Sound, or
+.BR "kwriteconfig6 \-\-file plasmaparc \-\-group General \-\-key AudioFeedback false" .
 .SS Custom sounds
 Two ways, and the first is better.
 .TP
