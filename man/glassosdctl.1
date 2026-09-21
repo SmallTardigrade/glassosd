@@ -195,13 +195,37 @@ fault: the notification is recorded, never shown, and nothing says why. Prefer
 to ask for quiet, since both say what they are doing.
 .RE
 .TP
-.BR output " [current|primary|" name ]
-Which screen surfaces appear on.
+.BR output " [popups|osd|centre] [current|primary|" name |default]
+Which screen surfaces appear on. With no surface named, sets the shared default
+all three follow; naming one overrides just that surface, and
+.B default
+returns it to following the shared value. With no arguments, prints what each
+surface will use and lists the connected outputs. A surface on screen at the
+time moves the next time it appears. See SCREENS in
+.BR glassosdrc (5).
 .SH CONTENTS
 .TP
 .BR widgets " [" list |default]
-Which widgets the centre shows, and in what order. See
+Which widgets the
+.I centre
+shows, and in what order \(em not the popups. See
 .BR glassosdrc (5).
+.TP
+.BR header " [" list |none|default]
+What the top row of a notification popup shows, in order:
+.BR icon ,
+.BR appname ,
+.BR time ,
+.BR snooze ,
+.BR settings ,
+.BR close .
+.B none
+hides the row and leaves the summary and body;
+.B default
+restores all of it. Applies live.
+.TP
+.BR osd\-icon " [on|off]"
+Whether the volume and brightness OSD draws its icon. On by default.
 .TP
 .BR module " " name " [on|off]"
 Toggle a half of the daemon on its own. Read at startup, so follow with

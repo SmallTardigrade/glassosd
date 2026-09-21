@@ -128,6 +128,16 @@ public:
 
 private:
     void recompute(QQuickWindow *window);
+    void applyOutputNow(QQuickWindow *window, const QString &preference);
+
+    /* An output change that arrived while its surface was on screen, held
+       until the surface next hides. See setOutput(). */
+    struct PendingOutput {
+        QString preference;
+        QMetaObject::Connection onHidden;
+        QMetaObject::Connection onDestroyed;
+    };
+    QHash<QQuickWindow *, PendingOutput> m_pendingOutput;
 
     struct Contribution {
         QRectF rect;

@@ -244,6 +244,54 @@ void Surface::setOutput(QQuickWindow *window, const QString &preference)
     if (!window) {
         return;
     }
+
+    /* Only while hidden. Moving a mapped layer-shell surface to another
+       screen means destroying its wl_surface and making a new one, so a
+       change applied mid-display would make whatever is on screen vanish and
+       reappear somewhere else — a notification stack jumping monitors while
+       it is being read. The compositor already treats output as a
+       show-time decision (KWin re-picks it each time a layer surface is
+       mapped, and never moves one that stays mapped), so a change made while
+       something is showing waits for it to hide, and the next showing uses it.
+       Settings still apply without a restart; they just never yank a surface
+       out from under the person looking at it.
+
+       handle() as well as isVisible(): during component completion the
+       window can already report visible before its platform window exists,
+       and that first call must apply immediately or the surface would show
+       on the wrong screen once. */
+    if (window->isVisible() && window->handle()) {
+        auto it = m_pendingOutput.find(window);
+        if (it != m_pendingOutput.end()) {
+            it->preference = preference;   // a newer change replaces the waiting one
+            return;
+        }
+        /* Held connections, disconnected by handle: a blanket disconnect of
+           the window's visibleChanged would also cut any other connection
+           this singleton makes to it. */
+        PendingOutput pending;
+        pending.preference = preference;
+        pending.onHidden = connect(window, &QWindow::visibleChanged, this,
+                                   [this, window](bool visible) {
+            if (visible) {
+                return;
+            }
+            const PendingOutput done = m_pendingOutput.take(window);
+            disconnect(done.onHidden);
+            disconnect(done.onDestroyed);
+            applyOutputNow(window, done.preference);
+        });
+        pending.onDestroyed = connect(window, &QObject::destroyed, this, [this, window]() {
+            m_pendingOutput.remove(window);
+        });
+        m_pendingOutput.insert(window, pending);
+        return;
+    }
+    applyOutputNow(window, preference);
+}
+
+void Surface::applyOutputNow(QQuickWindow *window, const QString &preference)
+{
     auto *layerWindow = LayerShellQt::Window::get(window);
     if (!layerWindow) {
         return;
@@ -251,28 +299,52 @@ void Surface::setOutput(QQuickWindow *window, const QString &preference)
 
     if (preference.isEmpty() || preference == QLatin1String("current")) {
         /* Follow the active screen — dunst's follow=mouse equivalent and the
-           sane default. (screenConfiguration is deprecated since 6.6.) */
+           sane default. Resets any screen set below. (screenConfiguration is
+           deprecated since 6.6.) */
         layerWindow->setWantsToBeOnActiveScreen(true);
         return;
     }
 
-    layerWindow->setWantsToBeOnActiveScreen(false);
+    QScreen *target = nullptr;
     if (preference == QLatin1String("primary")) {
-        window->setScreen(QGuiApplication::primaryScreen());
-        return;
-    }
-    const auto screens = QGuiApplication::screens();
-    for (QScreen *s : screens) {
-        if (s->name().compare(preference, Qt::CaseInsensitive) == 0) {
-            window->setScreen(s);
-            return;
+        target = QGuiApplication::primaryScreen();
+    } else {
+        const auto screens = QGuiApplication::screens();
+        for (QScreen *s : screens) {
+            if (s->name().compare(preference, Qt::CaseInsensitive) == 0) {
+                target = s;
+                break;
+            }
         }
     }
-    /* Named output not present (unplugged, or a typo) — fall back rather than
-       leaving the surface on no screen at all. */
-    qWarning("glassosd: output '%s' not found; following the active screen",
-             qPrintable(preference));
-    layerWindow->setWantsToBeOnActiveScreen(true);
+    if (!target) {
+        /* Named output not present (unplugged, or a typo) — fall back rather
+           than leaving the surface on no screen at all. */
+        qWarning("glassosd: output '%s' not found; following the active screen",
+                 qPrintable(preference));
+        layerWindow->setWantsToBeOnActiveScreen(true);
+        return;
+    }
+
+    /* Through layer-shell-qt's own screen, not only QWindow::setScreen().
+
+       This used to set only the QWindow's screen and rely on layer-shell-qt's
+       documented fallback of reading it when no layer screen is set. The
+       fallback was not dependable: with the OSD pinned to eDP-1, Qt reported
+       the window on eDP-1 as it showed and KWin placed it on DP-1 — every
+       showing, not just the first — while the popup window pinned the same
+       way landed correctly. Why one surface and not the other was never
+       pinned down. Setting the layer screen explicitly is the API layer-shell-qt
+       6.6 added for this, and with it both land where they are told, on a
+       fresh daemon and after a change.
+
+       QWindow::setScreen as well, so Qt's side agrees: scale and device pixel
+       ratio come from the QWindow's screen, and a mismatch would render at
+       the wrong density on a mixed-DPI setup. */
+    window->setScreen(target);
+    layerWindow->setScreen(target);
+    qInfo("glassosd: %s pinned to output %s", qPrintable(layerWindow->scope()),
+          qPrintable(target->name()));
 }
 
 void Surface::setKeyboardFocus(QQuickWindow *window, bool on)

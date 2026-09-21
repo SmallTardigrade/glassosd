@@ -106,8 +106,11 @@ glassosdctl <command>
   theme [dark|light]     Light/dark palette (no argument prints current)
   accent [#rrggbb]       Accent colour (no argument prints current)
   level [segmented|bar]  Volume/brightness indicator style
-  output [current|primary|NAME]
-                         Which screen surfaces appear on
+  output [popups|osd|centre] [current|primary|NAME|default]
+                         Which screen surfaces appear on. With no surface,
+                         sets the shared default all three follow; naming a
+                         surface overrides just that one, and `default` puts
+                         it back to following the shared value
   theme-file [name]      Load a JSON theme (no argument prints current)
   themes                 List available themes and where they live
   edit-theme             Copy the current theme to ~/.config/glassosd/ and open it
@@ -266,7 +269,12 @@ bri_set() {
 
 outputs() {
   if have kscreen-doctor; then
-    kscreen-doctor -o 2>/dev/null | grep -oE '^Output: [0-9]+ [A-Za-z0-9-]+' | awk '{print "  "$3}'
+    # kscreen-doctor colours its output even into a pipe, so the escape codes
+    # have to go before anything can anchor on "Output:". Left in, the listing
+    # was always empty — and under pipefail the failed grep also made
+    # `glassosdctl output` exit 1 after printing.
+    kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' \
+      | grep -oE '^Output: [0-9]+ [A-Za-z0-9-]+' | awk '{print "  "$3}' || true
   elif have hyprctl; then
     hyprctl monitors -j 2>/dev/null | grep -oP '"name":\s*"\K[^"]+' | sed 's/^/  /'
   elif have wlr-randr; then
@@ -300,7 +308,9 @@ case "$cmd" in
     echo "appearance:"
     printf '%s\n' \
       "Theme|dark" "ThemeFile|(built-in)" "AccentColor|#3daee9" \
-      "LevelStyle|segmented" "Output|current" "Scale|1.0" \
+      "LevelStyle|segmented" "Output|current" \
+      "NotifyOutput|(follows Output)" "OsdOutput|(follows Output)" \
+      "CentreOutput|(follows Output)" "Scale|1.0" \
       "FontSize|auto (from scale)" "BodyLines|4" "CentreBodyLines|3" \
       "NotifyWidth|380" "Solidity|0.0" "Blur|auto" "NotifyLayer|overlay" \
       "NotifyPosition|top-right" "NotifyMarginX|0" "NotifyMarginY|0" \
@@ -688,10 +698,46 @@ SNZ
     if [ -z "${1:-}" ]; then echo "width: $(cfg_or Appearance NotifyWidth 380)"
     else cfg_write Appearance NotifyWidth "$1"; echo "width = $1"; fi ;;
   output)
-    if [ -z "${1:-}" ]; then
-      echo "output: $(cfg_or Appearance Output current)"
-      echo "available:"; outputs
-    else cfg_write Appearance Output "$1"; echo "output = $1"; fi ;;
+    # One shared Output, and a per-surface override for each of the three.
+    # The surface words cannot collide with an output name: connectors are
+    # things like eDP-1 and HDMI-A-1.
+    shared=$(cfg_or Appearance Output current)
+    effective() { # key -> the value the daemon will actually use
+      v=$(cfg_read Appearance "$1"); [ -n "$v" ] && echo "$v" || echo "$shared (shared)"
+    }
+    case "${1:-}" in
+      "")
+        echo "shared:  $shared"
+        echo "popups:  $(effective NotifyOutput)"
+        echo "osd:     $(effective OsdOutput)"
+        echo "centre:  $(effective CentreOutput)"
+        echo "available:"; outputs ;;
+      popups|osd|centre)
+        case "$1" in
+          popups) key=NotifyOutput ;; osd) key=OsdOutput ;; centre) key=CentreOutput ;;
+        esac
+        if [ -z "${2:-}" ]; then echo "$1: $(effective $key)"
+        else
+          if [ "$2" = default ]; then value=""; else value=$2; fi
+          case "$value" in
+            ""|current|primary) ;;
+            *) outputs | grep -qx "  $value" \
+                 || echo "warning: no output named '$value' right now; it will follow the active screen until one appears" >&2 ;;
+          esac
+          cfg_write Appearance "$key" "$value"
+          # Honest about timing: a surface that is on screen is not moved out
+          # from under you, so the change shows the next time it opens.
+          echo "$1 output = ${value:-$shared (shared)} (applies next time it appears)"
+        fi ;;
+      *)
+        case "$1" in
+          current|primary) ;;
+          *) outputs | grep -qx "  $1" \
+               || echo "warning: no output named '$1' right now; it will follow the active screen until one appears" >&2 ;;
+        esac
+        cfg_write Appearance Output "$1"
+        echo "shared output = $1 (applies next time each surface appears)" ;;
+    esac ;;
   level)
     case "${1:-}" in
       segmented|bar) cfg_write Appearance LevelStyle "$1"; echo "level = $1" ;;

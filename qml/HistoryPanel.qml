@@ -32,7 +32,15 @@ Window {
            nothing visible on screen to explain why. */
         Surface.initLayerShell(win, "glassosd-history", 1 | 2 | 4 | 8,
                                0, 0, 0, 0, false, 0)
-        Surface.setOutput(win, Appearance.output)
+        Surface.setOutput(win, Appearance.centreOutput)
+    }
+
+    /* Re-applied on a config change rather than read once, so
+       `glassosdctl output centre DP-1` takes effect without a restart — from
+       the next time the centre opens, if it is open now. */
+    Connections {
+        target: Appearance
+        function onChanged() { Surface.setOutput(win, Appearance.centreOutput) }
     }
 
     /* One row of the per-app settings panel: what the switch does, then why

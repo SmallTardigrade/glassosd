@@ -28,8 +28,17 @@ class Appearance : public QObject
     Q_PROPERTY(QColor accent READ accent NOTIFY changed)
     /* "segmented" (discrete blocks, macOS-classic) or "bar" (continuous). */
     Q_PROPERTY(QString levelStyle READ levelStyle NOTIFY changed)
-    /* "current" (follow the compositor), "primary", or an output name. */
+    /* "current" (follow the compositor), "primary", or an output name.
+       The shared default; each surface can override it below. */
     Q_PROPERTY(QString output READ output NOTIFY changed)
+    /* Per surface, because the right answer differs. Popups are something
+       you may want parked on one screen so they never land over the work on
+       another; the volume OSD answers a key you just pressed, so it belongs
+       where you are looking. Each falls back to Output when unset, so a
+       config written before these existed keeps behaving the same. */
+    Q_PROPERTY(QString notifyOutput READ notifyOutput NOTIFY changed)
+    Q_PROPERTY(QString osdOutput READ osdOutput NOTIFY changed)
+    Q_PROPERTY(QString centreOutput READ centreOutput NOTIFY changed)
     /* Multiplies every padding, icon and font size. Qt already handles the
        display's devicePixelRatio, so this is a *taste* control on top of that
        — "I want bigger text" rather than "this screen is HiDPI". */
@@ -93,6 +102,9 @@ public:
     QColor accent() const { return m_accent; }
     QString levelStyle() const { return m_levelStyle; }
     QString output() const { return m_output; }
+    QString notifyOutput() const { return m_notifyOutput; }
+    QString osdOutput() const { return m_osdOutput; }
+    QString centreOutput() const { return m_centreOutput; }
     qreal scale() const { return m_scale; }
     int notifyWidth() const { return m_notifyWidth; }
     qreal solidity() const { return m_solidity; }
@@ -121,6 +133,9 @@ private:
     QColor m_accent = QColor(QStringLiteral("#3daee9"));
     QString m_levelStyle = QStringLiteral("segmented");
     QString m_output = QStringLiteral("current");
+    QString m_notifyOutput = QStringLiteral("current");
+    QString m_osdOutput = QStringLiteral("current");
+    QString m_centreOutput = QStringLiteral("current");
     qreal m_scale = 1.0;
     int m_notifyWidth = 380;
     qreal m_solidity = 0.0;

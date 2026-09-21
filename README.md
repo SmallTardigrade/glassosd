@@ -64,6 +64,7 @@ The behaviour that matters once the desktop is actually busy:
 | **Idle threshold** | popups that appeared while you were away wait for you to come back |
 | **Hover to hold** | the dwell timer pauses while the pointer is over a card |
 | **Swipe to dismiss** | drag a card aside with a pointer or a finger |
+| **Multiple displays** | follows the screen you're using, or pin popups, OSD and centre to different ones |
 | **Persistent history** | survives a restart, grouped by app, collapsible |
 | **Do Not Disturb** | persists across login |
 | **Per-app rules** | match on app, summary, body, category or urgency |

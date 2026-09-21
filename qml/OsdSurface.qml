@@ -61,12 +61,14 @@ Window {
            The notification stack has always done this for the same reason; the
            OSD simply never needed it before. */
         Surface.setInputFollowsPanels(win, true)
-        Surface.setOutput(win, Appearance.output)
+        Surface.setOutput(win, Appearance.osdOutput)
     }
 
     Connections {
         target: Appearance
         function onChanged() {
+            /* Waits for the OSD to hide if it is showing; see Surface.setOutput. */
+            Surface.setOutput(win, Appearance.osdOutput)
             const a = Appearance.osdAnchor
             Surface.setPosition(win, a,
                                 a === 1 ? win.edgeMargin : 0, 0,

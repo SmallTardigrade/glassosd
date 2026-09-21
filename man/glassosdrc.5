@@ -151,6 +151,50 @@ insets the stack.
 .PP
 The stack always grows away from its anchor, so the newest notification is the
 one nearest the corner you chose, whichever corner that is.
+.SH SCREENS
+With more than one display, each surface can go to a different one. All four
+keys live in
+.BR [Appearance] .
+.TP
+.B Output
+The shared default.
+.B current
+follows the screen you are using \(em the one you last moved the pointer on or
+focused a window on.
+.B primary
+is the primary display. Anything else is a connector name, such as
+.B eDP\-1
+or
+.BR HDMI\-A\-1 ;
+.B glassosdctl output
+lists them. Default current.
+.TP
+.BR NotifyOutput ", " OsdOutput ", " CentreOutput
+Override
+.B Output
+for the popups, the volume and brightness OSD, and the notification centre
+respectively. Unset or empty follows
+.BR Output .
+.PP
+The split exists because the right answer differs. Popups are worth parking on
+one screen so they never land over what you are doing on another; the OSD
+answers a key you just pressed, so it belongs where you are looking.
+.PP
+.nf
+glassosdctl output popups HDMI\-A\-1
+glassosdctl output osd current
+glassosdctl output popups default
+.fi
+.PP
+A named output that is not connected falls back to following the current
+screen, with a warning in the log, rather than showing nothing.
+.PP
+Changes apply without a restart, but not to a surface that is on screen at the
+time: moving one would make it vanish and reappear on another display while it
+was being read. The change takes effect the next time that surface appears.
+This matches the compositor, which picks a surface's screen when it is shown
+and does not move one that stays up \(em so a burst of notifications stays on
+the screen it started on even if you move to another mid\-burst.
 .SH MODULES
 Each half runs independently. Off means never constructed: no bus name, no
 Wayland surface, no watchers. Modules are read at startup, so changing one

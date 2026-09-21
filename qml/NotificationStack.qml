@@ -49,7 +49,7 @@ Window {
                                (a & 4) ? Appearance.notifyMarginX : 0,
                                false, 0, Appearance.notifyLayer)
         Surface.setInputFollowsPanels(win, true)
-        Surface.setOutput(win, Appearance.output)
+        Surface.setOutput(win, Appearance.notifyOutput)
     }
 
     /* Follow a position change made while the daemon is running. Without
@@ -66,7 +66,12 @@ Window {
 
     Connections {
         target: Appearance
-        function onChanged() { win.applyPosition() }
+        function onChanged() {
+            win.applyPosition()
+            /* A stack on screen stays where it is until it empties; the next
+               notification opens on the new output. */
+            Surface.setOutput(win, Appearance.notifyOutput)
+        }
     }
 
     /* The model holds a closed card for this long so it can animate away, so

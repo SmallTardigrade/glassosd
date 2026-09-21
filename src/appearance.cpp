@@ -77,7 +77,20 @@ void Appearance::reload()
     m_levelStyle = (style == QLatin1String("bar")) ? QStringLiteral("bar")
                                                    : QStringLiteral("segmented");
 
-    m_output = g.readEntry("Output", QStringLiteral("current"));
+    m_output = g.readEntry("Output", QStringLiteral("current")).trimmed();
+    if (m_output.isEmpty()) {
+        m_output = QStringLiteral("current");
+    }
+    /* An empty value means "no override", not "no screen": glassosdctl writes
+       an empty string to clear a key, and treating that as a literal output
+       name would send the surface to the not-found fallback with a warning. */
+    const auto perSurface = [&](const char *key) {
+        const QString v = g.readEntry(key, QString()).trimmed();
+        return v.isEmpty() ? m_output : v;
+    };
+    m_notifyOutput = perSurface("NotifyOutput");
+    m_osdOutput = perSurface("OsdOutput");
+    m_centreOutput = perSurface("CentreOutput");
 
     /* Clamped: a scale of 0 would collapse every surface to nothing and a
        huge one would push notifications off screen, and both are easy typos
