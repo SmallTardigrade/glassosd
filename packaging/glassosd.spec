@@ -39,14 +39,30 @@ BuildRequires:  layer-shell-qt-devel
 # cannot see it.
 Requires:       qt6-qtdeclarative%{?_isa}
 Requires:       qt6-qtwayland%{?_isa}
+# Every icon this program ships is an SVG, and so is every icon in Breeze.
+# Without this plugin all of them render as blank space, and nothing says so:
+# it is loaded at runtime, so neither the linker nor rpm's dependency
+# generator can see that it is needed.
+Requires:       qt6-qtsvg%{?_isa}
 # glassosdctl speaks to the daemon over the session bus.
 Requires:       systemd
+
+# An icon theme, for the icons we do not draw ourselves — application icons on
+# notifications, and the handful of names the compositor sends.
+Requires:       breeze-icons
 
 # Optional, and genuinely optional: glassosdctl uses kwriteconfig6 when it is
 # there and edits the INI itself when it is not.
 Recommends:     kf6-kconfig
 # Routes sandboxed apps' portal notifications to the daemon; see the README.
 Recommends:     xdg-desktop-portal-gtk
+# KDE's icon engine, which renders Breeze's SVGs at whatever size is asked
+# for. Qt's built-in loader cannot: Breeze ships fixed sizes with no scalable
+# directory, so without this a 24px icon is stretched to 60 and looks it.
+# Reported from a package that did not have it. Recommends rather than
+# Requires because the daemon runs on compositors where Plasma is not
+# installed at all, and its own glyphs are unaffected either way.
+Recommends:     plasma-integration
 # Only needed for `glassosdctl osd volume|mic` on compositors that have no
 # org.kde.osdService to monitor.
 Suggests:       wireplumber

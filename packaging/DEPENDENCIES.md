@@ -16,9 +16,46 @@ dbus-libs
 Plus, not linked but required at runtime:
 
 ```
+qt6-qtsvg              # REQUIRED — without it every icon renders blank
+breeze-icons           # or any icon theme; for names we do not draw ourselves
+plasma-integration     # on Plasma: KDE's icon engine, see below
 papirus-icon-theme     # third-party app icons; Breeze does not cover them
 libkscreen             # kscreen-doctor, for the Meta+P switcher (Phase 5)
 ```
+
+### The two that packagers miss
+
+**`qt6-qtsvg`.** Every glyph glassosd ships is an SVG, and so is every icon in
+Breeze. The plugin is loaded at runtime, so no linker and no dependency
+generator can see that it is needed — the package builds and installs fine and
+then draws blank spaces where icons should be. glassosd logs a warning at
+startup when it is missing.
+
+**`plasma-integration`** (Plasma only). It provides KDE's icon engine, which
+renders Breeze's SVGs at whatever size is asked for. Qt's own loader cannot:
+Breeze has no `scalable/` directory and ships each status icon at fixed sizes —
+`audio-volume-high` exists at 16, 22 and 24 pixels and nothing larger. Without
+the engine that 24-pixel file is stretched to whatever the surface needs, and
+it looks it. This was reported from a distribution package that omitted it.
+The daemon's own glyphs are unaffected either way, and since v0.2 the common
+OSD names use those rather than the theme, so the damage is limited to
+application icons and the long tail.
+
+### Packaging for Arch
+
+```
+depends=(qt6-base qt6-declarative qt6-svg layer-shell-qt kwindowsystem
+         kguiaddons kconfig ki18n kglobalaccel kstatusnotifieritem kidletime
+         dbus breeze-icons)
+optdepends=('plasma-integration: crisp themed icons at any size on Plasma'
+            'papirus-icon-theme: icons for third-party applications'
+            'wireplumber: volume widget and `glassosdctl osd volume`'
+            'brightnessctl: brightness widget')
+arch=('x86_64')
+```
+
+`arch=('any')` is for packages with nothing compiled in them; glassosd builds
+C++ binaries.
 
 Note `Papirus-Dark` on Fedora inherits `breeze-dark`, **not** `Papirus`, so
 plain `papirus-icon-theme` is the one that matters — see the Phase 2 notes.

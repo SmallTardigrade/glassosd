@@ -24,6 +24,7 @@
 
 #include <QAction>
 #include <QIcon>
+#include <QImageReader>
 #include <QKeySequence>
 #include "osdmodel.h"
 #include "osdmonitor.h"
@@ -183,6 +184,44 @@ int main(int argc, char *argv[])
        plain Papirus as the fallback is what restores third-party app-icon
        coverage for notifications. */
     QIcon::setFallbackThemeName(QStringLiteral("Papirus"));
+
+    /* Say which icon theme we ended up with, and whether it can actually
+       supply the sizes we draw at.
+
+       Deliberately a report and not a correction. QIcon::themeName() comes
+       from the platform theme plugin, and on Plasma that plugin also installs
+       KDE's icon engine, which renders Breeze's SVGs at whatever size is
+       asked for. Qt's own loader cannot: Breeze has no scalable directory, so
+       the built-in loader picks the largest shipped size — 24px for
+       audio-volume-high, measured — and stretches it. Calling setThemeName()
+       here would *replace* KDE's engine with that loader and cause the
+       problem rather than avoid it, which is why this only looks.
+
+       A pixelated OSD icon was reported from a distribution package that did
+       not depend on plasma-integration, and this line is what will tell the
+       next reporter apart from a guess. */
+    /* Every glyph this program ships is an SVG, and so is every icon in
+       Breeze. Without Qt's SVG image plugin not one of them renders and the
+       surfaces come up with blank spaces where the icons should be — with
+       nothing logged, because a failed QML Image is not an error anyone sees.
+       It is a runtime plugin, so no linker or packaging tool can notice it is
+       missing; only this can. */
+    if (!QImageReader::supportedImageFormats().contains(QByteArrayLiteral("svg"))) {
+        qWarning("glassosd: Qt's SVG image plugin is missing — every icon will be blank. "
+                 "Install qt6-qtsvg (Fedora) / qt6-svg (Arch) / libqt6svg6 (Debian).");
+    }
+
+    {
+        const QIcon probe = QIcon::fromTheme(QStringLiteral("audio-volume-high"));
+        const QSize got = probe.actualSize(QSize(96, 96));
+        qInfo("glassosd: icon theme '%s' (fallback '%s'); audio-volume-high at 96px -> %dx%d%s",
+              qPrintable(QIcon::themeName()), qPrintable(QIcon::fallbackThemeName()),
+              got.width(), got.height(),
+              probe.isNull()              ? "  [MISSING: no icon theme resolved]"
+              : got.width() < 96          ? "  [will be upscaled: no KDE icon engine?]"
+                                          : "");
+    }
+
 
     engine.addImageProvider(QStringLiteral("icon"), new IconProvider);
 

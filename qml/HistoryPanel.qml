@@ -202,6 +202,10 @@ Window {
                         Image {
                             anchors.fill: parent
                             source: MprisController.artUrl
+                            /* Album art is whatever size the player hands over
+                               — often 1000px or more for a 50px chip. Without
+                               a cap the full bitmap is decoded and held. */
+                            sourceSize: Qt.size(150, 150)
                             fillMode: Image.PreserveAspectCrop
                             visible: MprisController.artUrl !== "" && status === Image.Ready
                             smooth: true
@@ -212,6 +216,14 @@ Window {
                             width: 22
                             height: 22
                             source: Icons.source("media")
+                            /* Every other icon in the project sets this and
+                               this one did not. Our glyphs are SVGs with a
+                               24px viewBox: without a raster size Qt renders
+                               one at its intrinsic 24px and scales that up to
+                               fill the item, which on any display above 1x is
+                               visibly soft. 3x matches the rest. */
+                            sourceSize: Qt.size(66, 66)
+                            smooth: true
                             visible: MprisController.artUrl === ""
                             opacity: 0.6
                         }
