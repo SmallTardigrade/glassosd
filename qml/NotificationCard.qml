@@ -447,7 +447,9 @@ Item {
                                           : Style.notifyIconSize + 6
                         height: width
                         source: root.entry.iconSource
-                        sourceSize: Qt.size(Style.notifyIconSize * 3, Style.notifyIconSize * 3)
+                        /* Logical size; Qt applies the device pixel ratio
+                           itself. See the note in OsdSurface.qml. */
+                        sourceSize: Qt.size(Style.notifyIconSize, Style.notifyIconSize)
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                         mipmap: true

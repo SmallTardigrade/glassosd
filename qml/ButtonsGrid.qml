@@ -91,8 +91,9 @@ Item {
                         width: Style.px(18)
                         height: Style.px(18)
                         source: cell.iconName ? Icons.source(cell.iconName) : ""
-                        sourceSize.width: width * 3
-                        sourceSize.height: height * 3
+                        /* Logical size; Qt applies the device pixel ratio. */
+                        sourceSize.width: width
+                        sourceSize.height: height
                         smooth: true
                     }
 

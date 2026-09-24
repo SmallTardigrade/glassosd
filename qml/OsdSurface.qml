@@ -159,7 +159,17 @@ Window {
                     width: Style.iconSize
                     height: Style.iconSize
                     source: Icons.source(OsdModel.iconName)
-                    sourceSize: Qt.size(Style.iconSize * 3, Style.iconSize * 3)
+                    /* The size it is drawn at, in logical pixels. Qt
+                       multiplies by the device pixel ratio itself —
+                       qquickimagebase.cpp requests sourcesize * devicePixelRatio
+                       — so this asks the SVG renderer for exactly the pixels
+                       the icon occupies and no more.
+
+                       It used to ask for three times that, on the reasoning
+                       that spare detail cannot hurt. It does: at a device
+                       ratio of 2 that is a 126px texture minified into ~37
+                       device pixels, and minification is the soft part. */
+                    sourceSize: Qt.size(Style.iconSize, Style.iconSize)
                     smooth: true
                     visible: !Icons.isMonochrome(OsdModel.iconName)
                     opacity: OsdModel.iconDimmed ? Style.iconDimmedOpacity : 1.0

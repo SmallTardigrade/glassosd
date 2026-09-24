@@ -42,8 +42,9 @@ Item {
                 height: Style.px(17)
                 source: root.iconName ? Icons.source(root.iconName) : ""
                 opacity: root.muted ? Style.iconDimmedOpacity : 0.92
-                sourceSize.width: width * 3
-                sourceSize.height: height * 3
+                /* Logical size; Qt applies the device pixel ratio. */
+                sourceSize.width: width
+                sourceSize.height: height
                 smooth: true
             }
 
