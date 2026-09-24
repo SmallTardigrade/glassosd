@@ -13,7 +13,7 @@
 # git+$url.git, and add a pkgver() — see the note at the bottom.
 
 pkgname=glassosd
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="Themeable notification daemon, on-screen display and control centre for Wayland"
 # Compiles C++, so not 'any'. Nothing here is x86-specific; other

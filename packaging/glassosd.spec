@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           glassosd
-Version:        0.2.0
+Version:        0.3.0
 # Plain Release rather than %%autorelease: rpmautospec is not available in
 # every builder, and a spec that only builds on Fedora infrastructure is not
 # much use to someone packaging this for anything else.
@@ -179,6 +179,25 @@ EOF
 fi
 
 %changelog
+* Fri Sep 25 2026 glassosd contributors - 0.3.0-1
+- Serve the XDG desktop portal's notification backend, so Flatpaks reach
+  glassosd directly instead of being relayed through xdg-desktop-portal-gtk
+  or failing outright. Declares version 2, so sounds, categories, markup
+  bodies, display hints and reply buttons are no longer stripped, and the
+  app id arrives verified by the portal rather than claimed by the sender
+- Honour the portal's lock screen privacy hints, plus a LockscreenPrivacy
+  setting that applies the same to senders that do not ask
+- Per-surface displays: NotifyOutput, OsdOutput and CentreOutput
+- Swipe a notification away, with a pointer or a finger
+- The popup's top row is configurable, and can be removed
+- The OSD draws its own icons, so it no longer depends on the icon theme
+  shipping a large enough one; glassosdctl icons theme opts back in
+- Volume feedback sounds once at each end of a run rather than every step
+- Notification rules apply in a defined order rather than an arbitrary one
+- Ship a PKGBUILD, and put Plasma's OSD back when glassosd is removed
+- Unit tests for the queue, history, rules, sounds and the portal backend,
+  run as part of both the rpm and Arch builds
+
 * Thu Sep 03 2026 glassosd contributors - 0.2.0-1
 - Snooze, focus modes, sounds by freedesktop name, history search
 - Structured rule actions: run= and snooze= and repeat_window=
