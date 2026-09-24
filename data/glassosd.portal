@@ -1,0 +1,17 @@
+# Registers glassosd as a backend for the XDG desktop portal's notification
+# interface, which is the only route a sandboxed application has to a
+# notification daemon.
+#
+# There is deliberately no UseIn= line. UseIn makes a backend the automatic
+# choice for a named desktop, and glassosd is installed on purpose rather than
+# as part of one — claiming every KDE or GNOME session that happens to have
+# the package present would take notifications away from that desktop's own
+# daemon. Selecting it is an explicit choice, made in portals.conf:
+#
+#   [preferred]
+#   org.freedesktop.impl.portal.Notification=glassosd
+#
+# `glassosd-setup` writes that, and `glassosd-setup --undo` removes it again.
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.glassosd
+Interfaces=org.freedesktop.impl.portal.Notification;

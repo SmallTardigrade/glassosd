@@ -35,6 +35,7 @@ qt_add_executable(glassosd
     src/notification.cpp
     src/notificationmodel.cpp
     src/notificationserver.cpp
+    src/portalserver.cpp
     src/rules.cpp
     src/appsettings.cpp
     src/appearance.cpp
@@ -152,6 +153,15 @@ configure_file(data/glassosd.service.in
 configure_file(data/org.freedesktop.Notifications.service.in
                ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service @ONLY)
 
+# The portal backend name needs activation for a reason the freedesktop one
+# does not: xdg-desktop-portal reads our interface version once, while it
+# constructs its proxy, and never looks again. Losing that race pins us to
+# version 1 for the life of the portal process, and the frontend then strips
+# sound, category, markup and button purposes on the way through. Being
+# activatable means the portal starts us while it is asking.
+configure_file(data/org.freedesktop.impl.portal.desktop.glassosd.service.in
+               ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.impl.portal.desktop.glassosd.service @ONLY)
+
 # systemd user units live under prefix/lib, never lib64 — ask systemd itself
 # rather than reusing CMAKE_INSTALL_LIBDIR, which is lib64 on Fedora.
 pkg_get_variable(SYSTEMD_USER_UNIT_DIR systemd systemduserunitdir)
@@ -165,7 +175,13 @@ install(PROGRAMS tools/glassosdctl tools/glassosd-setup
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/glassosd.service
         DESTINATION ${SYSTEMD_USER_UNIT_DIR})
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.Notifications.service
+              ${CMAKE_CURRENT_BINARY_DIR}/org.freedesktop.impl.portal.desktop.glassosd.service
         DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services)
+
+# Tells xdg-desktop-portal our bus name and which interfaces we implement. It
+# is inert until portals.conf names us — see the comment in the file.
+install(FILES data/glassosd.portal
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/xdg-desktop-portal/portals)
 
 # Themes are data, not resources: they must stay editable on disk so people
 # can copy one into ~/.config/glassosd/themes and change it.

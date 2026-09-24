@@ -208,13 +208,22 @@ glassosdctl restart
 
 ### Sandboxed apps
 
-Flatpaks and other sandboxed applications reach the notification daemon through
-`xdg-desktop-portal`, and on KDE the default backend delivers into plasmashell
-instead — so those notifications never arrive here, and nothing appears in the
-log. This catches everyone and is not specific to glassosd.
+Flatpaks cannot reach `org.freedesktop.Notifications` — it is outside their
+sandbox. They go through `xdg-desktop-portal`, which hands off to whichever
+backend the desktop nominates, and which has no fallback: with no backend it
+exports no notification interface at all.
 
-`glassosd-setup` detects it and offers to fix it. The full explanation, and how
-to diagnose one application end to end, is in
+glassosd implements that backend, so it can serve sandboxed applications
+directly rather than through `xdg-desktop-portal-gtk` as a relay. It declares
+version 2 of the interface, which is what keeps sounds, categories, markup
+bodies, display hints and reply buttons from being stripped on the way
+through — and the app id it receives is verified by the portal rather than
+claimed by the sender, so per-app rules are reliable for Flatpaks.
+
+It is not selected automatically: that would take notifications away from the
+desktop's own daemon on any machine that merely has glassosd installed.
+`glassosd-setup` detects the situation and offers to point the portal here.
+The full explanation, and how to diagnose one application end to end, is in
 [docs/portal-routing.md](docs/portal-routing.md).
 
 ---

@@ -188,18 +188,48 @@ current_backend=$(
 )
 
 case "$current_backend" in
-  plasmanotify)
-    warn "The notification portal is handled by 'plasmanotify'."
-    echo "    That delivers straight into plasmashell's own notification"
-    echo "    system — it never reaches org.freedesktop.Notifications, so"
-    echo "    glassosd (or dunst, or swaync) never sees those notifications"
-    echo "    at all. This is why some apps appear to be ignored."
+  glassosd)
+    ok "portal notifications already route to glassosd" ;;
+  *)
+    case "$current_backend" in
+      plasmanotify)
+        warn "The notification portal is handled by 'plasmanotify'."
+        echo "    That name is registered by plasmashell itself, and there is no"
+        echo "    service file to start it on demand. Without plasmashell serving"
+        echo "    notifications, every portal notification fails outright with"
+        echo "    'The name is not activatable' — this is why some apps look"
+        echo "    like they are being ignored." ;;
+      gtk)
+        warn "The notification portal is handled by 'gtk'."
+        echo "    That works — it forwards to whichever daemon owns"
+        echo "    org.freedesktop.Notifications — but it translates down to the"
+        echo "    older freedesktop format on the way, and declares itself"
+        echo "    version 1. The portal then strips sound, category, markup"
+        echo "    bodies, display hints and reply buttons before they arrive." ;;
+      "")
+        warn "No notification portal backend is configured."
+        echo "    Sandboxed apps may be falling back to whichever backend the"
+        echo "    portal picks for itself, or getting nothing at all." ;;
+      *)
+        warn "The notification portal is handled by '$current_backend'." ;;
+    esac
     echo
-    if ! rpm -q xdg-desktop-portal-gtk >/dev/null 2>&1 \
-       && ! [ -f /usr/share/xdg-desktop-portal/portals/gtk.portal ]; then
-      warn "xdg-desktop-portal-gtk is not installed; install it first:"
-      echo "        sudo dnf install xdg-desktop-portal-gtk"
-    elif ask "Route portal notifications through xdg-desktop-portal-gtk instead?"; then
+    echo "    glassosd can serve the portal directly. It declares version 2, so"
+    echo "    nothing is stripped, and the app id it receives is verified by the"
+    echo "    portal rather than claimed by the sender — which is what makes"
+    echo "    per-app rules reliable for Flatpaks."
+    echo
+
+    portal_file=""
+    for d in "${XDG_DATA_HOME:-$HOME/.local/share}" /usr/local/share /usr/share; do
+      [ -f "$d/xdg-desktop-portal/portals/glassosd.portal" ] && { portal_file="$d"; break; }
+    done
+
+    if [ -z "$portal_file" ]; then
+      warn "glassosd.portal is not installed, so the portal cannot find glassosd."
+      echo "        It ships with glassosd — reinstall, or copy data/glassosd.portal to"
+      echo "        ${XDG_DATA_HOME:-$HOME/.local/share}/xdg-desktop-portal/portals/"
+    elif ask "Route portal notifications to glassosd?"; then
       mkdir -p "$PORTAL_DIR"
       # Written to both names: the desktop-specific file takes precedence in
       # the portal's search order, and leaving only the generic one lets a
@@ -207,27 +237,27 @@ case "$current_backend" in
       for name in portals.conf "${DESKTOP,,}-portals.conf"; do
         cat > "$PORTAL_DIR/$name" <<EOF
 # Written by glassosd-setup.
-# The desktop's own notification portal backend delivers to its built-in
-# notification system, bypassing org.freedesktop.Notifications entirely.
-# The gtk backend forwards to whichever daemon owns that name.
+# Sandboxed apps reach a notification daemon only through the portal, and the
+# portal has no fallback to org.freedesktop.Notifications — without a backend
+# it exports no notification interface at all.
 [preferred]
 default=${DESKTOP,,}
-org.freedesktop.impl.portal.Notification=gtk
+org.freedesktop.impl.portal.Notification=glassosd
 EOF
       done
+      # Order matters. xdg-desktop-portal reads the backend's interface version
+      # once, while constructing its proxy, and never looks again. glassosd has
+      # to be on the bus by then or it is pinned to version 1 for the life of
+      # the portal process.
+      systemctl --user restart glassosd.service 2>/dev/null
+      sleep 1
       systemctl --user restart xdg-desktop-portal.service 2>/dev/null
       note portal
-      ok "portal notifications now route to the notification daemon"
+      ok "portal notifications now route to glassosd"
       dim "    (restart any running Flatpak apps for them to pick this up)"
     else
       skip "portal routing left alone"
     fi ;;
-  gtk)
-    ok "portal notifications already route through the gtk backend" ;;
-  "")
-    skip "no explicit notification portal backend configured" ;;
-  *)
-    dim "    notification portal backend: $current_backend" ;;
 esac
 echo
 

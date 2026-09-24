@@ -54,8 +54,11 @@ Requires:       breeze-icons
 # Optional, and genuinely optional: glassosdctl uses kwriteconfig6 when it is
 # there and edits the INI itself when it is not.
 Recommends:     kf6-kconfig
-# Routes sandboxed apps' portal notifications to the daemon; see the README.
-Recommends:     xdg-desktop-portal-gtk
+# Sandboxed applications reach a notification daemon only through the portal,
+# and glassosd now implements the portal's notification backend itself — the
+# gtk backend is no longer needed as a relay. Recommended rather than required
+# because glassosd is perfectly useful on a system with no Flatpaks on it.
+Recommends:     xdg-desktop-portal
 # KDE's icon engine, which renders Breeze's SVGs at whatever size is asked
 # for. Qt's built-in loader cannot: Breeze ships fixed sizes with no scalable
 # directory, so without this a 24px icon is stretched to 60 and looks it.
@@ -124,6 +127,10 @@ install -Dpm0755 tools/input-audit.sh        %{buildroot}%{_datadir}/%{name}/inp
 %{_datadir}/glassosd/themes/
 %{_userunitdir}/glassosd.service
 %{_datadir}/dbus-1/services/org.freedesktop.Notifications.service
+%{_datadir}/dbus-1/services/org.freedesktop.impl.portal.desktop.glassosd.service
+%dir %{_datadir}/xdg-desktop-portal
+%dir %{_datadir}/xdg-desktop-portal/portals
+%{_datadir}/xdg-desktop-portal/portals/glassosd.portal
 %dir %{_datadir}/%{name}
 %{_datadir}/%{name}/demo-notifications.sh
 %{_datadir}/%{name}/stress-test.sh

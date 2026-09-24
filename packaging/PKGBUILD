@@ -57,7 +57,7 @@ optdepends=(
   'papirus-icon-theme: icons for third-party applications'
   'wireplumber: volume widget, and glassosdctl osd volume'
   'brightnessctl: brightness widget'
-  'xdg-desktop-portal-gtk: routes sandboxed apps notifications to glassosd'
+  'xdg-desktop-portal: lets sandboxed apps reach glassosd at all'
 )
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")

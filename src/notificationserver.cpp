@@ -44,6 +44,10 @@ Urgency readUrgency(const QVariant &v, bool *ok)
    neither of which Qt's StyledText understands, so they render as literal
    angle brackets in the middle of the message. Strip anything outside the
    permitted set rather than showing it raw. */
+} // namespace
+
+namespace NotificationWire
+{
 QString sanitiseMarkup(const QString &in)
 {
     static const QRegularExpression tag(QStringLiteral("<\\s*/?\\s*([a-zA-Z0-9]+)[^>]*>"));
@@ -75,7 +79,9 @@ QVariant unwrap(const QVariant &v)
     }
     return v;
 }
-} // namespace
+} // namespace NotificationWire
+
+using namespace NotificationWire;
 
 NotificationServer::NotificationServer(NotificationModel *model, HistoryModel *history, QObject *parent)
     : QObject(parent)
@@ -248,10 +254,21 @@ uint NotificationServer::handleNotify(const QString &appName,
        driven entirely by the sender rather than assumed for particular apps. */
     n.inlineReply = n.actions.contains(QLatin1String("inline-reply"));
 
-    /* Everything arriving through xdg-desktop-portal has an empty app_name
-       and app_icon — the portal does not forward the sandboxed app's
-       identity. Recover both from the desktop-entry hint, or a Flatpak's
-       notification renders as an anonymous card with no name and no icon. */
+    return deliver(n);
+}
+
+/* The half of arrival that has nothing to do with the freedesktop wire format:
+   identity, rules, snooze, history, insertion. The portal backend builds a
+   Notification from an entirely different payload and then needs all of this,
+   identically — so it lives here rather than inside handleNotify(), and the
+   two front doors cannot drift apart. */
+uint NotificationServer::deliver(Notification &n)
+{
+    /* A portal notification carries a sandbox-verified application id and
+       little else: no display name, no icon. Notify() usually omits both too,
+       naming the app only in the desktop-entry hint. Either way the desktop
+       file is the one place a name and icon can come from, and without this a
+       Flatpak renders as an anonymous card. */
     if (n.appName.isEmpty() || n.appIcon.isEmpty()) {
         const DesktopInfo info = lookupDesktopEntry(n.desktopEntry);
         if (n.appName.isEmpty() && !info.name.isEmpty()) {

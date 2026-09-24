@@ -45,6 +45,18 @@ const QDBusArgument &operator>>(const QDBusArgument &arg, ImageData &i);
 
 enum class Urgency { Low = 0, Normal = 1, Critical = 2 };
 
+/* Notifications arrive by two interfaces with incompatible id types: the
+   freedesktop one addresses them by uint, the portal by (app id, string). The
+   portal side mints uints of its own, and the top bit is reserved for them so
+   that the two sequences can never meet — NotificationServer counts up from 1
+   and nothing has ever come close. Any id can therefore be attributed to the
+   interface that produced it by looking at one bit. */
+namespace NotificationId
+{
+constexpr uint portalMask = 1u << 31;
+constexpr bool isPortal(uint id) { return (id & portalMask) != 0; }
+} // namespace NotificationId
+
 struct Notification {
     uint id = 0;
     QString appName;

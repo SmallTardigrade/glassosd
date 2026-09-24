@@ -46,3 +46,8 @@ glassosd_test(tst_historymodel
 glassosd_test(tst_notificationmodel
     SOURCES notificationmodel.cpp soundplayer.cpp
     LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime)
+
+glassosd_test(tst_portalserver
+    SOURCES portalserver.cpp notificationserver.cpp notificationmodel.cpp
+            historymodel.cpp rules.cpp soundplayer.cpp notification.cpp
+    LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime KF6::ConfigCore)

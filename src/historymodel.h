@@ -89,6 +89,7 @@ public:
        from 1 on every launch, so without seeding the server above this a new
        notification collides with an unrelated old entry and overwrites it. */
     uint maxLoadedId() const { return m_maxLoadedId; }
+    uint maxLoadedPortalId() const { return m_maxLoadedPortalId; }
 
     void setNewestFirst(bool on);
     bool newestFirst() const { return m_newestFirst; }
@@ -177,6 +178,7 @@ private:
     bool m_appSettingsVisible = false;
     int m_unread = 0;
     uint m_maxLoadedId = 0;
+    uint m_maxLoadedPortalId = 0;
     /* Two sets, not one: a group is collapsed by default once it grows past
        the threshold, but an explicit expand has to survive rebuilds — and an
        explicit collapse has to survive a group shrinking below it. */

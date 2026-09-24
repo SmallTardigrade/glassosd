@@ -15,6 +15,7 @@
 #include "historymodel.h"
 #include "notificationmodel.h"
 #include "notificationserver.h"
+#include "portalserver.h"
 #include "snoozestore.h"
 #include "soundplayer.h"
 #include "busywatcher.h"
@@ -431,7 +432,16 @@ int main(int argc, char *argv[])
                                               .readEntry("QuietWhileBusy", false));
                      });
     if (modules->notifications() && notifyCfg.readEntry("Enabled", true)) {
-        server->start();
+        /* The portal backend only goes up if the freedesktop name was ours.
+           Losing that race means another daemon is serving this session, and
+           claiming the portal as well would split notifications between two
+           daemons — half the desktop's messages in one, Flatpaks in the
+           other. Better to leave the whole job to whoever won. */
+        if (server->start() && notifyCfg.readEntry("Portal", true)) {
+            auto *portal = new PortalServer(server, notifications, &app);
+            portal->reserveIds(history->maxLoadedPortalId());
+            portal->start();
+        }
     } else {
         qInfo("glassosd: not serving notifications — OSD only "
               "([Modules] Notifications or [Notifications] Enabled is false)");

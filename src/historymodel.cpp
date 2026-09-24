@@ -78,7 +78,9 @@ void HistoryModel::load()
     for (const QJsonValue &v : arr) {
         const QJsonObject o = v.toObject();
         Notification n;
-        n.id = o.value(QStringLiteral("id")).toInt();
+        /* 64-bit: a portal id has the top bit set, and toInt() would
+           read it back as a negative number. */
+        n.id = uint(o.value(QStringLiteral("id")).toInteger());
         n.appName = o.value(QStringLiteral("app")).toString();
         n.desktopEntry = o.value(QStringLiteral("desktopEntry")).toString();
         n.appIcon = o.value(QStringLiteral("icon")).toString();
@@ -87,7 +89,14 @@ void HistoryModel::load()
         n.urgency = static_cast<Urgency>(o.value(QStringLiteral("urgency")).toInt(1));
         n.received = QDateTime::fromString(o.value(QStringLiteral("at")).toString(), Qt::ISODate);
         n.repeatCount = o.value(QStringLiteral("repeats")).toInt(1);
-        m_maxLoadedId = qMax(m_maxLoadedId, n.id);
+        /* Tracked separately: feeding a portal id back into the
+           freedesktop sequence would push it over the top bit and make every
+           subsequent Notify() collide with the portal's range. */
+        if (NotificationId::isPortal(n.id)) {
+            m_maxLoadedPortalId = qMax(m_maxLoadedPortalId, n.id);
+        } else {
+            m_maxLoadedId = qMax(m_maxLoadedId, n.id);
+        }
         m_all.append(n);
         if (m_all.size() >= m_capacity) {
             break;
@@ -138,7 +147,7 @@ void HistoryModel::save() const
     QJsonArray arr;
     for (const Notification &n : m_all) {
         QJsonObject o;
-        o[QStringLiteral("id")] = int(n.id);
+        o[QStringLiteral("id")] = qint64(n.id);
         o[QStringLiteral("app")] = n.appName;
         o[QStringLiteral("desktopEntry")] = n.desktopEntry;
         o[QStringLiteral("icon")] = n.appIcon;

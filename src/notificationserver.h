@@ -25,6 +25,15 @@
 #include <QObject>
 #include <QVariantMap>
 
+/* Two pieces of freedesktop wire handling the portal backend needs as well:
+   its markup-body carries the same tag subset, and every value in a D-Bus
+   vardict arrives wrapped in a variant whichever interface delivered it. */
+namespace NotificationWire
+{
+QString sanitiseMarkup(const QString &in);
+QVariant unwrap(const QVariant &v);
+} // namespace NotificationWire
+
 class NotificationServer : public QObject, protected QDBusContext
 {
     Q_OBJECT
@@ -49,6 +58,11 @@ public:
                       const QVariantMap &hints,
                       int expireTimeout);
     void handleClose(uint id);
+
+    /* Everything that happens to a notification once it has been parsed,
+       whichever door it came in by: desktop-entry lookup, rules, snooze,
+       history, insertion. The portal backend calls this directly. */
+    uint deliver(Notification &n);
 
     NotificationModel *model() const { return m_model; }
     void loadRules(const KSharedConfig::Ptr &config)

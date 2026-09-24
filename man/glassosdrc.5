@@ -171,6 +171,20 @@ Hold notifications back while an application is asking that the screen not
 blank. Default false. See
 .B QUIET WHILE BUSY
 below.
+.TP
+.B Portal
+Whether to serve
+.BR org.freedesktop.impl.portal.Notification ,
+the backend interface sandboxed applications reach through
+.BR xdg\-desktop\-portal .
+Default true. Read once at startup, and ignored unless glassosd also owns
+.BR org.freedesktop.Notifications :
+claiming the portal while another daemon serves the session would split
+notifications between the two. Setting it false leaves the portal to whatever
+else is installed. Note that the portal only routes here when
+.I portals.conf
+names glassosd; see
+.BR glassosd\-setup .
 .SH POSITION
 .nf
 glassosdctl position bottom\-right
