@@ -63,7 +63,7 @@ optdepends=(
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 # Pinned rather than SKIP, so a tampered or truncated download is caught.
 # Update it on every release: makepkg -g prints the new line.
-sha256sums=('bf9c29001a54a4f19ab1d7296e0b2a39998adb3c3f8a2ae3b7a42cfcadbbbb2e')
+sha256sums=('085bc722fc081cb46303ca7094144dbdd0e92a647facc9a15dc67ae92fc71a40')
 
 build() {
   cmake -B build -S "$pkgname-$pkgver" -G Ninja \
