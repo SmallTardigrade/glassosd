@@ -353,10 +353,10 @@ void PortalServer::addNotification(const QString &appId,
         }
     }
 
-    /* Display hints. "persistent" and the two lockscreen hints have no
-       equivalent here yet: the first is honoured as "does not expire", which
-       is the part of it we can keep, and the lockscreen pair are ignored
-       rather than pretended. */
+    /* Display hints. "persistent" is honoured as "does not expire", which is
+       the part of it that maps onto anything here — glassosd has no notion of
+       a notification the user is forbidden to dismiss, and inventing one
+       would be worse than not having it. */
     if (hints.contains(QLatin1String("transient"))) {
         n.transientHint = true;
     }
@@ -365,6 +365,13 @@ void PortalServer::addNotification(const QString &appId,
     }
     if (hints.contains(QLatin1String("persistent"))) {
         n.timeoutMs = 0;
+    }
+    /* Hiding the whole notification is the stronger request, so it wins if a
+       sender somehow asks for both. */
+    if (hints.contains(QLatin1String("hide-on-lockscreen"))) {
+        n.lockPrivacy = Notification::LockPrivacy::Hide;
+    } else if (hints.contains(QLatin1String("hide-content-on-lockscreen"))) {
+        n.lockPrivacy = Notification::LockPrivacy::HideContent;
     }
 
     /* Actions. The freedesktop wire format is a flat [key, label, ...] list

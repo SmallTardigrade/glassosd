@@ -139,10 +139,21 @@ sandbox rather than claimed by the sender, so a `desktop-entry` rule matching
 a Flatpak cannot be fooled by another app naming itself the same thing. It is
 the one route where that identity is a fact rather than a claim.
 
-Not everything survives the crossing in the other direction: the portal format
-has no equivalent of the `value` progress hint or of stack tags, so Flatpaks
-get no progress bars and no replace-by-tag. Both still work for apps that use
-`org.freedesktop.Notifications` directly.
+It also carries two things the freedesktop spec has no way to say. A sender
+can mark a notification `hide-content-on-lockscreen` — shown, but its text
+withheld until you unlock — or `hide-on-lockscreen`, kept off the screen
+entirely and left in history. glassosd honours both, and
+`glassosdctl lockscreen hide-content` applies the same treatment to every
+notification from senders that do not ask. That needs something owning
+`org.freedesktop.ScreenSaver`, which KWin and GNOME both do; a bare wlroots
+session with only swaylock cannot be observed and is treated as unlocked.
+
+One thing does not survive the crossing: the portal format has no equivalent
+of the `value` progress hint, so a Flatpak reporting a download gets a card
+with no progress bar. Apps using `org.freedesktop.Notifications` directly
+still get one. Replacing a notification in place does work — the portal
+addresses them by `(app id, string id)`, so reusing the id updates the card,
+which is what stack tags achieve on the older interface.
 
 ### Apps that draw their own notifications
 

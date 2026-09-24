@@ -36,6 +36,7 @@ qt_add_executable(glassosd
     src/notificationmodel.cpp
     src/notificationserver.cpp
     src/portalserver.cpp
+    src/lockwatcher.cpp
     src/rules.cpp
     src/appsettings.cpp
     src/appearance.cpp

@@ -15,6 +15,7 @@
 #include "historymodel.h"
 #include "notificationmodel.h"
 #include "notificationserver.h"
+#include "lockwatcher.h"
 #include "portalserver.h"
 #include "snoozestore.h"
 #include "soundplayer.h"
@@ -343,6 +344,34 @@ int main(int argc, char *argv[])
     QObject::connect(busy, &BusyWatcher::changed, notifications,
                      [notifications](bool quiet) { notifications->setBusyQuiet(quiet); });
 
+    /* Lock screen privacy. A sender can ask, per notification, not to be
+       shown or not to be readable while the session is locked; this is the
+       blanket answer for the overwhelming majority that ask nothing. */
+    const auto lockPolicy = [](const QString &raw) {
+        const QString v = raw.trimmed().toLower();
+        if (v == QLatin1String("hide")) {
+            return Notification::LockPrivacy::Hide;
+        }
+        if (v == QLatin1String("hide-content") || v == QLatin1String("hidecontent")) {
+            return Notification::LockPrivacy::HideContent;
+        }
+        return Notification::LockPrivacy::Show;
+    };
+    notifications->setLockPrivacyDefault(
+        lockPolicy(KConfigGroup(cfg, QStringLiteral("Notifications"))
+                       .readEntry("LockscreenPrivacy", QString())));
+
+    auto *lock = new LockWatcher(&app);
+    notifications->setScreenLocked(lock->locked());
+    QObject::connect(lock, &LockWatcher::lockedChanged, notifications,
+                     [notifications](bool locked) { notifications->setScreenLocked(locked); });
+    if (!lock->available()) {
+        /* Worth saying once. Otherwise a hint that is being ignored for want
+           of a lock service looks exactly like one no application ever sent. */
+        qInfo("glassosd: no org.freedesktop.ScreenSaver on the bus — lock screen "
+              "privacy hints cannot be honoured in this session");
+    }
+
     auto *snoozes = new SnoozeStore(&app);
     QObject::connect(notifications, &NotificationModel::snoozeRequested,
                      snoozes, [snoozes, cfg](const Notification &n) {
@@ -430,6 +459,9 @@ int main(int argc, char *argv[])
                          }
                          busy->setEnabled(KConfigGroup(cfg, QStringLiteral("Notifications"))
                                               .readEntry("QuietWhileBusy", false));
+                         notifications->setLockPrivacyDefault(
+                             lockPolicy(KConfigGroup(cfg, QStringLiteral("Notifications"))
+                                            .readEntry("LockscreenPrivacy", QString())));
                      });
     if (modules->notifications() && notifyCfg.readEntry("Enabled", true)) {
         /* The portal backend only goes up if the freedesktop name was ours.

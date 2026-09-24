@@ -121,6 +121,13 @@ glassosdctl <command>
                          the same layout. 0 or 'auto' derives it from scale.
   lines [1-20]           Body lines a popup shows before eliding (default 4)
   centre-lines [1-20]    Body lines an entry in the centre shows (default 3)
+  lockscreen [show|hide-content|hide]
+                         What a notification shows while the session is
+                         locked. show is the default. hide-content keeps the
+                         card but withholds its text; hide keeps it off the
+                         screen entirely, history only. An application that
+                         asks for itself — Flatpaks can, through the portal —
+                         is always honoured over this.
   quiet-while-busy [on|off]
                          Stay quiet while an application is holding the
                          screen awake — video, games, presentations. Off by
@@ -530,6 +537,14 @@ NewestFirst Timeout TimeoutLow TimeoutCritical " in
   centre-lines|center-lines)
     if [ -z "${1:-}" ]; then echo "centre-lines: $(cfg_or Appearance CentreBodyLines 3)"
     else cfg_write Appearance CentreBodyLines "$1"; echo "centre-lines = $1"; fi ;;
+  lockscreen)
+    case "${1:-}" in
+      "")
+        echo "lockscreen: $(cfg_or Notifications LockscreenPrivacy show)" ;;
+      show|hide-content|hide)
+        cfg_write Notifications LockscreenPrivacy "$1"; echo "lockscreen = $1" ;;
+      *) echo "lockscreen takes 'show', 'hide-content' or 'hide'" >&2; exit 1 ;;
+    esac ;;
   quiet-while-busy)
     case "${1:-}" in
       "")        echo "quiet-while-busy: $(cfg_or Notifications QuietWhileBusy false)" ;;

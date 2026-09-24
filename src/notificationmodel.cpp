@@ -61,6 +61,17 @@ QVariant NotificationModel::data(const QModelIndex &index, int role) const
         return {};
     }
     const Notification &n = m_displayed.at(index.row());
+
+    /* Withheld rather than removed: the card still shows that something
+       arrived, and unlocking reveals it without the sender resending. */
+    if (m_screenLocked && effectiveLockPrivacy(n) == Notification::LockPrivacy::HideContent) {
+        switch (role) {
+        case SummaryRole: return tr("Notification hidden");
+        case BodyRole:    return QString();
+        default:          break;
+        }
+    }
+
     switch (role) {
     case IdRole:         return n.id;
     case ClosingRole:    return n.closing;
@@ -399,6 +410,14 @@ uint NotificationModel::insert(Notification n)
         if (m_lastShownByContent.size() > 512) {
             m_lastShownByContent.clear();
         }
+    }
+
+    /* The sender asked not to appear on a lock screen, and one is up. It is
+       already in history, which is where it will be found after unlocking —
+       the same bargain a rule's no-popup makes. */
+    if (m_screenLocked && effectiveLockPrivacy(n) == Notification::LockPrivacy::Hide) {
+        Q_EMIT notificationClosed(n.id, CloseReason::Expired);
+        return n.id;
     }
 
     /* A rule asked for no popup. The sender is still told the notification
@@ -787,4 +806,51 @@ void NotificationModel::setDoNotDisturb(bool dnd)
     }
     m_dnd = dnd;
     Q_EMIT doNotDisturbChanged();
+}
+
+Notification::LockPrivacy NotificationModel::effectiveLockPrivacy(const Notification &n) const
+{
+    /* A sender that expressed a preference always wins: the configured
+       default exists to cover the overwhelming majority that say nothing, not
+       to overrule the few that do. */
+    return n.lockPrivacy == Notification::LockPrivacy::Unset ? m_lockDefault : n.lockPrivacy;
+}
+
+void NotificationModel::setLockPrivacyDefault(Notification::LockPrivacy policy)
+{
+    if (m_lockDefault == policy) {
+        return;
+    }
+    m_lockDefault = policy;
+    if (m_screenLocked && !m_displayed.isEmpty()) {
+        Q_EMIT dataChanged(index(0), index(m_displayed.size() - 1),
+                           {SummaryRole, BodyRole});
+    }
+}
+
+void NotificationModel::setScreenLocked(bool locked)
+{
+    if (m_screenLocked == locked) {
+        return;
+    }
+    m_screenLocked = locked;
+
+    /* Locking with popups already on screen: anything asking to be hidden has
+       to go now, not merely be withheld from here on. Closed rather than
+       queued, because the notification has been delivered and is in history;
+       re-showing it on unlock would be a second arrival the sender never
+       made. */
+    if (m_screenLocked) {
+        const QList<Notification> shown = m_displayed;
+        for (const Notification &n : shown) {
+            if (!n.closing && effectiveLockPrivacy(n) == Notification::LockPrivacy::Hide) {
+                closeId(n.id, CloseReason::Expired);
+            }
+        }
+    }
+
+    /* The rest only changed how they read, so redraw them in place. */
+    if (!m_displayed.isEmpty()) {
+        Q_EMIT dataChanged(index(0), index(m_displayed.size() - 1), {SummaryRole, BodyRole});
+    }
 }

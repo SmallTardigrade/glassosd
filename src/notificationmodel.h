@@ -143,6 +143,14 @@ public:
     void setHoverPause(bool on);
     bool hoverPause() const { return m_hoverPause; }
     Q_INVOKABLE void invokeAction(uint id, const QString &key);
+
+    /* Lock screen privacy. The watcher owns the state; the model only needs
+       to know, because it is what decides whether a row is shown and what its
+       summary and body read as. */
+    void setScreenLocked(bool locked);
+    bool screenLocked() const { return m_screenLocked; }
+    /* What to do with notifications whose sender expressed no preference. */
+    void setLockPrivacyDefault(Notification::LockPrivacy policy);
     /* True while the notification is still displayed or queued, which is the
        only window in which its sender is still listening for an action. */
     bool isLive(uint id) const;
@@ -198,6 +206,9 @@ private:
     int m_timeoutCritical = 0;
     bool m_indicateHidden = true;
     bool m_dnd = false;
+    bool m_screenLocked = false;
+    Notification::LockPrivacy m_lockDefault = Notification::LockPrivacy::Show;
+    Notification::LockPrivacy effectiveLockPrivacy(const Notification &n) const;
     bool m_inhibited = false;
     bool m_busyQuiet = false;
     int m_lastHiddenCount = 0;

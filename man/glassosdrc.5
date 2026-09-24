@@ -172,6 +172,29 @@ blank. Default false. See
 .B QUIET WHILE BUSY
 below.
 .TP
+.B LockscreenPrivacy
+What notifications show while the session is locked:
+.BR show " (default), " hide\-content " or " hide .
+.B hide\-content
+keeps the card but withholds its summary and body until the session is
+unlocked, at which point they appear without the sender resending anything.
+.B hide
+keeps it off the screen altogether; it is still recorded, and is in the
+notification centre afterwards.
+.IP
+An application may ask for itself, per notification, using the portal's
+.B hide\-on\-lockscreen
+and
+.B hide\-content\-on\-lockscreen
+display hints, and a sender that asks is always honoured over this setting.
+This one is the answer for the overwhelming majority that ask nothing.
+.IP
+Requires something on the session bus to own
+.BR org.freedesktop.ScreenSaver ,
+which KWin and GNOME both do. A session where nothing does — a bare wlroots
+compositor with swaylock and no other service — cannot be observed from here,
+is treated as unlocked, and says so once at startup.
+.TP
 .B Portal
 Whether to serve
 .BR org.freedesktop.impl.portal.Notification ,

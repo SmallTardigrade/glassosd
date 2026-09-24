@@ -301,6 +301,149 @@ private Q_SLOTS:
         QCOMPARE(f.history.rowCount(), 0);
     }
 
+    /* "Don't show the notification on the lockscreen." It is still recorded,
+       which is where it will be found after unlocking. */
+    void hideOnLockscreenSuppressesThePopupWhileLocked()
+    {
+        Fixture f;
+        f.model.setScreenLocked(true);
+        f.add(QStringLiteral("org.example.Bank"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Payment received"))},
+               {QStringLiteral("display-hint"), v(QStringList{QStringLiteral("hide-on-lockscreen")})}});
+
+        QCOMPARE(f.rows(), 0);
+        QCOMPARE(f.history.rowCount(), 1);
+    }
+
+    void hideOnLockscreenShowsNormallyWhenUnlocked()
+    {
+        Fixture f;
+        f.add(QStringLiteral("org.example.Bank"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Payment received"))},
+               {QStringLiteral("display-hint"), v(QStringList{QStringLiteral("hide-on-lockscreen")})}});
+
+        QCOMPARE(f.rows(), 1);
+        QCOMPARE(f.role(0, NotificationModel::SummaryRole).toString(),
+                 QStringLiteral("Payment received"));
+    }
+
+    /* Locking with one already on screen has to remove it there and then.
+       Withholding it only from that moment on would leave the text sitting
+       in front of whoever walked up. */
+    void lockingRemovesAnAlreadyVisibleHiddenNotification()
+    {
+        Fixture f;
+        f.add(QStringLiteral("org.example.Bank"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Payment received"))},
+               {QStringLiteral("display-hint"), v(QStringList{QStringLiteral("hide-on-lockscreen")})}});
+        QCOMPARE(f.rows(), 1);
+
+        f.model.setScreenLocked(true);
+        QCOMPARE(f.rows(), 0);
+    }
+
+    void lockingLeavesOrdinaryNotificationsAlone()
+    {
+        Fixture f;
+        f.add(QStringLiteral("org.example.App"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Still here"))}});
+
+        f.model.setScreenLocked(true);
+        QCOMPARE(f.rows(), 1);
+        QCOMPARE(f.role(0, NotificationModel::SummaryRole).toString(),
+                 QStringLiteral("Still here"));
+    }
+
+    /* "All content of the notification will be hidden on the lockscreen." */
+    void hideContentWithholdsTheTextButKeepsTheCard()
+    {
+        Fixture f;
+        f.add(QStringLiteral("org.example.Bank"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Balance low"))},
+               {QStringLiteral("body"), v(QStringLiteral("You have 3 pounds left"))},
+               {QStringLiteral("display-hint"),
+                v(QStringList{QStringLiteral("hide-content-on-lockscreen")})}});
+
+        f.model.setScreenLocked(true);
+        QCOMPARE(f.rows(), 1);
+        QVERIFY(f.role(0, NotificationModel::SummaryRole).toString() != QStringLiteral("Balance low"));
+        QVERIFY(f.role(0, NotificationModel::BodyRole).toString().isEmpty());
+    }
+
+    /* Withheld, not destroyed: unlocking shows it without the sender having
+       to send it again. */
+    void unlockingRevealsWithheldContent()
+    {
+        Fixture f;
+        f.add(QStringLiteral("org.example.Bank"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Balance low"))},
+               {QStringLiteral("body"), v(QStringLiteral("You have 3 pounds left"))},
+               {QStringLiteral("display-hint"),
+                v(QStringList{QStringLiteral("hide-content-on-lockscreen")})}});
+        f.model.setScreenLocked(true);
+        f.model.setScreenLocked(false);
+
+        QCOMPARE(f.role(0, NotificationModel::SummaryRole).toString(), QStringLiteral("Balance low"));
+        QCOMPARE(f.role(0, NotificationModel::BodyRole).toString(),
+                 QStringLiteral("You have 3 pounds left"));
+    }
+
+    /* Hiding entirely is the stronger request, so it wins if a sender sets
+       both — which the spec calls a programmer error rather than forbidding. */
+    void bothLockscreenHintsResolveToHiding()
+    {
+        Fixture f;
+        f.model.setScreenLocked(true);
+        f.add(QStringLiteral("org.example.Bank"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("x"))},
+               {QStringLiteral("display-hint"),
+                v(QStringList{QStringLiteral("hide-content-on-lockscreen"),
+                              QStringLiteral("hide-on-lockscreen")})}});
+
+        QCOMPARE(f.rows(), 0);
+    }
+
+    /* The configured default covers the overwhelming majority of senders,
+       which say nothing at all. */
+    void theDefaultAppliesToNotificationsThatSayNothing()
+    {
+        Fixture f;
+        f.model.setLockPrivacyDefault(Notification::LockPrivacy::HideContent);
+        f.model.setScreenLocked(true);
+        f.add(QStringLiteral("org.example.App"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Secret"))}});
+
+        QCOMPARE(f.rows(), 1);
+        QVERIFY(f.role(0, NotificationModel::SummaryRole).toString() != QStringLiteral("Secret"));
+    }
+
+    /* ...and a sender that did say something is not overruled by it. */
+    void aSendersOwnChoiceBeatsTheDefault()
+    {
+        Fixture f;
+        f.model.setLockPrivacyDefault(Notification::LockPrivacy::Hide);
+        f.model.setScreenLocked(true);
+        f.add(QStringLiteral("org.example.App"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Train cancelled"))},
+               {QStringLiteral("display-hint"), v(QStringList{QStringLiteral("show-as-new")})}});
+
+        /* show-as-new says nothing about lock screens, so this sender is
+           still "Unset" and the default hides it. */
+        QCOMPARE(f.rows(), 0);
+
+        Fixture g;
+        g.model.setLockPrivacyDefault(Notification::LockPrivacy::Hide);
+        g.model.setScreenLocked(true);
+        /* Nothing in the portal says "show me anyway", so the one case that
+           can override a hiding default is a notification the sender marked
+           hide-content: it is shown, with its text withheld. */
+        g.add(QStringLiteral("org.example.App"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("Train cancelled"))},
+               {QStringLiteral("display-hint"),
+                v(QStringList{QStringLiteral("hide-content-on-lockscreen")})}});
+        QCOMPARE(g.rows(), 1);
+    }
+
     void idsNeverCollideWithTheFreedesktopRange()
     {
         Fixture f;

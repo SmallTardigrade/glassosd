@@ -101,6 +101,15 @@ Define or amend a mode.
 .BI "focus\-del " name
 Delete a mode.
 .TP
+.BR lockscreen " [show|hide\-content|hide]"
+What notifications show while the session is locked.
+.B hide\-content
+keeps the card and withholds its summary and body until unlock;
+.B hide
+keeps it off the screen entirely, history only. An application that asks for
+itself, which Flatpaks can through the portal, is honoured over this. See
+.BR glassosdrc (5).
+.TP
 .BR quiet\-while\-busy " [on|off]"
 Stay quiet while an application is holding the screen awake. Off by default,
 and not literal fullscreen: a Wayland client cannot see that.

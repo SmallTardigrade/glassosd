@@ -95,6 +95,22 @@ struct Notification {
        persistence. We were recording them, which is a compliance bug. */
     bool transientHint = false;
 
+    /* Lock screen privacy, from the portal's display-hint. A sender that sets
+       either is saying this should not be readable by whoever is standing in
+       front of a locked machine — a balance, a message, a one-time code.
+
+       Three states rather than two bools, because a notification that says
+       nothing also needs to be distinguishable from one that was never asked
+       about: the configured default applies to Unset, and a sender's own
+       choice always wins over it. */
+    enum class LockPrivacy {
+        Unset,       // sender said nothing; the configured default decides
+        Show,        // readable even on the lock screen
+        HideContent, // shown, but the summary and body are withheld
+        Hide,        // not shown at all while locked
+    };
+    LockPrivacy lockPrivacy = LockPrivacy::Unset;
+
     /* Closed, but still on screen while it animates away. Nothing but the
        view should see one of these — indexOfDisplayed() hides them, so every
        piece of logic that looks a notification up treats it as already gone. */
