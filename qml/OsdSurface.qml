@@ -249,13 +249,24 @@ Window {
             }
 
             Text {
-                /* Never fillWidth. The bar is the only element that should
-                   absorb slack; a filling Text is handed whatever is left and
-                   elides itself instead of driving the panel wider. */
-                Layout.fillWidth: false
+                /* Never fillWidth while anything else can absorb the slack.
+                   The bar is meant to have it; a filling Text is handed
+                   whatever is left and elides itself instead of driving the
+                   panel wider.
+
+                   With no bar and no icon there is nothing else, and the
+                   panel is still at least minWidthText wide, so the slack has
+                   to go somewhere: left alone the text sat hard against the
+                   left edge with the gap all on the right. In that one case
+                   the text takes the slack and centres in it. */
+                readonly property bool aloneInThePill:
+                    !OsdModel.showingProgress && !Appearance.osdIcon
+                Layout.fillWidth: aloneInThePill
                 Layout.rightMargin: OsdModel.showingProgress ? 4 : 0
                 Layout.alignment: Qt.AlignVCenter
-                horizontalAlignment: OsdModel.showingProgress ? Text.AlignRight : Text.AlignLeft
+                horizontalAlignment: OsdModel.showingProgress ? Text.AlignRight
+                                   : aloneInThePill ? Text.AlignHCenter
+                                                    : Text.AlignLeft
                 text: OsdModel.showingProgress
                       ? Math.round(OsdModel.value) + "%"
                       : OsdModel.text
