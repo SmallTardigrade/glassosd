@@ -22,7 +22,13 @@
 #include "portalserver.h"
 #include "testenv.h"
 
+#include <QDBusUnixFileDescriptor>
+#include <QFile>
 #include <QSignalSpy>
+#include <QStandardPaths>
+
+#include <sys/mman.h>
+#include <unistd.h>
 
 namespace
 {
@@ -480,6 +486,86 @@ private Q_SLOTS:
 
         QVERIFY(!PortalServer::owns(id));
         QCOMPARE(spy.count(), 0);
+    }
+
+    /* The regression this exists for: a descriptor carries a file position,
+       and an application that writes its sound into a memfd and hands the
+       descriptor straight over leaves it at EOF. Reading from there returns
+       nothing and the sound is silently lost. Icons never caught it — the
+       portal builds those descriptors itself and they arrive rewound. */
+    void soundDescriptorIsReadFromTheStart()
+    {
+        /* wav/pcm, because the portal only forwards formats it recognises
+           and the backend should not be the thing that guesses. */
+        const QByteArray wav = QByteArrayLiteral("RIFF\x24\x08\x00\x00WAVEfmt ")
+            + QByteArray(64, 'x');
+
+        const int fd = memfd_create("glassosd-test-sound", MFD_ALLOW_SEALING);
+        QVERIFY(fd >= 0);
+        QCOMPARE(write(fd, wav.constData(), wav.size()), qint64(wav.size()));
+        /* Deliberately not rewound — this is the state a sender leaves it in. */
+
+        Fixture f;
+        QSignalSpy spy(&f.model, &NotificationModel::soundWanted);
+        f.add(QStringLiteral("org.example.App"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("x"))},
+               {QStringLiteral("sound"),
+                v(QVariantList{QStringLiteral("file-descriptor"),
+                               QVariant::fromValue(QDBusUnixFileDescriptor(fd))})}});
+        close(fd);
+
+        QCOMPARE(spy.count(), 1);
+        const QString path = spy.first().at(0).toString();
+        QVERIFY2(!path.isEmpty(), "no sound file was cached");
+        /* Absolute, because SoundPlayer treats anything else as a theme
+           name — which is how this failed before: an unreadable descriptor
+           left the sound empty and the category quietly chose a stock one,
+           so the notification still made a noise, just the wrong one. */
+        QVERIFY2(path.startsWith(QLatin1Char('/')),
+                 "the sender's own sound was silently replaced by a theme name");
+
+        QFile cached(path);
+        QVERIFY(cached.open(QIODevice::ReadOnly));
+        QCOMPARE(cached.readAll(), wav);
+    }
+
+    /* Content-addressed, so an application that attaches the same sound to
+       every message writes it once rather than per notification. */
+    void identicalSoundsShareOneCachedFile()
+    {
+        const QByteArray wav = QByteArrayLiteral("RIFFwave-ish") + QByteArray(32, 'y');
+        Fixture f;
+        QSignalSpy spy(&f.model, &NotificationModel::soundWanted);
+
+        for (int i = 0; i < 2; ++i) {
+            const int fd = memfd_create("glassosd-test-sound", MFD_ALLOW_SEALING);
+            QVERIFY(fd >= 0);
+            QCOMPARE(write(fd, wav.constData(), wav.size()), qint64(wav.size()));
+            f.add(QStringLiteral("org.example.App"), QStringLiteral("n%1").arg(i),
+                  {{QStringLiteral("title"), v(QStringLiteral("x"))},
+                   {QStringLiteral("sound"),
+                    v(QVariantList{QStringLiteral("file-descriptor"),
+                                   QVariant::fromValue(QDBusUnixFileDescriptor(fd))})}});
+            close(fd);
+        }
+
+        QCOMPARE(spy.count(), 2);
+        QCOMPARE(spy.at(0).at(0).toString(), spy.at(1).at(0).toString());
+    }
+
+    /* A themed icon array is a preference list, so the first name is used
+       when nothing better is known about the rest. */
+    void themedIconArrayIsAccepted()
+    {
+        Fixture f;
+        f.add(QStringLiteral("org.example.App"), QStringLiteral("a"),
+              {{QStringLiteral("title"), v(QStringLiteral("x"))},
+               {QStringLiteral("icon"),
+                v(QVariantList{QStringLiteral("themed"),
+                               QVariant(QStringList{QStringLiteral("mail-message-new"),
+                                                    QStringLiteral("mail-unread")})})}});
+
+        QVERIFY(!f.role(0, NotificationModel::IconSourceRole).toString().isEmpty());
     }
 
     void silentSoundPlaysNothing()

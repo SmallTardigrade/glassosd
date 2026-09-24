@@ -71,14 +71,36 @@ QByteArray readFd(const QVariant &value)
     if (!f.open(fd.fileDescriptor(), QIODevice::ReadOnly, QFileDevice::DontCloseHandle)) {
         return {};
     }
+    /* Read from the start, not from wherever the sender left the offset.
+       A descriptor carries a position, and an application that wrote its
+       sound into a memfd and passed it straight over hands us one sitting at
+       EOF — reading from there returns nothing at all, silently. Icons
+       happened to work because the portal builds those descriptors itself. */
+    /* Read from the start, not from wherever the sender left the offset.
+       A descriptor carries a position, and an application that writes its
+       sound into a memfd and passes it straight over hands us one sitting at
+       EOF — reading from there returns nothing, silently. Icons hid this:
+       the portal builds those descriptors itself and they arrive rewound. */
+    if (!f.seek(0)) {
+        return {};
+    }
     return f.read(kMaxFdBytes);
 }
 
-/* A (sv) pair, the shape the portal uses for both icons and sounds. */
+/* A (sv) pair, the shape the portal uses for both icons and sounds.
+
+   Accepted in either form a struct can take: still marshalled, as it arrives
+   over the bus, or already converted to a two-element list. */
 bool readPair(const QVariant &value, QString *kind, QVariant *inner)
 {
     if (!value.canConvert<QDBusArgument>()) {
-        return false;
+        const QVariantList pair = value.toList();
+        if (pair.size() != 2 || pair.first().typeId() != QMetaType::QString) {
+            return false;
+        }
+        *kind = pair.first().toString();
+        *inner = unwrap(pair.last());
+        return true;
     }
     const QDBusArgument arg = value.value<QDBusArgument>();
     if (arg.currentSignature() != QLatin1String("(sv)")) {
@@ -100,8 +122,8 @@ QString cacheSound(const QByteArray &bytes)
     if (bytes.isEmpty()) {
         return {};
     }
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation)
-        + QStringLiteral("/portal-sounds");
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericCacheLocation)
+        + QStringLiteral("/glassosd/portal-sounds");
     if (!QDir().mkpath(dir)) {
         return {};
     }
@@ -114,6 +136,19 @@ QString cacheSound(const QByteArray &bytes)
     if (!f.open(QIODevice::WriteOnly) || f.write(bytes) != bytes.size()) {
         f.remove();
         return {};
+    }
+    f.close();
+
+    /* Bounded, because the contents are chosen by the applications sending
+       notifications rather than by us: one that sends a different sound every
+       time would otherwise fill the cache a few kilobytes at a time, for as
+       long as the session lasts. Oldest first — a sound still in use is
+       rewritten by the next notification that names it. */
+    constexpr int kMaxCachedSounds = 64;
+    QDir d(dir);
+    QFileInfoList kept = d.entryInfoList(QDir::Files, QDir::Time);
+    for (int i = kMaxCachedSounds; i < kept.size(); ++i) {
+        QFile::remove(kept.at(i).absoluteFilePath());
     }
     return path;
 }
