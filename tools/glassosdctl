@@ -166,6 +166,10 @@ glassosdctl <command>
                          'none' hides the row and leaves the text; 'default'
                          restores all of it.
   osd-icon [on|off]      Whether the volume/brightness OSD draws its icon
+  icons [own|theme]      Use glassosd's own glyphs, or your icon theme's where
+                         it has an equivalent. Own by default. Some have no
+                         theme equivalent and stay ours either way — 'icons'
+                         with no argument lists which.
   widgets [list]         Which widgets the CENTRE shows, and in what order.
                          Comma-separated, swaync's names: title, mpris, volume,
                          dnd, notifications, backlight, buttons-grid. A list
@@ -711,6 +715,21 @@ SNZ
         done
         cfg_write Appearance NotifyHeader "$1"
         echo "header = $1 (applied live)" ;;
+    esac ;;
+  icons)
+    case "${1:-}" in
+      "")
+        cur=$(cfg_or Appearance IconStyle own)
+        echo "icons: $cur"
+        if [ "$cur" = theme ]; then
+          echo "  these have no equivalent in most themes and stay glassosd's:"
+          echo "    mic-on, mic-muted, keyboard-brightness, bluetooth,"
+          echo "    lock-caps, lock-num, lock-fn"
+        fi ;;
+      own|theme)
+        cfg_write Appearance IconStyle "$1"
+        echo "icons = $1 (applied live)" ;;
+      *) echo "icons takes 'own' or 'theme'" >&2; exit 1 ;;
     esac ;;
   osd-icon)
     case "${1:-}" in

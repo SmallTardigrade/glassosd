@@ -135,6 +135,24 @@ middle\-clicking, and so does swiping it aside.
 Whether the volume and brightness OSD draws its icon. Default true. False
 leaves the level and the text.
 .TP
+.B IconStyle
+.B own
+(the default) draws the glyphs glassosd ships;
+.B theme
+uses your icon theme's instead, where it has an equivalent. Application icons
+on notifications always come from your theme either way.
+.PP
+Not everything can be swapped. Breeze has no icon for Fn Lock, none for
+keyboard backlight or Bluetooth under a comparable name, and an
+audio\-input\-microphone with no muted counterpart \(em a microphone that
+changes drawing style when you mute it reads worse than one that does not, so
+that pair stays as it is. Those keep glassosd's glyphs in either mode.
+.PP
+.nf
+glassosdctl icons theme
+glassosdctl icons
+.fi
+.TP
 .B ButtonsPerRow
 Columns in the button grid. Default 5.
 .TP

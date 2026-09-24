@@ -99,6 +99,9 @@ class Appearance : public QObject
        because a reader reasonably expects one "what is shown" key rather than
        one per surface. */
     Q_PROPERTY(QStringList notifyHeader READ notifyHeader NOTIFY changed)
+    /* "own" for the glyphs this project draws, "theme" for the icon theme's
+       where it has an equivalent. */
+    Q_PROPERTY(QString iconStyle READ iconStyle NOTIFY changed)
     /* Whether the OSD draws its icon chip at all. */
     Q_PROPERTY(bool osdIcon READ osdIcon NOTIFY changed)
 
@@ -127,6 +130,7 @@ public:
     int fontSize() const { return m_fontSize; }
     QStringList widgets() const { return m_widgets; }
     QStringList notifyHeader() const { return m_notifyHeader; }
+    QString iconStyle() const { return m_iconStyle; }
     bool osdIcon() const { return m_osdIcon; }
     Q_INVOKABLE bool hasWidget(const QString &name) const { return m_widgets.contains(name); }
     Q_INVOKABLE int widgetOrder(const QString &name) const { return m_widgets.indexOf(name); }
@@ -160,5 +164,6 @@ private:
     int m_fontSize = 0;   // 0 = derive from Scale
     QStringList m_widgets;
     QStringList m_notifyHeader;
+    QString m_iconStyle = QStringLiteral("own");
     bool m_osdIcon = true;
 };

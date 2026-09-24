@@ -223,6 +223,13 @@ void Appearance::reload()
 
     m_osdIcon = g.readEntry("OsdIcon", true);
 
+    /* Anything that is not "theme" means our own, so a typo leaves the
+       surfaces looking as they always have rather than half-swapped. */
+    m_iconStyle = g.readEntry("IconStyle", QStringLiteral("own")).trimmed().toLower();
+    if (m_iconStyle != QLatin1String("theme")) {
+        m_iconStyle = QStringLiteral("own");
+    }
+
     static const QStringList canonical{
         QStringLiteral("title"),   QStringLiteral("mpris"),
         QStringLiteral("volume"),  QStringLiteral("dnd"),
