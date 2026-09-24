@@ -99,6 +99,39 @@ anything actually arrives while you trigger it:
 verify-routing.sh me.proton.Mail
 ```
 
+## If you have installed glassosd twice
+
+Two files register glassosd with the portal, and both are found on the XDG
+data search path:
+
+```
+xdg-desktop-portal/portals/glassosd.portal
+dbus-1/services/org.freedesktop.impl.portal.desktop.glassosd.service
+```
+
+Install from source and then from a package — or copy the `.portal` into
+`~/.local/share` by hand and later install the package — and you have two
+copies of each. The higher-precedence one wins silently:
+`$XDG_DATA_HOME`, then `/usr/local/share`, then `/usr/share`.
+
+While they agree, nothing goes wrong. They stop agreeing the moment one of
+them is older and declares a different set of interfaces, and the symptom is
+that a feature you can see in the changelog does not work, with nothing in any
+log to say why.
+
+`glassosd-setup` warns when it finds more than one of either, and names which
+is in use and which is shadowed. `glassosd-setup --undo` offers to remove the
+copies under your home directory. To look yourself:
+
+```bash
+ls /usr/share /usr/local/share ~/.local/share \
+   -d */xdg-desktop-portal/portals/glassosd.portal 2>/dev/null
+```
+
+The stale `Exec=` line inside a shadowing service file is *not* the problem —
+D-Bus prefers `SystemdService=`, so activation goes through
+`glassosd.service` and starts whichever binary that unit names.
+
 ## What the portal path gives you
 
 The app id glassosd receives on this path is derived by the portal from the

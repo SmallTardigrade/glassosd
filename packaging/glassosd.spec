@@ -179,7 +179,7 @@ EOF
 fi
 
 %changelog
-* Wed Sep 03 2026 glassosd contributors - 0.2.0-1
+* Thu Sep 03 2026 glassosd contributors - 0.2.0-1
 - Snooze, focus modes, sounds by freedesktop name, history search
 - Structured rule actions: run= and snooze= and repeat_window=
 - Auto Do Not Disturb while the screen is shared, and quiet-while-busy

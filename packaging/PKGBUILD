@@ -68,9 +68,16 @@ sha256sums=('bf9c29001a54a4f19ab1d7296e0b2a39998adb3c3f8a2ae3b7a42cfcadbbbb2e')
 build() {
   cmake -B build -S "$pkgname-$pkgver" -G Ninja \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_TESTING=OFF
+    -DCMAKE_BUILD_TYPE=Release
   cmake --build build
+}
+
+# Run on every build, as the rpm spec does. The tests need no display and no
+# session bus — they run offscreen against a temporary XDG tree — so a build
+# chroot can execute them, and a rebuild against a newer Qt or KF6 proves the
+# behaviour still holds rather than only that it still compiles.
+check() {
+  ctest --test-dir build --output-on-failure
 }
 
 package() {

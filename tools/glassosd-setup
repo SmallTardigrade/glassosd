@@ -27,6 +27,37 @@ ask() { # question  -> 0 for yes
 }
 note() { echo "$1" >> "$STATE"; }
 
+# Every copy of a given file on the XDG data search path, highest precedence
+# first. A build-tree install under ~/.local/share or /usr/local/share sits
+# ahead of a packaged one under /usr/share and silently wins, which is fine
+# while they agree and confusing the moment they do not.
+xdg_copies() { # relative/path -> one absolute path per line
+  local rel="$1" d
+  local dirs="${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+  local IFS=:
+  for d in $dirs; do
+    [ -n "$d" ] && [ -f "$d/$rel" ] && echo "$d/$rel"
+  done
+}
+
+# Warn when glassosd is registered with the portal from more than one place.
+check_duplicate_portal_files() {
+  local rel found first rest
+  for rel in xdg-desktop-portal/portals/glassosd.portal \
+             dbus-1/services/org.freedesktop.impl.portal.desktop.glassosd.service; do
+    found=$(xdg_copies "$rel")
+    [ "$(echo "$found" | grep -c .)" -le 1 ] && continue
+    first=$(echo "$found" | head -1)
+    rest=$(echo "$found" | tail -n +2)
+    warn "$(basename "$rel") is installed more than once."
+    echo "    in use:  $first"
+    echo "$rest" | sed 's/^/    shadowed: /'
+    echo "    This happens after installing from source and then from a package."
+    echo "    The first one wins, so remove the ones you did not mean to keep."
+    echo
+  done
+}
+
 # ---------------------------------------------------------------- undo -----
 if [ "${1:-}" = "--undo" ]; then
   bold "Undoing glassosd setup"
@@ -63,6 +94,17 @@ if [ "${1:-}" = "--undo" ]; then
         ok "portal notification routing restored"
       fi
     done
+    for f in "${XDG_DATA_HOME:-$HOME/.local/share}/xdg-desktop-portal/portals/glassosd.portal" \
+             "${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services/org.freedesktop.impl.portal.desktop.glassosd.service"; do
+      [ -f "$f" ] || continue
+      found=1
+      echo "    A user-level portal registration exists: $f"
+      echo "    A packaged glassosd ships its own under /usr; this copy hides it."
+      if ask "Remove it?"; then
+        rm -f "$f"
+        ok "removed $(basename "$f")"
+      fi
+    done
     [ "$found" -eq 0 ] && ok "nothing left to undo"
     exit 0
   fi
@@ -80,6 +122,10 @@ if [ "${1:-}" = "--undo" ]; then
       service)
         systemctl --user disable --now glassosd.service 2>/dev/null
         ok "glassosd.service stopped and disabled" ;;
+      portal-files)
+        rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/xdg-desktop-portal/portals/glassosd.portal" \
+              "${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services/org.freedesktop.impl.portal.desktop.glassosd.service"
+        ok "user-level portal registration removed" ;;
     esac
   done < "$STATE"
   rm -f "$STATE"
@@ -175,6 +221,8 @@ echo "    Sandboxed apps (Flatpak, and anything using the portal) send"
 echo "    notifications through xdg-desktop-portal rather than straight to"
 echo "    the notification daemon."
 echo
+
+check_duplicate_portal_files
 
 current_backend=$(
   for f in "$PORTAL_DIR/${DESKTOP,,}-portals.conf" "$PORTAL_DIR/portals.conf" \
