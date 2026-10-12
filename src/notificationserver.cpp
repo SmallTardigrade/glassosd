@@ -17,6 +17,7 @@
 #include <QHash>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QUrl>
 
 namespace
 {
@@ -37,6 +38,40 @@ Urgency readUrgency(const QVariant &v, bool *ok)
     case 2:  return Urgency::Critical;
     default: return Urgency::Normal;
     }
+}
+
+/* The spec lets app_icon and image-path be file:// URIs as well as paths or
+   icon names, and Chromium-based apps send URIs. The icon provider is given
+   a plain path either way. */
+QString localIcon(const QString &icon)
+{
+    if (icon.startsWith(QLatin1String("file:"))) {
+        const QString path = QUrl(icon).toLocalFile();
+        return path.isEmpty() ? icon : path;
+    }
+    return icon;
+}
+
+/* Pairs only, and at most maxActions drawn buttons. "default" and the reply
+   field are not drawn as buttons, so they are always kept and never count.
+   Two thousand actions froze the daemon for eight seconds while QML built a
+   button for each; nothing legitimate sends more than a few. */
+QStringList capActions(const QStringList &actions)
+{
+    QStringList out;
+    int buttons = 0;
+    for (qsizetype i = 0; i + 1 < actions.size(); i += 2) {
+        const QString &key = actions.at(i);
+        const bool drawn = key != QLatin1String("default") && key != QLatin1String("inline-reply");
+        if (drawn) {
+            if (buttons == NotificationServer::maxActions) {
+                continue;
+            }
+            ++buttons;
+        }
+        out << key << actions.at(i + 1);
+    }
+    return out;
 }
 
 /* The spec allows only <b> <i> <u> <a> <img> in body markup. Senders in the
@@ -193,11 +228,19 @@ uint NotificationServer::handleNotify(const QString &appName,
 {
     Notification n;
     n.appName = appName;
-    n.appIcon = appIcon;
-    n.summary = sanitiseMarkup(summary);
-    n.body = sanitiseMarkup(body);
+    n.appIcon = localIcon(appIcon);
+    /* Clipped before sanitising as well as after (in deliver()), so a
+       megabyte of markup costs nothing to throw away. */
+    n.summary = sanitiseMarkup(summary.left(maxSummary));
+    n.body = sanitiseMarkup(body.left(maxBody));
     n.actions = actions;
     n.timeoutMs = expireTimeout;   // -1 server decides, 0 never; resolved in the model
+    /* Ids with the top bit set are the portal's. Honouring one here let any
+       application overwrite a sandboxed application's notification, so a
+       freedesktop sender naming one gets a new notification instead. */
+    if (NotificationId::isPortal(replacesId)) {
+        replacesId = 0;
+    }
     n.id = replacesId != 0 ? replacesId : m_nextId++;
 
     for (auto it = hints.constBegin(); it != hints.constEnd(); ++it) {
@@ -234,18 +277,20 @@ uint NotificationServer::handleNotify(const QString &appName,
             n.stackTag = value.toString();
         } else if (key == QLatin1String("image-data") || key == QLatin1String("image_data")
                    || key == QLatin1String("icon_data")) {
-            ImageData img;
-            if (value.canConvert<QDBusArgument>()) {
-                value.value<QDBusArgument>() >> img;
-                if (img.isValid() && img.data.size() >= img.expectedLength()) {
-                    n.image = img;
-                }
+            /* Validated before anything reads the pixels, and scaled down
+               to the size it will be drawn at. qdbus_cast takes the hint
+               still marshalled, as it arrives, or already a struct. */
+            const ImageData img = qdbus_cast<ImageData>(value);
+            if (img.isValid()) {
+                n.image = ImageData::fromImage(img.toImage());
             }
         } else if (key == QLatin1String("image-path") || key == QLatin1String("image_path")) {
-            /* Outranks app_icon but not inline image data. */
+            /* Outranks app_icon but not inline image data, which is the
+               spec's order: image-path is the picture for this message (a
+               contact's avatar, say), app_icon the sender's logo. */
             const QString path = value.toString();
-            if (!path.isEmpty() && n.appIcon.isEmpty()) {
-                n.appIcon = path;
+            if (!path.isEmpty()) {
+                n.appIcon = localIcon(path);
             }
         }
     }
@@ -264,6 +309,11 @@ uint NotificationServer::handleNotify(const QString &appName,
    two front doors cannot drift apart. */
 uint NotificationServer::deliver(Notification &n)
 {
+    /* Both doors, so the portal's notifications are held to the same limits. */
+    n.summary.truncate(maxSummary);
+    n.body.truncate(maxBody);
+    n.actions = capActions(n.actions);
+
     /* A portal notification carries a sandbox-verified application id and
        little else: no display name, no icon. Notify() usually omits both too,
        naming the app only in the desktop-entry hint. Either way the desktop

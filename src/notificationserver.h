@@ -40,6 +40,13 @@ class NotificationServer : public QObject, protected QDBusContext
 public:
     NotificationServer(NotificationModel *model, HistoryModel *history, QObject *parent = nullptr);
 
+    /* Limits on what one notification may carry, in drawn buttons and in
+       characters. Far above anything an application sends in practice; they
+       exist because any program on the bus can send anything at all. */
+    static constexpr int maxActions = 8;
+    static constexpr int maxSummary = 1024;
+    static constexpr int maxBody = 64 * 1024;
+
     /* Claims org.freedesktop.Notifications. Returns false if something else
        already owns it — during development that is dunst, still running. */
     bool start();

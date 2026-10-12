@@ -229,6 +229,32 @@ private Q_SLOTS:
         QCOMPARE(img.channels, 4);
     }
 
+    /* The portal already limits icons, but the backend reads whatever it is
+       handed. More than the descriptor limit is refused outright, even when
+       the image inside would decode. */
+    void oversizedIconBytesAreRefused()
+    {
+        QByteArray bytes = pngBytes(8, 8);
+        bytes.append(QByteArray(9 * 1024 * 1024, '\0'));   // a png decoder ignores what follows IEND
+        const auto c = PortalRelay::translate(QStringLiteral("a"),
+                                              {{QStringLiteral("icon"),
+                                                v(QVariantList{QStringLiteral("bytes"), bytes})}});
+        QVERIFY(!c.hints.contains(QStringLiteral("image-data")));
+    }
+
+    /* A large icon is scaled to fit on the way in, not refused: the picture
+       is fine, there is just more of it than an icon needs. */
+    void largeIconsAreScaledDown()
+    {
+        const auto c = PortalRelay::translate(QStringLiteral("a"),
+                                              {{QStringLiteral("icon"),
+                                                v(QVariantList{QStringLiteral("bytes"), pngBytes(2000, 1000)})}});
+        const ImageData img = c.hints.value(QStringLiteral("image-data")).value<ImageData>();
+        QVERIFY(img.isValid());
+        QCOMPARE(img.width, ImageData::maxStoredEdge);
+        QCOMPARE(img.height, ImageData::maxStoredEdge / 2);
+    }
+
     void defaultActionBecomesTheDefaultKey()
     {
         const auto c = PortalRelay::translate(QStringLiteral("a"),

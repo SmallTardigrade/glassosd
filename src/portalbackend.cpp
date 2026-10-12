@@ -80,21 +80,22 @@ QString configFileIn(const QString &dir, const QStringList &desktops)
 
 ImageData PortalWire::decodeImage(const QByteArray &bytes)
 {
-    QImage img;
-    if (bytes.isEmpty() || !img.loadFromData(bytes)) {
+    /* The same bound as a descriptor: icon bytes come from outside too. */
+    if (bytes.isEmpty() || bytes.size() > kMaxFdBytes) {
         return {};
     }
-    img = img.convertToFormat(QImage::Format_RGBA8888);
-
-    ImageData out;
-    out.width = img.width();
-    out.height = img.height();
-    out.rowstride = int(img.bytesPerLine());
-    out.hasAlpha = true;
-    out.bitsPerSample = 8;
-    out.channels = 4;
-    out.data = QByteArray(reinterpret_cast<const char *>(img.constBits()), qsizetype(img.sizeInBytes()));
-    return out;
+    QBuffer buffer;
+    buffer.setData(bytes);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer);
+    /* Decoded straight to the size it will be kept at, so a large icon
+       never exists at full size in memory. */
+    const QSize full = reader.size();
+    if (full.width() > ImageData::maxStoredEdge || full.height() > ImageData::maxStoredEdge) {
+        reader.setScaledSize(full.scaled(ImageData::maxStoredEdge, ImageData::maxStoredEdge, Qt::KeepAspectRatio)
+                                 .expandedTo(QSize(1, 1)));
+    }
+    return ImageData::fromImage(reader.read());
 }
 
 QByteArray PortalWire::readFd(const QVariant &value)
@@ -118,7 +119,11 @@ QByteArray PortalWire::readFd(const QVariant &value)
     if (!f.seek(0)) {
         return {};
     }
-    return f.read(kMaxFdBytes);
+    /* One byte over the limit tells an oversized file from one that is
+       exactly at it. Cut short, a png or a sound is just corrupt, so too
+       large is refused rather than truncated. */
+    const QByteArray out = f.read(kMaxFdBytes + 1);
+    return out.size() > kMaxFdBytes ? QByteArray() : out;
 }
 
 /* Accepted in either form a struct can take: still marshalled, as it arrives

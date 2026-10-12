@@ -11,6 +11,7 @@
 #include <QByteArray>
 #include <QDBusArgument>
 #include <QDateTime>
+#include <QImage>
 #include <QMetaType>
 #include <QString>
 #include <QStringList>
@@ -26,17 +27,45 @@ struct ImageData {
     int channels = 0;
     QByteArray data;
 
+    /* Largest edge accepted off the wire. Generous, because a larger image
+       is scaled down rather than refused; this only bounds the work. */
+    static constexpr int maxWireEdge = 8192;
+    /* Largest edge kept once an image has arrived. Images are drawn at icon
+       size, and the model and history each hold a copy of every one, so
+       full-resolution copies are how a few large images become a gigabyte. */
+    static constexpr int maxStoredEdge = 512;
+
+    /* Whether the header describes pixels the buffer actually holds, in a
+       layout the renderer can draw: 8-bit RGB or RGBA, rows no shorter than
+       their pixels. This is the check that stands between any application on
+       the bus and QImage reading past the end of the buffer, so everything is
+       done in 64 bits — in int, height 65537 and rowstride 65536 wrapped to
+       zero and 64 bytes passed for four gigabytes. */
     bool isValid() const
     {
-        return width > 0 && height > 0 && !data.isEmpty();
+        if (width <= 0 || height <= 0 || width > maxWireEdge || height > maxWireEdge) {
+            return false;
+        }
+        if (bitsPerSample != 8 || (channels != 3 && channels != 4)) {
+            return false;
+        }
+        if (qint64(rowstride) < qint64(width) * channels) {
+            return false;
+        }
+        return qint64(data.size()) >= expectedLength();
     }
 
     /* Length excluding padding in the final row, matching the freedesktop
        layout: (height - 1) * rowstride + width * ceil(channels * bps / 8). */
-    int expectedLength() const
+    qint64 expectedLength() const
     {
-        return (height - 1) * rowstride + width * ((channels * bitsPerSample + 7) / 8);
+        return qint64(height - 1) * rowstride + qint64(width) * ((qint64(channels) * bitsPerSample + 7) / 8);
     }
+
+    /* A deep copy of the pixels, or a null image if isValid() is false. */
+    QImage toImage() const;
+    /* An image as image-data, scaled down to maxStoredEdge if larger. */
+    static ImageData fromImage(QImage img);
 };
 Q_DECLARE_METATYPE(ImageData)
 

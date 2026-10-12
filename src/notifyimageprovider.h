@@ -32,23 +32,13 @@ public:
         const ImageData d = id.startsWith(QLatin1Char('h'))
             ? m_history->imageFor(QStringView(id).mid(1).toUInt())
             : m_model->imageFor(id.toUInt());
-        if (!d.isValid() || d.data.size() < d.expectedLength()) {
+        /* toImage() validates the header against the buffer and refuses
+           anything but 8-bit RGB or RGBA, so a malformed hint is a missing
+           image here rather than a read past the end of it. */
+        QImage owned = d.toImage();
+        if (owned.isNull()) {
             return {};
         }
-
-        /* The hint carries 8-bit RGB or RGBA. Anything else (16 bits per
-           sample, odd channel counts) is rare enough that refusing beats
-           rendering garbage. */
-        if (d.bitsPerSample != 8 || (d.channels != 3 && d.channels != 4)) {
-            return {};
-        }
-        const QImage::Format fmt = d.channels == 4 ? QImage::Format_RGBA8888 : QImage::Format_RGB888;
-
-        /* QImage does not take ownership of the buffer, so copy before the
-           QByteArray goes out of scope. */
-        QImage img(reinterpret_cast<const uchar *>(d.data.constData()),
-                   d.width, d.height, d.rowstride, fmt);
-        QImage owned = img.copy();
 
         if (requested.isValid() && !requested.isEmpty()) {
             owned = owned.scaled(requested, Qt::KeepAspectRatio, Qt::SmoothTransformation);

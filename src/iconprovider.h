@@ -14,9 +14,12 @@
 */
 #pragma once
 
+#include <QDir>
 #include <QIcon>
+#include <QImageReader>
 #include <QQuickImageProvider>
 #include <QSet>
+#include <QUrl>
 
 class IconProvider : public QQuickImageProvider
 {
@@ -38,6 +41,28 @@ public:
            -symbolic name tried — so this line does nothing when the engine is
            present. Qt's built-in loader does no such thing, and that is
            exactly the configuration where icons were reported broken. */
+        /* A path is a file to load, not a name to look up: QIcon::fromTheme
+           only knows names, and given a path Qt's own loader finds nothing.
+           Notifications carry paths through app_icon and image-path. A file
+           that will not load falls through to the theme, and so to the
+           fallback icon, like any other missing icon. */
+        const QString path = id.startsWith(QLatin1String("file:")) ? QUrl(id).toLocalFile() : id;
+        if (QDir::isAbsolutePath(path)) {
+            QImageReader reader(path);
+            const int asked = qMax(requested.width(), requested.height());
+            const QSize full = reader.size();
+            if (asked > 0 && full.isValid() && (full.width() > asked || full.height() > asked)) {
+                reader.setScaledSize(full.scaled(asked, asked, Qt::KeepAspectRatio).expandedTo(QSize(1, 1)));
+            }
+            const QImage img = reader.read();
+            if (!img.isNull()) {
+                if (size) {
+                    *size = img.size();
+                }
+                return QPixmap::fromImage(img);
+            }
+        }
+
         QIcon icon = QIcon::fromTheme(id);
         if (icon.isNull() && id.endsWith(QLatin1String("-symbolic"))) {
             icon = QIcon::fromTheme(id.chopped(9));
