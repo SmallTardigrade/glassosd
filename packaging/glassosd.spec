@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           glassosd
-Version:        0.3.1
+Version:        0.3.2
 # Plain Release rather than %%autorelease: rpmautospec is not available in
 # every builder, and a spec that only builds on Fedora infrastructure is not
 # much use to someone packaging this for anything else.
@@ -183,6 +183,24 @@ EOF
 fi
 
 %changelog
+* Mon Oct 12 2026 glassosd contributors - 0.3.2-1
+- Fix a crash any application could cause with one notification: an
+  image-data header whose size overflowed passed the length check, and the
+  image was then read far past the end of its buffer
+- History and snoozed notifications are saved by replacing the file, so an
+  interrupted save no longer leaves it truncated. A file that cannot be read
+  is kept as .corrupt and logged instead of being overwritten
+- Limit what one notification can carry: 8 buttons, 1024 characters of
+  summary, 64 KiB of body, 8 MiB of portal icon. Large images are scaled down
+  when they arrive
+- The portal backend only accepts calls from xdg-desktop-portal, so the app
+  id it records cannot be claimed by another process
+- A freedesktop replaces_id can no longer replace a portal notification
+- file:// icons are shown, and image-path takes precedence over app_icon as
+  the specification says
+- glassosdctl set no longer warns about SnoozeMinutes, QuietWhileBusy,
+  LockscreenPrivacy, Portal or Focus
+
 * Mon Oct 12 2026 glassosd contributors - 0.3.1-1
 - Always answer the notification portal. If glassosd was started by the
   portal while another daemon was showing notifications, it declined, and the
