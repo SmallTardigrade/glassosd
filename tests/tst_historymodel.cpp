@@ -20,10 +20,14 @@
 #include <KConfigGroup>
 #include <KSharedConfig>
 #include <QFile>
+#include <QFileInfo>
+#include <QRegularExpression>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
+
+#include <sys/stat.h>
 
 class TestHistoryModel : public QObject
 {
@@ -404,6 +408,52 @@ private Q_SLOTS:
         reloaded.setSearch(QStringLiteral("Low"));
         QCOMPARE(reloaded.rowCount(), 2);   // header, then the entry
         QCOMPARE(reloaded.index(1).data(HistoryModel::RepeatCountRole).toInt(), 2);
+    }
+
+    /* A save interrupted part way — power cut, full disk, a kill during the
+       write — used to leave a truncated file, because the old one was emptied
+       first and then rewritten. The replacement now goes to a new file that
+       is renamed over the old one, so a reader sees one or the other, never
+       half. A new inode is how that shows from outside. */
+    void saveReplacesTheFileRatherThanRewritingIt()
+    {
+        clearStore();
+        HistoryModel h;
+        h.record(note(QStringLiteral("App"), QStringLiteral("one")));
+        h.save();
+        struct stat st1{};
+        QCOMPARE(::stat(QFile::encodeName(storePath()).constData(), &st1), 0);
+
+        h.record(note(QStringLiteral("App"), QStringLiteral("two")));
+        h.save();
+        struct stat st2{};
+        QCOMPARE(::stat(QFile::encodeName(storePath()).constData(), &st2), 0);
+        QVERIFY(st1.st_ino != st2.st_ino);
+    }
+
+    /* A history file that does not parse used to load as empty, and the next
+       save — a second and a half after the next notification — wrote the
+       empty list over it. Everything was gone with no message. Now the bad
+       file is kept beside the new one and the problem is logged. */
+    void corruptFileIsSetAsideNotLost()
+    {
+        clearStore();
+        QFile::remove(storePath() + QStringLiteral(".corrupt"));
+        const QByteArray damaged = "[{\"id\":1,\"app\":\"App\",\"summary\":\"kept\"},{\"id\":2,\"ap";
+        {
+            QDir().mkpath(QFileInfo(storePath()).path());
+            QFile f(storePath());
+            QVERIFY(f.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            f.write(damaged);
+        }
+
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QStringLiteral("could not be read")));
+        HistoryModel h;
+        QCOMPARE(h.total(), 0);
+
+        QFile kept(storePath() + QStringLiteral(".corrupt"));
+        QVERIFY(kept.open(QIODevice::ReadOnly));
+        QCOMPARE(kept.readAll(), damaged);
     }
 };
 

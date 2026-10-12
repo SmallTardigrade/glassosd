@@ -57,6 +57,9 @@ glassosd_test(tst_portalrelay
             historymodel.cpp rules.cpp soundplayer.cpp notification.cpp
     LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime KF6::ConfigCore)
 
+glassosd_test(tst_snoozestore
+    SOURCES snoozestore.cpp)
+
 # The relay's round-trip tests need a session bus of their own: on a desktop
 # session's bus they would be trying to take org.freedesktop.Notifications
 # from whatever daemon is showing the user's notifications. dbus-run-session

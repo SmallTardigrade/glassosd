@@ -5,6 +5,8 @@
 */
 #include "snoozestore.h"
 
+#include "jsonstore.h"
+
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -49,11 +51,7 @@ void SnoozeStore::snooze(const Notification &n, int minutes)
 
 void SnoozeStore::load()
 {
-    QFile f(storePath());
-    if (!f.open(QIODevice::ReadOnly)) {
-        return;
-    }
-    const QJsonArray arr = QJsonDocument::fromJson(f.readAll()).array();
+    const QJsonArray arr = JsonStore::read(storePath());
     for (const QJsonValue &v : arr) {
         const QJsonObject o = v.toObject();
         Item item;
@@ -104,9 +102,8 @@ void SnoozeStore::save() const
            notification that carried one falls back to its app icon. */
         arr.append(o);
     }
-    QFile f(storePath());
-    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+    if (!JsonStore::write(storePath(), arr)) {
+        qWarning("glassosd: could not save %s", qPrintable(storePath()));
     }
 }
 
