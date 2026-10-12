@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           glassosd
-Version:        0.3.0
+Version:        0.3.1
 # Plain Release rather than %%autorelease: rpmautospec is not available in
 # every builder, and a spec that only builds on Fedora infrastructure is not
 # much use to someone packaging this for anything else.
@@ -183,6 +183,16 @@ EOF
 fi
 
 %changelog
+* Mon Oct 12 2026 glassosd contributors - 0.3.1-1
+- Always answer the notification portal. If glassosd was started by the
+  portal while another daemon was showing notifications, it declined, and the
+  portal waited 25 seconds at every start and could fail outright. It now
+  relays those notifications to whichever daemon is in charge, and says once
+  why it was started
+- The glassosdrc man page now matches the keys glassosd reads: several were
+  misnamed, three were under the wrong group, and six were missing
+- The rpm build runs the portal relay's tests on a private session bus
+
 * Fri Sep 25 2026 glassosd contributors - 0.3.0-1
 - Serve the XDG desktop portal's notification backend, so Flatpaks reach
   glassosd directly instead of being relayed through xdg-desktop-portal-gtk
