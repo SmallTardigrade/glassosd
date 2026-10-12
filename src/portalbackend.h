@@ -26,6 +26,7 @@
 #include "notification.h"
 
 #include <QDBusAbstractAdaptor>
+#include <QDBusContext>
 #include <QObject>
 #include <QString>
 #include <QVariantMap>
@@ -55,11 +56,20 @@ QVariantMap unwrapAll(const QVariantMap &props);
 bool routedHere();
 } // namespace PortalWire
 
-class PortalBackend : public QObject
+class PortalBackend : public QObject, protected QDBusContext
 {
     Q_OBJECT
 public:
     using QObject::QObject;
+
+    /* Whether the call being handled may be acted on. The backend interface
+       is xdg-desktop-portal's alone: the portal checks the sandbox and hands
+       over an app id it has verified. Anything else on the bus could call
+       this object directly and name any app id it liked, so a D-Bus call is
+       only taken from the current owner of org.freedesktop.portal.Desktop,
+       and anyone else is answered with AccessDenied. A call that did not
+       come over D-Bus is the process calling itself, and is taken. */
+    bool admitCaller();
 
     /* Claims org.freedesktop.impl.portal.desktop.glassosd and exports the
        adaptor. Returns false if the name is already owned. */

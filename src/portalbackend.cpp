@@ -8,12 +8,16 @@
 #include "notificationserver.h"
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QDBusReply>
 #include <QDBusMessage>
 #include <QDBusUnixFileDescriptor>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QImageReader>
+#include <QBuffer>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -230,6 +234,23 @@ bool PortalBackend::start()
     return true;
 }
 
+bool PortalBackend::admitCaller()
+{
+    if (!calledFromDBus()) {
+        return true;
+    }
+    /* Asked of the bus each time rather than remembered: the portal is
+       restarted now and then, and a cached owner would turn it away. */
+    const QDBusReply<QString> owner =
+        connection().interface()->serviceOwner(QStringLiteral("org.freedesktop.portal.Desktop"));
+    if (owner.isValid() && owner.value() == message().service()) {
+        return true;
+    }
+    sendErrorReply(QDBusError::AccessDenied,
+                   QStringLiteral("only xdg-desktop-portal may call the notification backend"));
+    return false;
+}
+
 void PortalBackend::dispatchAction(const QString &appId,
                                    const QString &portalId,
                                    const QString &name,
@@ -291,10 +312,14 @@ void PortalNotificationsAdaptor::AddNotification(const QString &app_id,
                                                  const QString &id,
                                                  const QVariantMap &notification)
 {
-    m_backend->addNotification(app_id, id, notification);
+    if (m_backend->admitCaller()) {
+        m_backend->addNotification(app_id, id, notification);
+    }
 }
 
 void PortalNotificationsAdaptor::RemoveNotification(const QString &app_id, const QString &id)
 {
-    m_backend->removeNotification(app_id, id);
+    if (m_backend->admitCaller()) {
+        m_backend->removeNotification(app_id, id);
+    }
 }

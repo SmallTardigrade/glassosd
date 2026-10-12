@@ -31,6 +31,7 @@
 #include <QDBusMetaType>
 #include <QImage>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QSignalSpy>
 
 /* A macro, not a helper function: QSKIP returns from the function it is
@@ -372,6 +373,46 @@ private Q_SLOTS:
                               {{QStringLiteral("title"), v(QStringLiteral("x"))}});
         relay.removeNotification(QStringLiteral("org.example.App"), QStringLiteral("n1"));
         QTRY_COMPARE(m_fake->closed, QList<uint>({100u}));
+    }
+
+    /* The backend interface is meant for xdg-desktop-portal alone, which
+       checks the sandbox and passes on an app id it has verified. Anything
+       else on the bus could call it directly and name any app id it liked,
+       so calls are only taken from whoever owns the portal's name. */
+    void onlyThePortalMayAddNotifications()
+    {
+        NEED_PRIVATE_BUS();
+        PortalRelay relay;
+        QVERIFY(relay.start());
+        auto cleanup = qScopeGuard([] {
+            QDBusConnection::sessionBus().unregisterService(QStringLiteral("org.freedesktop.impl.portal.desktop.glassosd"));
+            QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/org/freedesktop/portal/desktop"));
+        });
+
+        auto add = [](const QDBusConnection &from, const QString &title) {
+            QDBusMessage m = QDBusMessage::createMethodCall(
+                QStringLiteral("org.freedesktop.impl.portal.desktop.glassosd"),
+                QStringLiteral("/org/freedesktop/portal/desktop"),
+                QStringLiteral("org.freedesktop.impl.portal.Notification"), QStringLiteral("AddNotification"));
+            m.setArguments({QStringLiteral("org.example.App"), title,
+                            QVariant::fromValue(QVariantMap{{QStringLiteral("title"), v(title)}})});
+            return from.call(m, QDBus::BlockWithGui);
+        };
+
+        /* Someone other than the portal. */
+        const QDBusMessage refused = add(m_daemonBus, QStringLiteral("forged"));
+        QCOMPARE(refused.type(), QDBusMessage::ErrorMessage);
+        QCOMPARE(refused.errorName(), QStringLiteral("org.freedesktop.DBus.Error.AccessDenied"));
+
+        /* The portal. */
+        QDBusConnection portal = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("fake-portal"));
+        auto dropPortal = qScopeGuard([] { QDBusConnection::disconnectFromBus(QStringLiteral("fake-portal")); });
+        QVERIFY(portal.registerService(QStringLiteral("org.freedesktop.portal.Desktop")));
+        const QDBusMessage accepted = add(portal, QStringLiteral("genuine"));
+        QCOMPARE(accepted.type(), QDBusMessage::ReplyMessage);
+
+        QTRY_COMPARE(m_fake->calls.size(), 1);
+        QCOMPARE(m_fake->calls.first().summary, QStringLiteral("genuine"));
     }
 
     /* Nothing owns the name at all. The relay must still answer the portal —
