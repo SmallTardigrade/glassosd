@@ -22,6 +22,10 @@ BuildRequires:  ninja-build
 BuildRequires:  extra-cmake-modules
 BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  systemd-rpm-macros
+# For %check only: the portal relay's round-trip tests run on a private
+# session bus started by dbus-run-session. Without it they are skipped rather
+# than failing, which would leave COPR never exercising the relay at all.
+BuildRequires:  dbus-daemon
 
 BuildRequires:  qt6-qtbase-devel >= 6.6
 BuildRequires:  qt6-qtdeclarative-devel >= 6.6
