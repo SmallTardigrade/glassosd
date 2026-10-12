@@ -27,6 +27,7 @@
 #pragma once
 
 #include "notification.h"
+#include "portalbackend.h"
 
 #include <QDBusAbstractAdaptor>
 #include <QHash>
@@ -37,15 +38,11 @@
 class NotificationModel;
 class NotificationServer;
 
-class PortalServer : public QObject
+class PortalServer : public PortalBackend
 {
     Q_OBJECT
 public:
     PortalServer(NotificationServer *server, NotificationModel *model, QObject *parent = nullptr);
-
-    /* Claims org.freedesktop.impl.portal.desktop.glassosd. Returns false if
-       the name is already owned, which in practice means a second glassosd. */
-    bool start();
 
     /* Portal notifications are addressed by (app_id, string id) and ours by
        uint, so every portal notification needs an id minted on this side. The
@@ -62,21 +59,20 @@ public:
        notification. The freedesktop side reserves its range the same way. */
     void reserveIds(uint highest);
 
-    void addNotification(const QString &appId, const QString &portalId, const QVariantMap &props);
-    void removeNotification(const QString &appId, const QString &portalId);
+    void addNotification(const QString &appId, const QString &portalId, const QVariantMap &props) override;
+    void removeNotification(const QString &appId, const QString &portalId) override;
+
+    /* Declaring 2 is what stops the frontend stripping sound, category,
+       markup-body, display hints and button purposes on the way through. */
+    uint version() const override { return 2; }
+    QVariantMap supportedOptions() const override { return advertisedOptions(); }
 
     /* Advertised to applications through the portal frontend so they can ask
        what this desktop understands before sending. */
-    static QVariantMap supportedOptions();
+    static QVariantMap advertisedOptions();
 
-Q_SIGNALS:
-    /* Only for actions the application did not export. An action named
-       "app.something" is delivered by activating the application over D-Bus
-       instead — see invoke(). */
-    void actionInvoked(const QString &appId,
-                       const QString &portalId,
-                       const QString &action,
-                       const QVariantList &parameter);
+protected:
+    const char *describe() const override { return "serving portal notifications"; }
 
 private:
     struct Entry {
@@ -102,34 +98,4 @@ private:
        held here for the moment in between. */
     QHash<uint, QString> m_tokens;
     uint m_nextId = idMask + 1;
-};
-
-class PortalNotificationsAdaptor : public QDBusAbstractAdaptor
-{
-    Q_OBJECT
-    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.impl.portal.Notification")
-    /* The portal reads this once, while constructing its proxy, and never
-       again — there is no properties-changed handler on its side. Declaring 2
-       is what stops the frontend stripping sound, category, markup-body,
-       display hints and button purposes on the way through. */
-    Q_PROPERTY(uint version READ version CONSTANT)
-    Q_PROPERTY(QVariantMap SupportedOptions READ supportedOptions CONSTANT)
-public:
-    explicit PortalNotificationsAdaptor(PortalServer *server);
-
-    uint version() const { return 2; }
-    QVariantMap supportedOptions() const { return PortalServer::supportedOptions(); }
-
-public Q_SLOTS:
-    void AddNotification(const QString &app_id, const QString &id, const QVariantMap &notification);
-    void RemoveNotification(const QString &app_id, const QString &id);
-
-Q_SIGNALS:
-    void ActionInvoked(const QString &app_id,
-                       const QString &id,
-                       const QString &action,
-                       const QVariantList &parameter);
-
-private:
-    PortalServer *m_server;
 };

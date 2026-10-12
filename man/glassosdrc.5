@@ -92,18 +92,31 @@ compositor with swaylock and no other service — cannot be observed from here,
 is treated as unlocked, and says so once at startup.
 .TP
 .B Portal
-Whether to serve
-.BR org.freedesktop.impl.portal.Notification ,
-the backend interface sandboxed applications reach through
+Whether glassosd handles portal notifications itself \(em the ones sandboxed
+applications send through
 .BR xdg\-desktop\-portal .
-Default true. Read once at startup, and ignored unless glassosd also owns
+Default true; read once at startup.
+.IP
+Whatever this says, glassosd always answers the portal. The portal starts
+whichever backend
+.I portals.conf
+names and waits for it, so a glassosd that declined would stall the portal for
+25 seconds at every start, and fail it outright when that happens twice. True,
+with glassosd owning
 .BR org.freedesktop.Notifications :
-claiming the portal while another daemon serves the session would split
-notifications between the two. Setting it false leaves the portal to whatever
-else is installed. Note that the portal only routes here when
+portal notifications are handled directly, at version 2 of the interface.
+False, or another daemon owning the notifications: each one is relayed to
+whichever daemon does, at version 1, the way
+.B xdg\-desktop\-portal\-gtk
+does it, so they all end up in one place.
+.IP
+The portal only routes here when
 .I portals.conf
 names glassosd; see
 .BR glassosd\-setup .
+When another daemon is serving notifications but the routing still points
+here, glassosd says so once at startup, since that is almost always
+configuration left behind after switching away from it.
 .SH THE APPEARANCE GROUP
 .TP
 .B Theme

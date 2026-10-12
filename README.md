@@ -344,10 +344,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## Uninstalling
+## Stopping or uninstalling
 
-Removing the package leaves the settings it asked you to change, because they
-are yours and live in your own config. Put them back first:
+Disabling the service is not enough on its own. glassosd is started on demand —
+by any application posting a notification, and by `xdg-desktop-portal`
+whenever its configuration still names glassosd as the notification backend —
+so a disabled glassosd comes back. If that happens while another daemon is
+showing your notifications, glassosd relays Flatpak notifications to it and
+tells you once why it was started, rather than leaving the portal waiting.
+
+The off switch is the same as the first step of uninstalling. It leaves the
+settings it asked you to change, because they are yours and live in your own
+config, so put them back:
 
 ```bash
 glassosd-setup --undo

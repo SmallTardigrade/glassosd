@@ -757,7 +757,7 @@ private Q_SLOTS:
        category, markup and button purposes before we ever see them. */
     void advertisesTheOptionsItActuallyHonours()
     {
-        const QVariantMap options = PortalServer::supportedOptions();
+        const QVariantMap options = PortalServer::advertisedOptions();
         QCOMPARE(options.value(QStringLiteral("category")).toStringList(),
                  QStringList({QStringLiteral("im.received")}));
         QCOMPARE(options.value(QStringLiteral("button-purpose")).toStringList(),

@@ -16,6 +16,7 @@
 #include "notificationmodel.h"
 #include "notificationserver.h"
 #include "lockwatcher.h"
+#include "portalrelay.h"
 #include "portalserver.h"
 #include "snoozestore.h"
 #include "soundplayer.h"
@@ -39,6 +40,7 @@
 #include <QStandardPaths>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QDBusMessage>
 #include <QQmlApplicationEngine>
 
 #include <KConfigGroup>
@@ -463,20 +465,58 @@ int main(int argc, char *argv[])
                              lockPolicy(KConfigGroup(cfg, QStringLiteral("Notifications"))
                                             .readEntry("LockscreenPrivacy", QString())));
                      });
-    if (modules->notifications() && notifyCfg.readEntry("Enabled", true)) {
-        /* The portal backend only goes up if the freedesktop name was ours.
-           Losing that race means another daemon is serving this session, and
-           claiming the portal as well would split notifications between two
-           daemons — half the desktop's messages in one, Flatpaks in the
-           other. Better to leave the whole job to whoever won. */
-        if (server->start() && notifyCfg.readEntry("Portal", true)) {
-            auto *portal = new PortalServer(server, notifications, &app);
-            portal->reserveIds(history->maxLoadedPortalId());
-            portal->start();
-        }
-    } else {
+    const bool notificationsWanted = modules->notifications() && notifyCfg.readEntry("Enabled", true);
+    const bool serving = notificationsWanted && server->start();
+    if (!notificationsWanted) {
         qInfo("glassosd: not serving notifications — OSD only "
               "([Modules] Notifications or [Notifications] Enabled is false)");
+    }
+
+    /* The portal is always answered, one way or the other.
+
+       portals.conf names a backend and xdg-desktop-portal D-Bus-activates it
+       regardless of anything glassosd decides, so a glassosd that declined the
+       name would leave the portal waiting: 25 seconds of stalled startup per
+       attempt, and an outright failure when two attempts fall inside systemd's
+       45-second limit. A packager hit exactly that after switching back to
+       Plasma's notifications.
+
+       Serving portal notifications directly needs the freedesktop name too —
+       claiming the portal while another daemon shows everything else would
+       split the session's notifications between two daemons. When glassosd
+       does not have it, or has been told not to handle the portal itself,
+       the relay hands each one to whoever does, so they still end up in one
+       place. */
+    PortalBackend *portal = nullptr;
+    if (serving && notifyCfg.readEntry("Portal", true)) {
+        auto *direct = new PortalServer(server, notifications, &app);
+        direct->reserveIds(history->maxLoadedPortalId());
+        portal = direct;
+    } else {
+        portal = new PortalRelay(&app);
+    }
+    portal->start();
+
+    /* Another daemon is serving notifications, yet the portal is still routed
+       here: almost always configuration left behind by someone who stopped
+       using glassosd, and the reason it keeps being started — the portal
+       activates whatever portals.conf names. Said where the user will see it,
+       through the daemon they did choose, because nobody reads the journal to
+       find out why a program they disabled is running. */
+    if (notificationsWanted && !serving && PortalWire::routedHere()) {
+        qWarning("glassosd: ~/.config/xdg-desktop-portal still routes notifications to glassosd, "
+                 "but another daemon is serving them. Relaying. Run glassosd-setup --undo if "
+                 "you have stopped using glassosd.");
+        QDBusMessage notice = QDBusMessage::createMethodCall(
+            QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("/org/freedesktop/Notifications"),
+            QStringLiteral("org.freedesktop.Notifications"), QStringLiteral("Notify"));
+        notice.setArguments({QStringLiteral("glassosd"), 0u, QStringLiteral("dialog-information"),
+                             QStringLiteral("glassosd was started by the notification portal"),
+                             QStringLiteral("Flatpak notifications are still routed to glassosd, which is "
+                                            "passing them on to your notification daemon. If you have "
+                                            "stopped using glassosd, run glassosd-setup --undo."),
+                             QStringList(), QVariantMap(), -1});
+        QDBusConnection::sessionBus().call(notice, QDBus::NoBlock);
     }
 
     /* Do Not Disturb persists: a setting you toggle with a shortcut and then

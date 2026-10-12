@@ -99,6 +99,20 @@ anything actually arrives while you trigger it:
 verify-routing.sh me.proton.Mail
 ```
 
+## Stopping glassosd
+
+Run `glassosd-setup --undo`. Disabling the service alone leaves `portals.conf`
+naming glassosd, and the portal starts whatever that names, so glassosd keeps
+coming back.
+
+What happens then depends on who is showing notifications. If glassosd is, it
+carries on as normal. If you have gone back to another daemon — Plasma's own,
+dunst, swaync — glassosd relays Flatpak notifications to that daemon at
+version 1, and sends one notification through it explaining why it was
+started. Earlier versions declined the portal in that situation and left it
+waiting: 25 seconds of stalled startup every time, and an outright failure
+when that happened twice inside systemd's 45-second limit.
+
 ## If you have installed glassosd twice
 
 Two files register glassosd with the portal, and both are found on the XDG

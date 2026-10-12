@@ -22,97 +22,14 @@
 #include <QStandardPaths>
 
 using namespace NotificationWire;
+using namespace PortalWire;
 
 namespace
 {
-constexpr QLatin1String kPath{"/org/freedesktop/portal/desktop"};
-constexpr QLatin1String kService{"org.freedesktop.impl.portal.desktop.glassosd"};
 /* The one button purpose we can honour: glassosd already renders an inline
    reply field, for the KDE x-kde-reply-* extension. The portal standardises
    the same affordance, so an application written for any desktop gets it. */
 constexpr QLatin1String kReplyPurpose{"im.reply-with-text"};
-
-/* Decode an encoded image — png, jpeg or svg, already validated by the portal
-   — into the raw-pixel form the rest of glassosd carries images in. */
-ImageData decodeImage(const QByteArray &bytes)
-{
-    QImage img;
-    if (bytes.isEmpty() || !img.loadFromData(bytes)) {
-        return {};
-    }
-    img = img.convertToFormat(QImage::Format_RGBA8888);
-
-    ImageData out;
-    out.width = img.width();
-    out.height = img.height();
-    out.rowstride = int(img.bytesPerLine());
-    out.hasAlpha = true;
-    out.bitsPerSample = 8;
-    out.channels = 4;
-    out.data = QByteArray(reinterpret_cast<const char *>(img.constBits()), qsizetype(img.sizeInBytes()));
-    return out;
-}
-
-/* Read a sealed memfd handed over by the portal. Bounded because the fd comes
-   from outside: the portal's own icon limit is well under this, and a backend
-   that will read any length is a backend that can be made to exhaust memory. */
-constexpr qint64 kMaxFdBytes = 8 * 1024 * 1024;
-
-QByteArray readFd(const QVariant &value)
-{
-    if (!value.canConvert<QDBusUnixFileDescriptor>()) {
-        return {};
-    }
-    const QDBusUnixFileDescriptor fd = value.value<QDBusUnixFileDescriptor>();
-    if (!fd.isValid()) {
-        return {};
-    }
-    QFile f;
-    if (!f.open(fd.fileDescriptor(), QIODevice::ReadOnly, QFileDevice::DontCloseHandle)) {
-        return {};
-    }
-    /* Read from the start, not from wherever the sender left the offset.
-       A descriptor carries a position, and an application that wrote its
-       sound into a memfd and passed it straight over hands us one sitting at
-       EOF — reading from there returns nothing at all, silently. Icons
-       happened to work because the portal builds those descriptors itself. */
-    /* Read from the start, not from wherever the sender left the offset.
-       A descriptor carries a position, and an application that writes its
-       sound into a memfd and passes it straight over hands us one sitting at
-       EOF — reading from there returns nothing, silently. Icons hid this:
-       the portal builds those descriptors itself and they arrive rewound. */
-    if (!f.seek(0)) {
-        return {};
-    }
-    return f.read(kMaxFdBytes);
-}
-
-/* A (sv) pair, the shape the portal uses for both icons and sounds.
-
-   Accepted in either form a struct can take: still marshalled, as it arrives
-   over the bus, or already converted to a two-element list. */
-bool readPair(const QVariant &value, QString *kind, QVariant *inner)
-{
-    if (!value.canConvert<QDBusArgument>()) {
-        const QVariantList pair = value.toList();
-        if (pair.size() != 2 || pair.first().typeId() != QMetaType::QString) {
-            return false;
-        }
-        *kind = pair.first().toString();
-        *inner = unwrap(pair.last());
-        return true;
-    }
-    const QDBusArgument arg = value.value<QDBusArgument>();
-    if (arg.currentSignature() != QLatin1String("(sv)")) {
-        return false;
-    }
-    QDBusVariant wrapped;
-    arg.beginStructure();
-    arg >> *kind >> wrapped;
-    arg.endStructure();
-    *inner = wrapped.variant();
-    return true;
-}
 
 /* Custom notification sounds arrive as a file descriptor, but the player runs
    detached and needs a path that outlives this call. Content-addressed, so an
@@ -153,23 +70,10 @@ QString cacheSound(const QByteArray &bytes)
     return path;
 }
 
-Urgency urgencyFor(const QString &priority)
-{
-    /* Four priorities onto three urgencies. "high" lands on Normal rather
-       than Critical because Critical means "stays until dismissed" here, and
-       the spec reserves that weight for "urgent". */
-    if (priority == QLatin1String("low")) {
-        return Urgency::Low;
-    }
-    if (priority == QLatin1String("urgent")) {
-        return Urgency::Critical;
-    }
-    return Urgency::Normal;
-}
 } // namespace
 
 PortalServer::PortalServer(NotificationServer *server, NotificationModel *model, QObject *parent)
-    : QObject(parent)
+    : PortalBackend(parent)
     , m_server(server)
     , m_model(model)
 {
@@ -202,26 +106,7 @@ PortalServer::PortalServer(NotificationServer *server, NotificationModel *model,
     });
 }
 
-bool PortalServer::start()
-{
-    new PortalNotificationsAdaptor(this);
-
-    auto bus = QDBusConnection::sessionBus();
-    if (!bus.registerObject(kPath, this)) {
-        qWarning("glassosd: could not register the portal notification object");
-        return false;
-    }
-    if (!bus.registerService(kService)) {
-        qWarning("glassosd: org.freedesktop.impl.portal.desktop.glassosd is already "
-                 "owned; the portal backend stays with the existing owner");
-        bus.unregisterObject(kPath);
-        return false;
-    }
-    qInfo("glassosd: serving org.freedesktop.impl.portal.Notification (version 2)");
-    return true;
-}
-
-QVariantMap PortalServer::supportedOptions()
+QVariantMap PortalServer::advertisedOptions()
 {
     /* Read by applications through the frontend to decide what to send. Only
        claim what is actually rendered differently: a category we treat like
@@ -465,76 +350,11 @@ void PortalServer::invoke(uint id, const QString &action, const QString &respons
             return;
         }
     }
-    const QVariant target = entry.targets.value(action);
-
-    QVariantMap platformData;
-    if (!token.isEmpty()) {
-        platformData.insert(QStringLiteral("activation-token"), token);
-    }
-
-    /* An "app."-prefixed action is one the application exported, and the
-       portal frontend does not route these — the backend is expected to
-       activate the application itself, which is what lets a notification
-       outlive the process that sent it. */
-    constexpr QLatin1String appPrefix{"app."};
-    if (name.startsWith(appPrefix)) {
-        QString path = entry.appId;
-        path.replace(QLatin1Char('.'), QLatin1Char('/'));
-        path.replace(QLatin1Char('-'), QLatin1Char('_'));
-        path.prepend(QLatin1Char('/'));
-
-        QVariantList params;
-        if (target.isValid()) {
-            params.append(target);
-        }
-        if (!response.isEmpty()) {
-            params.append(response);
-        }
-
-        QDBusMessage message = QDBusMessage::createMethodCall(entry.appId,
-                                                              path,
-                                                              QStringLiteral("org.freedesktop.Application"),
-                                                              QStringLiteral("ActivateAction"));
-        message.setArguments({name.mid(appPrefix.size()), params, platformData});
-        QDBusConnection::sessionBus().call(message, QDBus::NoBlock);
-        return;
-    }
-
-    /* Order is fixed by the interface: target first if there was one, then
-       platform data, then the user's response if the purpose produced one. */
-    QVariantList params;
-    if (target.isValid()) {
-        params.append(target);
-    }
-    params.append(platformData);
-    if (!response.isEmpty()) {
-        params.append(response);
-    }
-    Q_EMIT actionInvoked(entry.appId, entry.portalId, name, params);
+    dispatchAction(entry.appId, entry.portalId, name, entry.targets.value(action), response, token);
 }
 
 void PortalServer::forget(uint id)
 {
     m_entries.remove(id);
     m_tokens.remove(id);
-}
-
-PortalNotificationsAdaptor::PortalNotificationsAdaptor(PortalServer *server)
-    : QDBusAbstractAdaptor(server)
-    , m_server(server)
-{
-    setAutoRelaySignals(false);
-    connect(server, &PortalServer::actionInvoked, this, &PortalNotificationsAdaptor::ActionInvoked);
-}
-
-void PortalNotificationsAdaptor::AddNotification(const QString &app_id,
-                                                 const QString &id,
-                                                 const QVariantMap &notification)
-{
-    m_server->addNotification(app_id, id, notification);
-}
-
-void PortalNotificationsAdaptor::RemoveNotification(const QString &app_id, const QString &id)
-{
-    m_server->removeNotification(app_id, id);
 }

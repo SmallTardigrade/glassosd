@@ -48,6 +48,28 @@ glassosd_test(tst_notificationmodel
     LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime)
 
 glassosd_test(tst_portalserver
-    SOURCES portalserver.cpp notificationserver.cpp notificationmodel.cpp
+    SOURCES portalserver.cpp portalbackend.cpp notificationserver.cpp notificationmodel.cpp
             historymodel.cpp rules.cpp soundplayer.cpp notification.cpp
     LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime KF6::ConfigCore)
+
+glassosd_test(tst_portalrelay
+    SOURCES portalrelay.cpp portalbackend.cpp notificationserver.cpp notificationmodel.cpp
+            historymodel.cpp rules.cpp soundplayer.cpp notification.cpp
+    LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime KF6::ConfigCore)
+
+# The relay's round-trip tests need a session bus of their own: on a desktop
+# session's bus they would be trying to take org.freedesktop.Notifications
+# from whatever daemon is showing the user's notifications. dbus-run-session
+# provides a throwaway one, and the variable tells the test it is inside it.
+# Without the tool, tst_portalrelay still runs the translation tests and
+# skips the rest rather than failing a build machine that lacks dbus.
+find_program(DBUS_RUN_SESSION dbus-run-session)
+if(DBUS_RUN_SESSION)
+    add_test(NAME tst_portalrelay_bus
+             COMMAND ${DBUS_RUN_SESSION} --config-file=${CMAKE_CURRENT_SOURCE_DIR}/dbus-test-session.conf
+                     -- ${CMAKE_COMMAND} -E env GLASSOSD_PRIVATE_BUS=1
+                     $<TARGET_FILE:tst_portalrelay>)
+    set_tests_properties(tst_portalrelay_bus PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        TIMEOUT 60)
+endif()
