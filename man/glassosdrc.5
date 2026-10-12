@@ -58,6 +58,52 @@ How long without input before the daemon considers you away. Default 120000.
 Whether history lists the newest entry at the top. Default false, which puts it
 at the bottom the way a message thread does, since the centre opens scrolled
 there.
+.TP
+.B SnoozeMinutes
+How long the snooze button on a popup defers it, in minutes. Default 10.
+.TP
+.B QuietWhileBusy
+Hold notifications back while an application is asking that the screen not
+blank. Default false. See
+.B QUIET WHILE BUSY
+below.
+.TP
+.B LockscreenPrivacy
+What notifications show while the session is locked:
+.BR show " (default), " hide\-content " or " hide .
+.B hide\-content
+keeps the card but withholds its summary and body until the session is
+unlocked, at which point they appear without the sender resending anything.
+.B hide
+keeps it off the screen altogether; it is still recorded, and is in the
+notification centre afterwards.
+.IP
+An application may ask for itself, per notification, using the portal's
+.B hide\-on\-lockscreen
+and
+.B hide\-content\-on\-lockscreen
+display hints, and a sender that asks is always honoured over this setting.
+This one is the answer for the overwhelming majority that ask nothing.
+.IP
+Requires something on the session bus to own
+.BR org.freedesktop.ScreenSaver ,
+which KWin and GNOME both do. A session where nothing does — a bare wlroots
+compositor with swaylock and no other service — cannot be observed from here,
+is treated as unlocked, and says so once at startup.
+.TP
+.B Portal
+Whether to serve
+.BR org.freedesktop.impl.portal.Notification ,
+the backend interface sandboxed applications reach through
+.BR xdg\-desktop\-portal .
+Default true. Read once at startup, and ignored unless glassosd also owns
+.BR org.freedesktop.Notifications :
+claiming the portal while another daemon serves the session would split
+notifications between the two. Setting it false leaves the portal to whatever
+else is installed. Note that the portal only routes here when
+.I portals.conf
+names glassosd; see
+.BR glassosd\-setup .
 .SH THE APPEARANCE GROUP
 .TP
 .B Theme
@@ -89,7 +135,7 @@ Pushes every glass surface toward opaque, 0.0 to 1.0. 0 keeps the tuned glass.
 Intended for compositors that do not blur, where translucency is merely
 see\-through.
 .TP
-.B Position ", " OffsetX ", " OffsetY
+.B NotifyPosition ", " NotifyMarginX ", " NotifyMarginY
 Where popups sit, and extra clearance from the anchored edges. See
 .B POSITION
 below.
@@ -156,58 +202,31 @@ glassosdctl icons
 .B ButtonsPerRow
 Columns in the button grid. Default 5.
 .TP
-.B Level
+.B LevelStyle
 .B segmented
 or
 .BR bar ,
 for the volume and brightness indicator.
 .TP
-.B Sound ", " OsdSound
-Notification sounds, and feedback on volume steps and lock keys. Default true
-and false.
+.B BodyLines ", " CentreBodyLines
+How many lines of body text a popup, and an entry in the control centre, show
+before eliding. 1 to 20; defaults 4 and 3.
 .TP
-.B QuietWhileBusy
-Hold notifications back while an application is asking that the screen not
-blank. Default false. See
-.B QUIET WHILE BUSY
-below.
+.B NotifyLayer
+.B overlay
+(the default) shows popups above fullscreen windows;
+.B top
+keeps them beneath, the way mako does.
 .TP
-.B LockscreenPrivacy
-What notifications show while the session is locked:
-.BR show " (default), " hide\-content " or " hide .
-.B hide\-content
-keeps the card but withholds its summary and body until the session is
-unlocked, at which point they appear without the sender resending anything.
-.B hide
-keeps it off the screen altogether; it is still recorded, and is in the
-notification centre afterwards.
-.IP
-An application may ask for itself, per notification, using the portal's
-.B hide\-on\-lockscreen
-and
-.B hide\-content\-on\-lockscreen
-display hints, and a sender that asks is always honoured over this setting.
-This one is the answer for the overwhelming majority that ask nothing.
-.IP
-Requires something on the session bus to own
-.BR org.freedesktop.ScreenSaver ,
-which KWin and GNOME both do. A session where nothing does — a bare wlroots
-compositor with swaylock and no other service — cannot be observed from here,
-is treated as unlocked, and says so once at startup.
+.B Blur
+.BR auto " (default), " on " or " off .
+Whether the compositor is assumed to blur behind the glass. Set
+.B off
+on compositors that do not blur \(em sway, river, labwc \(em which also
+closes up the translucency so the surfaces stay readable. Read once at startup.
 .TP
-.B Portal
-Whether to serve
-.BR org.freedesktop.impl.portal.Notification ,
-the backend interface sandboxed applications reach through
-.BR xdg\-desktop\-portal .
-Default true. Read once at startup, and ignored unless glassosd also owns
-.BR org.freedesktop.Notifications :
-claiming the portal while another daemon serves the session would split
-notifications between the two. Setting it false leaves the portal to whatever
-else is installed. Note that the portal only routes here when
-.I portals.conf
-names glassosd; see
-.BR glassosd\-setup .
+.B TrayBadge
+Whether the tray icon marks unread notifications. Default on.
 .SH POSITION
 .nf
 glassosdctl position bottom\-right
@@ -287,17 +306,23 @@ Each half runs independently. Off means never constructed: no bus name, no
 Wayland surface, no watchers. Modules are read at startup, so changing one
 needs
 .BR "glassosdctl restart" .
+.PP
+The keys live in the
+.B [Modules]
+group and all default to true.
+.B glassosdctl module
+takes the shorter name in brackets.
 .TP
-.B notifications
+.BR Notifications " (notifications)"
 The daemon and its popups.
 .TP
-.B centre
+.BR NotificationCentre " (centre)"
 The control centre and tray icon.
 .TP
-.B osd
+.BR Osd " (osd)"
 Volume, brightness and media OSD.
 .TP
-.B lockkeys
+.BR LockKeys " (lockkeys)"
 Caps, num and Fn lock OSDs.
 .SH RULES
 A rule is a
@@ -492,7 +517,35 @@ set of edits to undo afterwards. Allow and block lists are compiled into rules
 and appended after the hand\-written ones, so there is one engine with one set
 of semantics, and a mode has the final say rather than being quietly undone by
 a rule written months ago. Silenced notifications are still recorded.
+.PP
+In the file, the active mode is
+.B Focus
+in the
+.B [Notifications]
+group, and each mode is a
+.B [Focus <name>]
+group carrying
+.B Allow
+or
+.BR Block ,
+comma\-separated.
 .SH SOUNDS
+The
+.B [Sounds]
+group:
+.TP
+.B Enabled
+Notification sounds. Default true.
+.TP
+.B Osd
+Feedback on volume steps and lock keys. Default false; see
+.B The volume sound
+below.
+.TP
+.B OsdSound
+The name or path that feedback plays. Default
+.BR audio\-volume\-change .
+.PP
 Names are standardised by the XDG sound naming specification, and themes ship
 them under
 .IR /usr/share/sounds/<theme>/stereo/ ,
