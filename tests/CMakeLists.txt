@@ -60,6 +60,11 @@ glassosd_test(tst_portalrelay
 glassosd_test(tst_snoozestore
     SOURCES snoozestore.cpp)
 
+# The CLI's list of known keys, checked against the man page.
+add_test(NAME glassosdctl_set_keys
+         COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/glassosdctl-set-keys.sh
+                 ${CMAKE_SOURCE_DIR}/tools/glassosdctl ${CMAKE_SOURCE_DIR}/man/glassosdrc.5)
+
 # The relay's round-trip tests need a session bus of their own: on a desktop
 # session's bus they would be trying to take org.freedesktop.Notifications
 # from whatever daemon is showing the user's notifications. dbus-run-session
