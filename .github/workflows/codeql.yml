@@ -39,6 +39,16 @@ jobs:
         with:
           languages: c-cpp
           queries: security-and-quality
+          # Two style rules whose every hit has been in Qt's moc output
+          # (build/*_autogen/moc_*.cpp), which is generated and not ours to
+          # change. For a traced C++ build, paths-ignore does not apply, so
+          # the rules themselves are left out.
+          config: |
+            query-filters:
+              - exclude:
+                  id: cpp/trivial-switch
+              - exclude:
+                  id: cpp/poorly-documented-function
 
       - name: Build
         run: |

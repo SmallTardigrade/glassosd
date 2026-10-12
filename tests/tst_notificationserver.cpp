@@ -190,7 +190,7 @@ private Q_SLOTS:
         if (padding) {
             QByteArray padded;
             for (int row = 0; row < img.height; ++row) {
-                padded += img.data.mid(row * img.rowstride, img.rowstride);
+                padded += img.data.mid(qsizetype(row) * img.rowstride, img.rowstride);
                 if (row < img.height - 1) {
                     padded += QByteArray(padding, '\0');   // no padding needed after the last row
                 }
