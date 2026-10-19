@@ -147,8 +147,8 @@ glassosdctl <command>
                          sound=none to silence one app.
   osd-sound [on|off|NAME|default]
                          Feedback on volume steps and lock keys (off by
-                         default). A held volume key sounds at the start and
-                         after release, not every step. NAME or a path picks
+                         default). A held key or a swipe sounds once, after you
+                         stop, not on every step. NAME or a path picks
                          the volume sound; default returns to the theme's.
   snooze [minutes]       How long the snooze button defers a notification
                          (default 10). The card closes and comes back later.
@@ -214,7 +214,8 @@ glassosdctl <command>
 Settings keys:  Enabled, Limit, IndicateHidden, CoalesceThreshold,
                 CoalesceWindowMs, DoNotDisturb, AutoCollapseOver,
                 HistoryLength, IdleThresholdMs, HoverPause, NewestFirst,
-                Timeout, TimeoutLow, TimeoutCritical
+                Timeout, TimeoutLow, TimeoutCritical, SnoozeMinutes,
+                QuietWhileBusy, LockscreenPrivacy, Portal, Focus
 
 How long popups stay (ms; 0 = until dismissed). An app's own
 expire_timeout still wins; these apply when it sends -1:

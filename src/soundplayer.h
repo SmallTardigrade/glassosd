@@ -28,38 +28,38 @@
 #include <QString>
 #include <QTimer>
 
-/* Turns a run of rapid events into at most two sounds: one as it starts, one
-   after it stops.
+/* Turns a run of rapid events into one sound, once the run is over.
 
-   A held volume key repeats every 40ms or so, and the volume-change sound in
-   a typical theme lasts 300 — Ocean's does. Sounding on every step starts each
-   copy before the last has finished, and what comes out is a stutter of
-   overlapping, clipped clicks rather than feedback. Rate-limiting alone only
-   thins the stutter.
+   A held volume key repeats every 40ms or so, and a three-finger swipe sends
+   a step every few pixels of travel, while the volume-change sound in a
+   typical theme lasts 300ms — Ocean's does. Sounding on every step starts
+   each copy before the last has finished, and what comes out is a stutter of
+   overlapping, clipped clicks rather than feedback.
 
-   The two sounds that carry information are the first, which says the key
-   did something, and the last, which is heard at the level you settled on.
-   Everything in between says nothing the OSD bar is not already showing.
+   The one sound that carries information is the last, heard at the level you
+   settled on; the OSD bar already shows every step on the way. This used to
+   sound at the start of a run as well, so that a press was acknowledged at
+   once, but that made each swipe two sounds and a few swipes in a row a
+   chatter of them.
 
    Pure and clock-free — the caller passes the time in — so it can be tested
    without waiting on real time. */
 class BurstGate
 {
 public:
-    explicit BurstGate(int quietMs = 250) : m_quietMs(quietMs) {}
+    /* Long enough that a slow stretch of a swipe stays one run; short
+       enough that a single press does not feel late. */
+    explicit BurstGate(int quietMs = 500) : m_quietMs(quietMs) {}
 
-    /* An event at nowMs. True when it should sound now: it is the first of a
-       new run, because nothing arrived in the previous quietMs. */
-    bool event(qint64 nowMs);
-    /* Call once quietMs has passed since the last event. True when the run
-       that just ended swallowed events, meaning the level you ended on has not
-       been heard yet. A single tap already sounded, so it owes nothing. */
+    /* A step at nowMs. Starts a run, or extends the current one. */
+    void event(qint64 nowMs);
+    /* Call once quietMs has passed since the last event. True once per run,
+       when it has ended: the moment to sound. */
     bool finish(qint64 nowMs);
     /* How long until the current run counts as ended; 0 when it already has
        or none is active. The caller's timer may fire early — Qt's default
-       coarse timers are allowed 5% slack, which on 250ms is enough to land
-       inside the window — and must wait out the remainder rather than
-       concluding nothing is owed. */
+       coarse timers are allowed 5% slack — and must wait out the remainder
+       rather than concluding nothing is owed. */
     qint64 remainingMs(qint64 nowMs) const;
 
     int quietMs() const { return m_quietMs; }
@@ -68,7 +68,6 @@ private:
     int m_quietMs;
     qint64 m_last = 0;
     bool m_active = false;
-    bool m_swallowed = false;
 };
 
 class SoundPlayer : public QObject
@@ -102,8 +101,8 @@ public:
 private:
     bool haveBackend() const;
     void playVolumeChange();
-    /* Cut off the previous volume sound before the next one starts, so the
-       first and last of a run can never overlap. */
+    /* Cut off the previous volume sound before the next one starts, so two
+       adjustments close together can never overlap. */
     void stopPreviousVolumeChange();
 
     bool m_notifications = true;

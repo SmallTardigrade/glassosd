@@ -14,17 +14,10 @@
 #include <csignal>
 #include <sys/types.h>
 
-bool BurstGate::event(qint64 nowMs)
+void BurstGate::event(qint64 nowMs)
 {
-    if (!m_active || nowMs - m_last >= m_quietMs) {
-        m_active = true;
-        m_swallowed = false;
-        m_last = nowMs;
-        return true;
-    }
+    m_active = true;
     m_last = nowMs;
-    m_swallowed = true;
-    return false;
 }
 
 bool BurstGate::finish(qint64 nowMs)
@@ -35,9 +28,7 @@ bool BurstGate::finish(qint64 nowMs)
         return false;
     }
     m_active = false;
-    const bool owed = m_swallowed;
-    m_swallowed = false;
-    return owed;
+    return true;
 }
 
 qint64 BurstGate::remainingMs(qint64 nowMs) const
@@ -155,15 +146,13 @@ void SoundPlayer::playOsd(const QString &name)
         return;
     }
 
-    /* Volume goes through the burst gate: first and last of a run only. The
-       timer is re-armed by every swallowed step, so it fires quietMs after the
-       key is let go rather than quietMs after the run began. */
+    /* Volume goes through the burst gate: one sound, once the adjustment is
+       over. The timer is re-armed by every step, so it fires quietMs after
+       the key is let go or the fingers stop, not quietMs after the run
+       began. */
     if (name == QLatin1String("audio-volume-change")) {
-        if (m_volumeGate.event(m_clock.elapsed())) {
-            playVolumeChange();
-        } else {
-            m_volumeTrailing.start(m_volumeGate.quietMs());
-        }
+        m_volumeGate.event(m_clock.elapsed());
+        m_volumeTrailing.start(m_volumeGate.quietMs());
         return;
     }
 

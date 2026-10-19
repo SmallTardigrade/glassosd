@@ -68,91 +68,97 @@ private Q_SLOTS:
     }
 
     // ---- BurstGate: the volume sound ------------------------------------
-    /* One press of the volume key: one sound, straight away, and nothing owed
-       afterwards — the tap was already heard at its final level. */
-    void singleTapSoundsOnceAndOwesNothing()
+    /* One sound per adjustment, once it is over, at the level you ended on.
+       It used to sound at the start of a run as well, which made every
+       three-finger volume swipe two sounds; a few swipes in a row were a
+       chatter of them, about ten in four seconds, measured. */
+
+    /* A single press: nothing at the press, one sound once it is quiet. */
+    void singleTapSoundsOnceAfterTheWindow()
     {
-        BurstGate g(250);
-        QVERIFY(g.event(1000));
-        QVERIFY(!g.finish(1250));
+        BurstGate g(500);
+        g.event(1000);
+        QVERIFY(!g.finish(1200));                // not quiet long enough yet
+        QVERIFY(g.finish(1500));
+        QVERIFY(!g.finish(2000));                // owed exactly once
     }
 
-    /* The case this exists for. A held key repeats every 40ms for a second:
-       one sound as it starts, silence while it runs, one after it is let go.
+    /* A held key repeats every 40ms for a second: one sound, after release.
        Sounding on every step was 26 overlapping copies of a 300ms sound. */
-    void heldKeySoundsAtStartAndAfterRelease()
+    void heldKeySoundsOnceAfterRelease()
     {
-        BurstGate g(250);
-        int sounded = 0;
+        BurstGate g(500);
         qint64 t = 1000;
         for (int i = 0; i < 26; ++i, t += 40) {
-            if (g.event(t))
-                ++sounded;
+            g.event(t);
+            QVERIFY(!g.finish(t));               // never while the key is held
         }
-        QCOMPARE(sounded, 1);                    // only the first step
         const qint64 lastStep = t - 40;
-
-        QVERIFY(!g.finish(lastStep + 100));      // not quiet long enough yet
-        QVERIFY(g.finish(lastStep + 250));       // the level you ended on
-        QVERIFY(!g.finish(lastStep + 600));      // owed exactly once
+        QVERIFY(!g.finish(lastStep + 300));
+        QVERIFY(g.finish(lastStep + 500));
+        QVERIFY(!g.finish(lastStep + 1200));
     }
 
-    /* The live failure this suite missed, because the other tests pass exact
-       times: a timer firing a little inside the window. finish() must say
-       "not yet", and remainingMs() must say how long to wait, or the sound
-       after release is silently lost. */
+    /* A swipe sends volume steps as the fingers move, and a slow stretch of
+       one can leave 300ms between steps. That is still one adjustment. */
+    void slowSwipeIsOneSound()
+    {
+        BurstGate g(500);
+        int sounded = 0;
+        for (qint64 t : {1000, 1100, 1400, 1700, 1800}) {
+            if (g.finish(t)) {
+                ++sounded;
+            }
+            g.event(t);
+        }
+        QVERIFY(g.finish(2300));
+        QCOMPARE(sounded, 0);
+    }
+
+    /* The live failure an earlier version of this suite missed, because the
+       other tests pass exact times: a timer firing a little inside the
+       window. finish() must say "not yet", and remainingMs() must say how
+       long to wait, or the sound is silently lost. */
     void earlyTimerIsToldHowLongToWait()
     {
-        BurstGate g(250);
-        QVERIFY(g.event(1000));
-        QVERIFY(!g.event(1040));                 // swallowed: a trailing sound is owed
-        QVERIFY(!g.finish(1278));                // coarse timer, 12ms early
-        QCOMPARE(g.remainingMs(1278), qint64(12));
-        QCOMPARE(g.remainingMs(1290), qint64(0));
-        QVERIFY(g.finish(1290));                 // still owed, not lost
+        BurstGate g(500);
+        g.event(1000);
+        g.event(1040);
+        QVERIFY(!g.finish(1515));                // coarse timer, 25ms early
+        QCOMPARE(g.remainingMs(1515), qint64(25));
+        QCOMPARE(g.remainingMs(1540), qint64(0));
+        QVERIFY(g.finish(1540));                 // still owed, not lost
     }
 
     void remainingIsZeroWithNoRun()
     {
-        BurstGate g(250);
+        BurstGate g(500);
         QCOMPARE(g.remainingMs(5000), qint64(0));
-        QVERIFY(g.event(5000));
-        QVERIFY(!g.finish(5300));                // single tap: nothing owed
-        QCOMPARE(g.remainingMs(5400), qint64(0));
+        g.event(5000);
+        QVERIFY(g.finish(5600));
+        QCOMPARE(g.remainingMs(5700), qint64(0));
     }
 
-    /* Two deliberate presses with a pause between them are two separate
-       adjustments, and each is heard. */
-    void separatePressesEachSound()
+    /* Two adjustments with a pause between them are each heard. */
+    void separateAdjustmentsEachSound()
     {
-        BurstGate g(250);
-        QVERIFY(g.event(1000));
-        QVERIFY(!g.finish(1300));
-        QVERIFY(g.event(1500));
+        BurstGate g(500);
+        g.event(1000);
+        QVERIFY(g.finish(1500));
+        g.event(2000);
+        QVERIFY(!g.finish(2100));
+        QVERIFY(g.finish(2500));
     }
 
-    /* A press that lands after the quiet window but before the trailing timer
-       has run starts a new run rather than extending the old one — so it
-       sounds immediately instead of being swallowed. */
-    void pressAfterQuietWindowStartsANewRun()
+    /* The window is measured from the latest step, not the first. */
+    void runExtendsFromTheLatestStep()
     {
-        BurstGate g(250);
-        QVERIFY(g.event(1000));
-        QVERIFY(!g.event(1040));                 // swallowed
-        QVERIFY(g.event(1400));                  // 360ms later: a new run
-    }
-
-    /* Presses closer together than the window, even slow ones, stay one run:
-       the window is measured from the latest press, not the first. */
-    void runExtendsFromTheLatestPress()
-    {
-        BurstGate g(250);
-        QVERIFY(g.event(1000));
-        QVERIFY(!g.event(1200));
-        QVERIFY(!g.event(1400));
-        QVERIFY(!g.event(1600));                 // 600ms after the first, still one run
-        QVERIFY(!g.finish(1700));
-        QVERIFY(g.finish(1850));
+        BurstGate g(500);
+        for (qint64 t : {1000, 1300, 1600, 1900}) {
+            g.event(t);
+        }
+        QVERIFY(!g.finish(2300));                // 1300ms after the first, still one run
+        QVERIFY(g.finish(2400));
     }
 
     /* Notification sounds default on and OSD sounds default off: the OSD is

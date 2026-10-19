@@ -6,7 +6,8 @@
 # behind the daemon once already (Portal, LockscreenPrivacy, QuietWhileBusy,
 # SnoozeMinutes and Focus all drew a false warning), so this checks it against
 # the man page: every key documented in the Notifications group must be
-# accepted without one, and a misspelt key must still get it.
+# accepted without one and listed in the help, and a misspelt key must still
+# get the warning.
 #
 # usage: glassosdctl-set-keys.sh <glassosdctl> <glassosdrc.5>
 set -eu
@@ -31,8 +32,15 @@ Focus"
 
 [ -n "$keys" ] || { echo "no keys found in $man" >&2; exit 1; }
 
+# The usage text lists the same keys; it drifted with the set list.
+listed=$("$ctl" help 2>&1 | sed -n '/^Settings keys:/,/^$/p')
+
 fail=0
 for k in $keys; do
+  if ! printf '%s\n' "$listed" | grep -qw -- "$k"; then
+    echo "FAIL: documented key '$k' is missing from the help's Settings keys" >&2
+    fail=1
+  fi
   if "$ctl" set "$k" x 2>&1 >/dev/null | grep -q "is not a setting"; then
     echo "FAIL: documented key '$k' draws a warning" >&2
     fail=1
