@@ -115,6 +115,24 @@ private Q_SLOTS:
         QCOMPARE(sounded, 0);
     }
 
+    /* The default window, against the same slow swipe: shortening it to make
+       the sound arrive sooner must not split a swipe into several. */
+    void defaultWindowKeepsASlowSwipeWhole()
+    {
+        BurstGate g;
+        QVERIFY(g.quietMs() > 300);
+        int sounded = 0;
+        for (qint64 t : {1000, 1100, 1400, 1700, 1800}) {
+            if (g.finish(t)) {
+                ++sounded;
+            }
+            g.event(t);
+        }
+        QCOMPARE(sounded, 0);
+        QVERIFY(g.finish(1800 + g.quietMs()));
+        QVERIFY(g.quietMs() <= 400);             // and not late
+    }
+
     /* The live failure an earlier version of this suite missed, because the
        other tests pass exact times: a timer firing a little inside the
        window. finish() must say "not yet", and remainingMs() must say how

@@ -47,9 +47,10 @@
 class BurstGate
 {
 public:
-    /* Long enough that a slow stretch of a swipe stays one run; short
-       enough that a single press does not feel late. */
-    explicit BurstGate(int quietMs = 500) : m_quietMs(quietMs) {}
+    /* Long enough that a slow stretch of a swipe stays one run (300ms
+       between steps, measured); short enough that the sound does not lag
+       behind your fingers. 500 was noticeably late. */
+    explicit BurstGate(int quietMs = 350) : m_quietMs(quietMs) {}
 
     /* A step at nowMs. Starts a run, or extends the current one. */
     void event(qint64 nowMs);
