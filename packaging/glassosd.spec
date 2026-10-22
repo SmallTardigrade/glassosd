@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           glassosd
-Version:        0.3.2
+Version:        0.3.3
 # Plain Release rather than %%autorelease: rpmautospec is not available in
 # every builder, and a spec that only builds on Fedora infrastructure is not
 # much use to someone packaging this for anything else.
@@ -183,6 +183,22 @@ EOF
 fi
 
 %changelog
+* Thu Oct 22 2026 glassosd contributors - 0.3.3-1
+- Fix a notification card that could be left on screen after a burst, which
+  could not be clicked or dismissed
+- Add a Clear all button to the popup stack for a notification storm, such as
+  waking from sleep
+- Bursts from one app merge into its newest card in place instead of jumping
+- Dismissing a card, swiping it away, and the volume/brightness OSD appearing
+  and hiding no longer leave a ghost of the glass behind
+- The glass edge is drawn over the panel instead of replacing it, so it no
+  longer shows a bright bar or jagged corners over a busy background
+- Notification sounds no longer change the audio graph's timing, which could
+  make Bluetooth headphones skip or drop out
+- The volume sound plays once, 350 ms after the last step
+- The blur region is sent to the compositor only when it changes, and stays
+  inside the panel
+
 * Mon Oct 12 2026 glassosd contributors - 0.3.2-1
 - Fix a crash any application could cause with one notification: an
   image-data header whose size overflowed passed the length check, and the
