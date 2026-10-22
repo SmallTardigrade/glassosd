@@ -84,7 +84,19 @@ Item {
             easing.type: Easing.OutQuint
         }
     }
-    Component.onCompleted: reveal = 1.0
+    /* Revealed once the window has put a frame on screen (see
+       NotificationStack's `exposed`), so the blur is there before the card
+       is. A card arriving in a window that is already up starts at once. */
+    function startReveal() {
+        if (reveal === 0.0 && !leaving)
+            reveal = 1.0
+    }
+    /* A binding rather than a one-off signal: the card can be created before
+       it has a window, or after the window's first frame, and listening for
+       the change alone missed both — the card then never appeared at all. */
+    readonly property bool windowReady: Window.window !== null && Window.window.exposed !== false
+    onWindowReadyChanged: if (windowReady) startReveal()
+    Component.onCompleted: if (windowReady) startReveal()
     /* The exit curve is set here, before reveal moves, rather than bound to
        `leaving`. Bound, nothing guaranteed the binding re-evaluated before
        this handler ran, and it did not: frame-by-frame capture showed the
@@ -110,6 +122,7 @@ Item {
     /* Set once the blur region has been dropped, so it is not dropped again on
        every remaining frame of the exit. */
     property bool blurDropped: false
+    property bool entrySent: false
 
     onRevealChanged: {
         /* Give the blurred region back before the card has finished fading,
@@ -142,6 +155,16 @@ Item {
                 }
             }
             return
+        }
+
+        /* An arriving card sends its region twice: where it starts, and
+           where it settles. Resending it on every frame of the rise is what
+           made the blur unstable on the way out (below), and the same
+           applies on the way in. */
+        if (!root.leaving && reveal > 0 && reveal < 1) {
+            if (root.entrySent)
+                return
+            root.entrySent = true
         }
 
         /* A leaving card keeps its region where it is. It only sinks a few

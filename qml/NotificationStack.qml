@@ -24,9 +24,36 @@ Window {
     color: "transparent"
 
     width: Style.notifyWidth + Style.shadowPad * 2
-    height: Math.max(1, column.implicitHeight + Style.shadowPad * 2)
+
+    /* Grows while on screen, never shrinks; back to fitting once hidden.
+
+       Shrinking a bottom-anchored layer surface costs a frame: the new, shorter
+       layout is drawn before the compositor has moved the surface down, so
+       the remaining cards were shown one card-height too high and then
+       snapped back. Seen frame by frame whenever a dismissed card was
+       removed from under the others. Held at its tallest, the window never
+       moves while it is up; the column sits against the anchored edge
+       inside it instead, and the empty part is transparent and outside the
+       input region. */
+    readonly property bool bottomAnchored: (Appearance.notifyAnchors & 2) && !(Appearance.notifyAnchors & 1)
+    readonly property real neededHeight: column.implicitHeight + Style.shadowPad * 2
+    property real heldHeight: 1
+    height: Math.max(1, heldHeight)
+    onNeededHeightChanged: if (neededHeight > heldHeight) heldHeight = neededHeight
 
     visible: Modules.notifications && (list.count > 0 || NotificationModel.hiddenCount > 0)
+
+    /* Whether a frame has been presented since the window was last mapped.
+       The first card of a quiet spell creates the surface, and its blur
+       exists only from the commit that carries it; a card that started
+       fading in at once spent ~170 ms see-through over a sharp backdrop
+       (frame-by-frame capture). Cards wait for this before revealing. */
+    property bool exposed: false
+    onVisibleChanged: {
+        exposed = false
+        heldHeight = visible ? neededHeight : 1
+    }
+    onFrameSwapped: if (!exposed) exposed = true
 
     Component.onCompleted: {
         /* Anchors come from [Appearance] NotifyPosition — Top|Right by
@@ -110,9 +137,21 @@ Window {
 
     ColumnLayout {
         id: column
-        anchors.fill: parent
-        anchors.margins: Style.shadowPad
+        x: Style.shadowPad
+        width: win.width - Style.shadowPad * 2
+        height: implicitHeight
+        y: win.bottomAnchored ? win.height - Style.shadowPad - implicitHeight : Style.shadowPad
         spacing: Style.notifySpacing
+
+        /* The cards register their regions in window coordinates, and moving
+           the whole column moves them without changing their own y. */
+        onYChanged: {
+            for (let i = 0; i < list.count; ++i) {
+                const c = list.itemAt(i)
+                if (c) c.refreshRegions()
+            }
+            if (storm.shown) storm.refreshBlur()
+        }
 
         Repeater {
             id: list

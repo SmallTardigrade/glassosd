@@ -346,24 +346,22 @@ bool NotificationModel::coalesce(const Notification &n)
     /* Absorb every existing untagged card from this group, not just one. The
        burst's first messages arrived before the threshold was crossed and are
        already on screen as separate cards; without this they would linger
-       beside the merged one and the count would understate the total. */
+       beside the merged one and the count would understate the total. A card
+       already closing was dismissed and is not part of the burst any more. */
+    auto member = [&key](const Notification &old) {
+        return old.groupKey() == key && old.stackTag.isEmpty() && !old.closing;
+    };
     int absorbed = 0;
-    for (int i = m_displayed.size() - 1; i >= 0; --i) {
-        const Notification &old = m_displayed.at(i);
-        /* A closing card was dismissed; it is not part of the burst any more. */
-        if (old.groupKey() != key || !old.stackTag.isEmpty() || old.closing) {
-            continue;
+    QList<uint> onScreen;
+    for (const Notification &old : std::as_const(m_displayed)) {
+        if (member(old)) {
+            absorbed += old.groupCount;
+            onScreen << old.id;
         }
-        absorbed += old.groupCount;
-        const uint oldId = old.id;
-        beginRemoveRows({}, i, i);
-        m_displayed.removeAt(i);
-        endRemoveRows();
-        Q_EMIT notificationClosed(oldId, CloseReason::Expired);
     }
     for (int i = m_waiting.size() - 1; i >= 0; --i) {
         const Notification &old = m_waiting.at(i);
-        if (old.groupKey() != key || !old.stackTag.isEmpty()) {
+        if (!member(old)) {
             continue;
         }
         absorbed += old.groupCount;
@@ -374,8 +372,28 @@ bool NotificationModel::coalesce(const Notification &n)
 
     Notification merged = n;
     merged.groupCount = absorbed + 1;
-    /* Front of the queue so a continuing burst keeps one live card rather
-       than re-popping behind whatever else is on screen. */
+
+    /* The group is on screen: its newest card becomes the merged card where it
+       stands, and the rest leave the way any dismissed card does. These used
+       to be deleted outright and the merged card queued afresh, so on screen
+       the old card vanished mid-frame while the new one faded in thirty
+       pixels away and the two overlapped (seen frame by frame). */
+    if (!onScreen.isEmpty()) {
+        const uint newest = onScreen.takeLast();
+        const int row = indexOfDisplayed(newest);
+        merged.displayedAt = QDateTime::currentDateTimeUtc();
+        m_hovered.remove(newest);
+        m_displayed[row] = merged;
+        Q_EMIT dataChanged(index(row), index(row));
+        Q_EMIT notificationClosed(newest, CloseReason::Expired);
+        for (uint id : std::as_const(onScreen)) {
+            closeId(id, CloseReason::Expired);
+        }
+        return true;
+    }
+
+    /* Nothing of it on screen yet: front of the queue, so a continuing burst
+       keeps one live card rather than re-popping behind whatever else is up. */
     m_waiting.prepend(merged);
     return true;
 }

@@ -363,6 +363,38 @@ private Q_SLOTS:
         QCOMPARE(m.index(0).data(NotificationModel::GroupCountRole).toInt(), 4);
     }
 
+    /* How a burst turns into one card, as drawn. The absorbed cards used to
+       be deleted on the spot and the merged card added afresh at the end of
+       the queue: a frame-by-frame capture showed the old card vanishing
+       mid-frame while the new one faded in thirty pixels away, the two
+       overlapping. Now the newest card of the group becomes the merged card
+       where it stands, and the others fade out like any dismissed card. */
+    void aBurstMergesIntoItsNewestCardInPlace()
+    {
+        NotificationModel m;
+        m.setTimeouts(0, 0, 0);
+        m.setCoalesce(3, 20000);
+        m.setExitMs(300);
+
+        m.insert(note(QStringLiteral("Discord"), QStringLiteral("msg 1"), {}, 1));
+        m.insert(note(QStringLiteral("Signal"), QStringLiteral("other"), {}, 2));
+        m.insert(note(QStringLiteral("Discord"), QStringLiteral("msg 2"), {}, 3));
+        m.insert(note(QStringLiteral("Discord"), QStringLiteral("msg 3"), {}, 4));
+
+        /* Same three rows: nothing jumped. The first Discord card is fading,
+           the Signal card is untouched, the newest Discord card is now the
+           group. */
+        QCOMPARE(m.rowCount(), 3);
+        QVERIFY(m.index(0).data(NotificationModel::ClosingRole).toBool());
+        QCOMPARE(summaryAt(m, 1), QStringLiteral("other"));
+        QCOMPARE(summaryAt(m, 2), QStringLiteral("msg 3"));
+        QCOMPARE(m.index(2).data(NotificationModel::GroupCountRole).toInt(), 3);
+        QVERIFY(!m.index(2).data(NotificationModel::ClosingRole).toBool());
+
+        QTRY_COMPARE_WITH_TIMEOUT(m.rowCount(), 2, 1500);
+        QCOMPARE(summaryAt(m, 1), QStringLiteral("msg 3"));
+    }
+
     /* Below the threshold nothing is grouped: two messages are two messages. */
     void belowTheThresholdNothingIsGrouped()
     {
