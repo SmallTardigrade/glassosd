@@ -179,6 +179,44 @@ private Q_SLOTS:
         QVERIFY(g.finish(2400));
     }
 
+    // ---- the player command line -----------------------------------------
+    /* Every sound used to start a stream asking PipeWire for 170 ms of
+       latency, and while it played the graph's quantum switched (1024 to
+       2048 on AirPods) and switched back when it ended. Several times a
+       minute, that garbled and then silenced AirPods mid-song. Each player is
+       now told to leave the quantum and rate as they are. */
+    void everyPlayerLocksTheQuantum_data()
+    {
+        QTest::addColumn<QString>("tool");
+        QTest::addColumn<QString>("lockArg");
+        QTest::newRow("canberra by name") << QStringLiteral("canberra-gtk-play") << QStringLiteral("--property=node.lock-quantum=true");
+        QTest::newRow("paplay") << QStringLiteral("paplay") << QStringLiteral("--property=node.lock-quantum=true");
+        QTest::newRow("pw-play") << QStringLiteral("pw-play") << QStringLiteral("node.lock-quantum = true");
+    }
+    void everyPlayerLocksTheQuantum()
+    {
+        QFETCH(QString, tool);
+        QFETCH(QString, lockArg);
+        const QStringList args = SoundPlayer::playerArgs(tool, QStringLiteral("audio-volume-change"),
+                                                         QStringLiteral("/tmp/x.oga"));
+        bool found = false;
+        for (const QString &a : args) {
+            found = found || a.contains(lockArg);
+        }
+        QVERIFY2(found, qPrintable(args.join(QLatin1Char(' '))));
+    }
+
+    /* canberra resolves a theme name itself; the others are given a file. */
+    void canberraIsGivenTheNameAndTheRestTheFile()
+    {
+        const QString name = QStringLiteral("message-new-instant");
+        const QString file = QStringLiteral("/usr/share/sounds/x.oga");
+        QVERIFY(SoundPlayer::playerArgs(QStringLiteral("canberra-gtk-play"), name, {}).contains(name));
+        QVERIFY(SoundPlayer::playerArgs(QStringLiteral("canberra-gtk-play"), name, file).contains(file));
+        QVERIFY(SoundPlayer::playerArgs(QStringLiteral("paplay"), name, file).contains(file));
+        QVERIFY(SoundPlayer::playerArgs(QStringLiteral("pw-play"), name, file).contains(file));
+    }
+
     /* Notification sounds default on and OSD sounds default off: the OSD is
        already a response to a key the user just pressed, and beeping at every
        volume step is the behaviour people turn off first. */

@@ -25,6 +25,7 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QObject>
+#include <QStringList>
 #include <QString>
 #include <QTimer>
 
@@ -98,6 +99,11 @@ public:
        category first because it says what the thing *is*, urgency second
        because it only says how much it matters. Empty means stay silent. */
     static QString nameFor(const QString &category, int urgency);
+
+    /* The arguments for one player: tool is canberra-gtk-play, paplay or
+       pw-play; name is a theme sound name, file a path (empty for canberra
+       when it should resolve the name through the theme). */
+    static QStringList playerArgs(const QString &tool, const QString &name, const QString &file);
 
 private:
     bool haveBackend() const;

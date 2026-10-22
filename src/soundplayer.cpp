@@ -70,6 +70,34 @@ bool SoundPlayer::haveBackend() const
     return have;
 }
 
+QStringList SoundPlayer::playerArgs(const QString &tool, const QString &name, const QString &file)
+{
+    /* Leave the graph as it is. A player asks PipeWire for a latency — 170 ms
+       for canberra — and PipeWire sizes its cycle to suit while the stream is
+       active, then sizes it back when it ends. Every sound therefore switched
+       the quantum twice under whatever music was playing (1024 to 2048 on
+       AirPods), and several sounds a minute garbled and then silenced
+       AirPods mid-song. With the quantum and rate locked, a sound joins the
+       graph as it is. The properties reach the node: pipewire-pulse copies a
+       pulse stream's proplist into it, which is where canberra's and
+       paplay's --property end up. */
+    if (tool.endsWith(QLatin1String("canberra-gtk-play"))) {
+        QStringList args{QStringLiteral("--property=node.lock-quantum=true"),
+                         QStringLiteral("--property=node.lock-rate=true")};
+        /* -i takes a theme name and resolves it through the user's theme and
+           its inheritance chain, which is the whole reason to go through
+           canberra rather than play a file. */
+        args << (file.isEmpty() ? QStringLiteral("-i") : QStringLiteral("-f")) << (file.isEmpty() ? name : file);
+        return args;
+    }
+    if (tool.endsWith(QLatin1String("paplay"))) {
+        return {QStringLiteral("--property=node.lock-quantum=true"),
+                QStringLiteral("--property=node.lock-rate=true"), file};
+    }
+    /* pw-play */
+    return {QStringLiteral("-P"), QStringLiteral("{ node.lock-quantum = true node.lock-rate = true }"), file};
+}
+
 qint64 SoundPlayer::play(const QString &name)
 {
     if (name.isEmpty() || !haveBackend()) {
@@ -94,15 +122,9 @@ qint64 SoundPlayer::play(const QString &name)
                 qWarning("glassosd: sound file not found: %s", qUtf8Printable(file));
                 return 0;
             }
-            qint64 pid = 0;
-            QProcess::startDetached(canberra, {QStringLiteral("-f"), file}, QString(), &pid);
-            return pid;
         }
-        /* -i takes a theme name and resolves it through the user's theme and
-           its inheritance chain, which is the whole reason to go through
-           canberra rather than play a file. */
         qint64 pid = 0;
-        QProcess::startDetached(canberra, {QStringLiteral("-i"), name}, QString(), &pid);
+        QProcess::startDetached(canberra, playerArgs(canberra, name, file), QString(), &pid);
         return pid;
     }
 
@@ -120,7 +142,7 @@ qint64 SoundPlayer::play(const QString &name)
         const QString exe = QStandardPaths::findExecutable(tool);
         if (!exe.isEmpty()) {
             qint64 pid = 0;
-            QProcess::startDetached(exe, {file}, QString(), &pid);
+            QProcess::startDetached(exe, playerArgs(exe, name, file), QString(), &pid);
             return pid;
         }
     }
