@@ -146,28 +146,64 @@ Window {
             }
         }
 
-        // Queued remainder
+        // Queued remainder, and a way out of a storm
+        /* Waking to twenty notifications meant swiping each one away: there
+           was nothing on screen that cleared them, only `glassosdctl dismiss`.
+           Shown once there is a pile — three cards or anything queued — and
+           it clears what is on screen and what is waiting. Nothing is lost:
+           every one is already in the notification centre's history. */
         GlassPanel {
+            id: storm
+            readonly property bool waiting: NotificationModel.hiddenCount > 0
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: moreLabel.implicitWidth + 30
-            Layout.preferredHeight: moreLabel.implicitHeight + 16
+            Layout.preferredWidth: stormRow.implicitWidth + 30
+            Layout.preferredHeight: stormRow.implicitHeight + 16
             radius: height / 2
             surfaceColor: Style.cardBackground
-            visible: NotificationModel.hiddenCount > 0
+            visible: waiting || list.count >= 3
             onVisibleChanged: if (visible) refreshBlur()
+            onWidthChanged: refreshBlur()
 
-            Text {
-                id: moreLabel
+            Row {
+                id: stormRow
                 anchors.centerIn: parent
-                /* "Waiting", not "more notifications": these are queued
-                   behind the display limit and will appear on their own. The
-                   card's own pill used to read the same and means something
-                   quite different — the rest of a group, which pressing it
-                   opens. */
-                text: NotificationModel.hiddenCount + " waiting"
-                color: Style.foregroundDim
-                font.family: Style.fontFamily
-                font.pointSize: Style.fontSize - 1
+                spacing: 8
+
+                Text {
+                    /* "Waiting", not "more notifications": these are queued
+                       behind the display limit and will appear on their own.
+                       The card's own pill used to read the same and means
+                       something quite different — the rest of a group, which
+                       pressing it opens. */
+                    visible: storm.waiting
+                    text: NotificationModel.hiddenCount + " waiting"
+                    color: Style.foregroundDim
+                    font.family: Style.fontFamily
+                    font.pointSize: Style.fontSize - 1
+                }
+                Text {
+                    visible: storm.waiting
+                    text: "·"
+                    color: Style.foregroundDim
+                    font.family: Style.fontFamily
+                    font.pointSize: Style.fontSize - 1
+                }
+                Text {
+                    id: clearAll
+                    text: "Clear all"
+                    color: clearHover.hovered ? Style.accent : Style.foreground
+                    font.family: Style.fontFamily
+                    font.pointSize: Style.fontSize - 1
+                    font.weight: Font.DemiBold
+
+                    HoverHandler {
+                        id: clearHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                    TapHandler {
+                        onTapped: NotificationModel.dismissAll()
+                    }
+                }
             }
         }
     }
