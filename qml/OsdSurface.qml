@@ -32,7 +32,40 @@ Window {
        back off the margin so the OSD sits exactly where it did before. */
     readonly property int edgeMargin: Math.max(0, Style.osdTopMargin - Style.shadowPad)
 
-    visible: Modules.osd && (OsdModel.active || panel.opacity > 0.001)
+    /* Unmapped only once an empty frame has been presented. Hiding the window
+       in the same tick the fade reached zero meant its last frame on screen
+       was one drawn at ~10% opacity, and the compositor went on showing that
+       snapshot while it closed the window: a faint ghost of the pill for a
+       further 150-350 ms, seen frame by frame in a screen capture. */
+    property bool drained: true
+    visible: Modules.osd && (OsdModel.active || !drained)
+
+    /* Whether the window has put a frame on screen since it was last mapped.
+       The surface is created fresh each time the OSD appears, and its blur
+       only exists from the commit that carries it. Fading in straight away
+       drew the first ~100 ms of the pill over a sharp, unblurred backdrop:
+       frame-by-frame capture showed the text behind it readable through the
+       glass. The fade waits for that first frame instead, about 8 ms. */
+    property bool exposed: false
+    onVisibleChanged: {
+        exposed = false
+        if (visible)
+            panel.refreshBlur()
+    }
+    onFrameSwapped: {
+        if (!exposed)
+            exposed = true
+        /* Two frames, not one: frameSwapped can report the frame that was
+           already in flight when opacity reached zero, so the first swap
+           after it may still show the pill at a few percent. */
+        if (!OsdModel.active && panel.opacity === 0) {
+            if (++emptyFrames >= 2)
+                drained = true
+        } else {
+            emptyFrames = 0
+        }
+    }
+    property int emptyFrames: 0
 
     Component.onCompleted: {
         /* Anchor from [Appearance] OsdPosition: Top (1), Bottom (2), or 0 for
@@ -76,14 +109,16 @@ Window {
         }
     }
 
+    /* The blur is not cleared when the OSD stops being active: that is the
+       start of the fade, and clearing it there left the pill fading out over
+       a sharp backdrop for the whole exit. It goes once the pill is nearly
+       gone (panel.onOpacityChanged). */
     Connections {
         target: OsdModel
         function onChanged() {
             if (OsdModel.active) {
+                panel.blurCleared = false
                 panel.refreshBlur()
-            } else {
-                Surface.clearBlur(win)
-                Surface.clearContrast(win)
             }
         }
     }
@@ -102,11 +137,29 @@ Window {
         height: implicitHeight
         anchors.centerIn: parent
 
-        opacity: OsdModel.active ? 1 : 0
+        /* Driven imperatively rather than bound, for the reason the cards
+           are: a Behavior whose duration is bound to the same flag as its
+           target can start before the binding updates, and run the wrong
+           curve. In decelerates; out holds and then lets go, so the stretch
+           where the pill is faint is a frame or two, not the whole exit. */
+        readonly property bool shown: OsdModel.active && win.exposed
+        property bool blurCleared: false
+        opacity: 0
         Behavior on opacity {
-            NumberAnimation {
-                duration: OsdModel.active ? Style.animIn : Style.animOut
-                easing.type: Easing.OutCubic
+            NumberAnimation { id: fade }
+        }
+        onShownChanged: {
+            if (shown)
+                win.drained = false
+            fade.duration = shown ? Style.animIn : Style.animOut
+            fade.easing.type = shown ? Easing.OutCubic : Easing.InQuint
+            opacity = shown ? 1 : 0
+        }
+        onOpacityChanged: {
+            if (!shown && opacity < 0.15 && !blurCleared) {
+                blurCleared = true
+                Surface.clearBlur(win)
+                Surface.clearContrast(win)
             }
         }
 
