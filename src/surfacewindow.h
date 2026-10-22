@@ -128,6 +128,11 @@ public:
 
 private:
     void recompute(QQuickWindow *window);
+    /* recompute() at most once per event-loop pass per window. A dismissal
+       moves every card on every frame, and each move used to rebuild and
+       resend the window's blur, contrast and input regions at once: six cards
+       meant six full resends per frame. */
+    void scheduleRecompute(QQuickWindow *window);
     void applyOutputNow(QQuickWindow *window, const QString &preference);
 
     /* An output change that arrived while its surface was on screen, held
@@ -146,6 +151,12 @@ private:
     QHash<QQuickWindow *, QHash<QObject *, Contribution>> m_regions;
     QSet<QQuickWindow *> m_maskedWindows;
     QHash<QQuickWindow *, QRegion> m_lastMask;
+    /* What the compositor was last given, so an unchanged region is not sent
+       again. Each KWindowEffects call replaces the window's blur object
+       outright, and resending one every frame left KWin with no settled
+       blur for the length of an animation. */
+    QHash<QQuickWindow *, QRegion> m_lastEffect;
+    QSet<QQuickWindow *> m_dirty;
 
     qreal m_contrast = 0.32;
     qreal m_intensity = 0.92;

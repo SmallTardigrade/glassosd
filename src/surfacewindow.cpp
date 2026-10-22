@@ -10,6 +10,7 @@
 #include <QGuiApplication>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QTimer>
 #include <QRegion>
 
 #include <KWindowEffects>
@@ -21,6 +22,26 @@ namespace
 {
 /* QRegion has no rounded-rect constructor, so compose one: two overlapping
    bands plus four corner ellipses. */
+/* The largest whole-pixel rectangle inside r.
+
+   Panel geometry is fractional: on a 1.75x display a centred OSD routinely
+   sits at x = 123.5 logical. QRectF::toAlignedRect() rounds *outward* to
+   cover that, so the effect region reached up to a logical pixel past the
+   painted pill on every side — 1.75 device pixels of backdrop that KWin
+   blurred and contrast-adjusted but nothing painted over. Over a dark window
+   that ring is invisible; over Spotify's artwork the contrast and the 1.8x
+   saturation turned it into a dark, slightly jagged second outline. Rounding
+   inward keeps the whole region under the panel, which is the same rule
+   roundedRegion() already applies to the corners. */
+QRect innerRect(const QRectF &r)
+{
+    const int left = int(std::ceil(r.left()));
+    const int top = int(std::ceil(r.top()));
+    const int right = int(std::floor(r.right()));
+    const int bottom = int(std::floor(r.bottom()));
+    return QRect(left, top, qMax(0, right - left), qMax(0, bottom - top));
+}
+
 QRegion roundedRegion(const QRect &r, int radius)
 {
     /* Clamp to what the rectangle can actually hold. The corner ellipses are
@@ -192,6 +213,8 @@ void Surface::setPanelRegion(QQuickWindow *window, QObject *panel, const QRectF 
             m_regions.remove(window);
             m_maskedWindows.remove(window);
             m_lastMask.remove(window);
+            m_lastEffect.remove(window);
+            m_dirty.remove(window);
         });
     }
 
@@ -204,7 +227,20 @@ void Surface::setPanelRegion(QQuickWindow *window, QObject *panel, const QRectF 
         });
     }
     perWindow.insert(panel, {rect, radius});
-    recompute(window);
+    scheduleRecompute(window);
+}
+
+void Surface::scheduleRecompute(QQuickWindow *window)
+{
+    if (m_dirty.contains(window)) {
+        return;
+    }
+    m_dirty.insert(window);
+    QTimer::singleShot(0, this, [this, window] {
+        if (m_dirty.remove(window)) {
+            recompute(window);
+        }
+    });
 }
 
 void Surface::clearPanelRegion(QQuickWindow *window, QObject *panel)
@@ -222,11 +258,12 @@ void Surface::clearPanelRegion(QQuickWindow *window, QObject *panel)
 
     if (it->isEmpty()) {
         m_regions.erase(it);
+        m_dirty.remove(window);
         clearBlur(window);
         clearContrast(window);
         return;
     }
-    recompute(window);
+    scheduleRecompute(window);
 }
 
 QStringList Surface::outputs() const
@@ -382,7 +419,8 @@ void Surface::recompute(QQuickWindow *window)
     if (it == m_regions.constEnd()) {
         return;
     }
-    /* The effect region matches the painted surface exactly — no inset.
+    /* The effect region matches the painted surface — no deliberate inset,
+       only rounding inward to whole pixels (innerRect()).
 
        wl_region is integer rectangles by definition, so the region's rounded
        corners are stair-stepped and no antialiasing is available at the
@@ -397,7 +435,7 @@ void Surface::recompute(QQuickWindow *window)
        That belongs to the theme's blur.saturation, not to the region. */
     QRegion combined;
     for (const Contribution &c : *it) {
-        combined += roundedRegion(c.rect.toAlignedRect(), qRound(c.radius));
+        combined += roundedRegion(innerRect(c.rect), qRound(c.radius));
     }
     const QRegion &effectRegion = combined;
     if (combined.isEmpty()) {
@@ -425,6 +463,10 @@ void Surface::recompute(QQuickWindow *window)
             window->requestUpdate();
         }
     }
+    if (m_lastEffect.contains(window) && m_lastEffect.value(window) == effectRegion) {
+        return;   // the compositor already has exactly this
+    }
+    m_lastEffect[window] = effectRegion;
     KWindowEffects::enableBlurBehind(window, true, effectRegion);
     KWindowEffects::enableBackgroundContrast(window, true,
                                              m_contrast, m_intensity, m_saturation,
@@ -434,6 +476,7 @@ void Surface::recompute(QQuickWindow *window)
 void Surface::clearBlur(QQuickWindow *window)
 {
     if (window) {
+        m_lastEffect.remove(window);
         KWindowEffects::enableBlurBehind(window, false);
     }
 }
@@ -472,12 +515,14 @@ void Surface::applyContrast(QQuickWindow *window,
     m_contrast = contrast;
     m_intensity = intensity;
     m_saturation = saturation;
+    m_lastEffect.remove(window);   // same region, new parameters: must be resent
     recompute(window);
 }
 
 void Surface::clearContrast(QQuickWindow *window)
 {
     if (window) {
+        m_lastEffect.remove(window);
         KWindowEffects::enableBackgroundContrast(window, false);
     }
 }
