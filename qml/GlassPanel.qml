@@ -67,8 +67,6 @@ Rectangle {
     radius: Style.pill ? height / 2 : 16
     bottomLeftRadius: flatBottom ? 0 : radius
     bottomRightRadius: flatBottom ? 0 : radius
-    border.color: glass ? Style.glassEdge : Style.edgeOuter
-    border.width: Style.edgeWidth
     antialiasing: true
 
 
@@ -98,6 +96,29 @@ Rectangle {
             GradientStop { position: 0.0;  color: root.glass ? Style.glassSheen : Style.cardSheen }
             GradientStop { position: 0.45; color: "transparent" }
         }
+    }
+
+    /* The edge is its own rectangle laid over the fill, not the panel's
+       border. A Rectangle's border *replaces* the fill in its band rather than
+       sitting on it, so the outline was a one-pixel ring of 24% white with
+       none of the 84% surface behind it: three-quarters see-through where the
+       body is a sixth. Over an even backdrop that reads as a lit rim, but
+       wherever the backdrop changes at the edge it becomes a window onto the
+       blur. Over Spotify the top of the OSD sat on the black rule under its
+       search bar, the blur under the pill averaged the blue below, and the
+       ring drew that blue as a bright bar along the top. Laid over the fill,
+       the edge only ever lightens the surface, and the corner staircase of
+       the blur region (see roundedRegion()) sits under the same density as
+       the rest of the panel instead of under a nearly clear ring. */
+    Rectangle {
+        anchors.fill: parent
+        radius: root.radius
+        bottomLeftRadius: root.bottomLeftRadius
+        bottomRightRadius: root.bottomRightRadius
+        color: "transparent"
+        border.color: root.glass ? Style.glassEdge : Style.edgeOuter
+        border.width: Style.edgeWidth
+        antialiasing: true
     }
 
     function refreshBlur() {

@@ -319,9 +319,18 @@ Item {
                card rendered as one undifferentiated ledge rather than as two
                cards, and the silhouette went soft exactly where the card's own
                crisp edge stopped. */
-            border.color: Style.glassEdge
-            border.width: Style.edgeWidth
             antialiasing: true
+
+            /* Over the fill rather than as the border, for the reason given
+               in GlassPanel: a border replaces the fill in its band. */
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: "transparent"
+                border.color: Style.glassEdge
+                border.width: Style.edgeWidth
+                antialiasing: true
+            }
 
             /* Registered so the compositor blurs behind the sliver too. The
                region is this rectangle exactly; the part of it behind the card
