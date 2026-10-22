@@ -107,7 +107,12 @@ Item {
        it go, so the stretch below 30% is a frame or two. */
     onLeavingChanged: if (leaving) {
         revealAnim.duration = Style.animOut
-        revealAnim.easing.type = Easing.InQuint
+        /* A swiped card is already faded by the gesture (to about a third,
+           at the edge of the surface); holding it there before letting go,
+           as a card closing from full opacity should, left it hanging at the
+           edge for 0.3 s in a frame-by-frame capture. It finishes from where
+           the swipe left it instead. */
+        revealAnim.easing.type = swipingOut ? Easing.OutCubic : Easing.InQuint
         reveal = 0.0
     }
 
@@ -232,7 +237,9 @@ Item {
         enabled: !swipe.active
         NumberAnimation {
             duration: root.swipingOut ? Style.animOut : Style.swipeSpring
-            easing.type: root.swipingOut ? Easing.InCubic : Easing.OutCubic
+            /* Out, not In: the finger has already given the card its speed,
+               and an accelerating curve started it from rest again. */
+            easing.type: Easing.OutCubic
         }
     }
 
