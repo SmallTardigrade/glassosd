@@ -26,6 +26,20 @@ NotificationModel::NotificationModel(QObject *parent)
 {
     m_tick.setInterval(kTickMs);
     connect(&m_tick, &QTimer::timeout, this, &NotificationModel::expireTick);
+
+    /* Every way the live count can move goes through one of these: rows
+       arriving or leaving, or a row being marked closing. */
+    auto announceLive = [this] {
+        const int live = liveCount();
+        if (live != m_lastLiveCount) {
+            m_lastLiveCount = live;
+            Q_EMIT liveCountChanged();
+        }
+    };
+    connect(this, &QAbstractItemModel::rowsInserted, this, announceLive);
+    connect(this, &QAbstractItemModel::rowsRemoved, this, announceLive);
+    connect(this, &QAbstractItemModel::modelReset, this, announceLive);
+    connect(this, &QAbstractItemModel::dataChanged, this, announceLive);
     m_tick.start();
 
     auto *kit = KIdleTime::instance();

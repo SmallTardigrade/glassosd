@@ -155,14 +155,46 @@ Window {
         GlassPanel {
             id: storm
             readonly property bool waiting: NotificationModel.hiddenCount > 0
+            /* Live cards, not rows: a card fading out still has a row. Counted
+               by rows, the pill outlived the cards it had just cleared by a
+               quarter of a second, then jumped as they were removed. */
+            readonly property bool shown: waiting || NotificationModel.liveCount >= 3
+            /* Keeps the pill's place in the column, invisible, while the
+               cards above it finish leaving. Collapsing it at once would drop
+               every fading card by the pill's height mid-animation. */
+            property bool held: false
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: stormRow.implicitWidth + 30
             Layout.preferredHeight: stormRow.implicitHeight + 16
             radius: height / 2
             surfaceColor: Style.cardBackground
-            visible: waiting || list.count >= 3
-            onVisibleChanged: if (visible) refreshBlur()
-            onWidthChanged: refreshBlur()
+            /* The same material as the cards above it. Without the backdrop
+               blur it was the one see-through thing in the stack. */
+            glass: true
+            visible: shown || held
+            opacity: shown ? 1 : 0
+            onShownChanged: {
+                if (shown) {
+                    held = true
+                    refreshBlur()
+                } else if (Window.window) {
+                    /* Gone with the click: blur and input region both, so no
+                       blurred patch is left where the pill was. */
+                    Surface.clearPanelRegion(Window.window, storm)
+                }
+            }
+            onWidthChanged: if (shown) refreshBlur()
+            /* GlassPanel registers its region when it is created, shown or
+               not. Hidden from the start, it would leave a blurred, click-
+               swallowing patch where no pill is drawn. */
+            Component.onCompleted: Qt.callLater(() => {
+                if (!storm.shown && Window.window)
+                    Surface.clearPanelRegion(Window.window, storm)
+            })
+            Connections {
+                target: list
+                function onCountChanged() { if (list.count === 0) storm.held = false }
+            }
 
             Row {
                 id: stormRow

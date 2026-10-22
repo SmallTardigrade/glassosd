@@ -740,6 +740,26 @@ private Q_SLOTS:
         QCOMPARE(m.hiddenCount(), 0);
     }
 
+    /* What the Clear all pill follows: a card fading out no longer counts,
+       so the pill can leave with the cards instead of lingering after them. */
+    void liveCountLeavesOutClosingCards()
+    {
+        NotificationModel m;
+        plain(m);
+        m.setExitMs(300);
+        QSignalSpy spy(&m, &NotificationModel::liveCountChanged);
+        for (uint i = 1; i <= 3; ++i) {
+            m.insert(note(QStringLiteral("App%1").arg(i), QStringLiteral("n%1").arg(i), {}, i));
+        }
+        QCOMPARE(m.property("liveCount").toInt(), 3);
+        const int before = spy.count();
+
+        m.dismissAll();
+        QCOMPARE(m.rowCount(), 3);                       // still fading
+        QCOMPARE(m.property("liveCount").toInt(), 0);    // but none of them live
+        QVERIFY(spy.count() > before);
+    }
+
     void snoozeHandsTheNotificationOnAndTakesItOffScreen()
     {
         NotificationModel m;

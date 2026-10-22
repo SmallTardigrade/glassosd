@@ -79,12 +79,25 @@ Item {
        than as something arriving. Decelerate in, accelerate out, paired. */
     Behavior on reveal {
         NumberAnimation {
-            duration: root.leaving ? Style.animOut : Style.animIn
-            easing.type: root.leaving ? Easing.InQuint : Easing.OutQuint
+            id: revealAnim
+            duration: Style.animIn
+            easing.type: Easing.OutQuint
         }
     }
     Component.onCompleted: reveal = 1.0
-    onLeavingChanged: if (leaving) reveal = 0.0
+    /* The exit curve is set here, before reveal moves, rather than bound to
+       `leaving`. Bound, nothing guaranteed the binding re-evaluated before
+       this handler ran, and it did not: frame-by-frame capture showed the
+       exit running the *entry* curve (OutQuint, 225 ms), so the card dropped
+       to 16% in 67 ms and then hung there faintly for 150 ms more. The blur
+       is given back at 30% (below), so that tail was a ghost of the card
+       over a sharp, unblurred backdrop. InQuint holds the card and then lets
+       it go, so the stretch below 30% is a frame or two. */
+    onLeavingChanged: if (leaving) {
+        revealAnim.duration = Style.animOut
+        revealAnim.easing.type = Easing.InQuint
+        reveal = 0.0
+    }
 
     /* Rises into place, and sinks as it goes. A transform rather than a change
        of y, so the layout does not reflow every frame and the cards below stay
@@ -109,11 +122,15 @@ Item {
            in it, and it outlives the card by another frame or two while the
            region update makes its way to the compositor.
 
-           0.3 rather than 0 because the exit accelerates (InQuint): by the
+           0.15 rather than 0 because the exit accelerates (InQuint): by the
            time reveal is this low the card is nearly gone, so losing the blur
            underneath does not read as a change, where dropping it at the start
-           of the animation plainly would. */
-        if (root.leaving && reveal < 0.3) {
+           of the animation plainly would. It was 0.3, which at 120 Hz left two
+           or three frames of faint card over an unblurred backdrop — visible
+           as a ghost in a frame-by-frame capture. Below 0.15 that is under one
+           frame, and the region no longer moves during the exit, so dropping
+           it late costs nothing. */
+        if (root.leaving && reveal < 0.15) {
             if (!root.blurDropped) {
                 root.blurDropped = true
                 if (Window.window) {
@@ -126,6 +143,15 @@ Item {
             }
             return
         }
+
+        /* A leaving card keeps its region where it is. It only sinks a few
+           pixels on the way out, and chasing that every frame resent the
+           window's whole blur each time, for every card at once on Clear all:
+           frame-by-frame capture showed the blur gone from the first frame of
+           the exit and the window stalling for 230 ms. The region is dropped
+           above, near the end. */
+        if (root.leaving)
+            return
 
         /* Compositor blur cannot be animated, so the region has to be re-sent
            as the card travels or the blurred patch sits still while the card

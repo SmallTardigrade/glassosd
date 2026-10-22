@@ -30,6 +30,8 @@ class NotificationModel : public QAbstractListModel
 
     /* Number queued behind the visible ones — the "+N more" indicator. */
     Q_PROPERTY(int hiddenCount READ hiddenCount NOTIFY hiddenCountChanged)
+    /* Cards on screen that are not already on their way out. */
+    Q_PROPERTY(int liveCount READ liveCount NOTIFY liveCountChanged)
     Q_PROPERTY(bool doNotDisturb READ doNotDisturb WRITE setDoNotDisturb NOTIFY doNotDisturbChanged)
     Q_PROPERTY(int exitMs READ exitMs WRITE setExitMs)
 
@@ -62,6 +64,7 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     int hiddenCount() const { return m_waiting.size(); }
+    int liveCount() const;   // displayed rows not already closing
 
     /* For the image://notifyimage provider — inline pixels live on the
        notification, not on disk. */
@@ -163,6 +166,7 @@ public:
 
 Q_SIGNALS:
     void hiddenCountChanged();
+    void liveCountChanged();
     void doNotDisturbChanged();
     void inhibitedChanged();
     void notificationClosed(uint id, uint reason);
@@ -195,7 +199,6 @@ private:
     bool coalesce(const Notification &n);
 
     int effectiveLimit() const;
-    int liveCount() const;   // displayed rows not already closing
     int defaultTimeoutFor(Urgency u) const;
 
     QList<Notification> m_displayed;
@@ -217,7 +220,8 @@ private:
     int m_idleThresholdMs = 0;
     int m_idleTimeoutId = -1;
     bool m_userIdle = false;
-    int m_exitMs = 0;   // set from QML; 0 keeps the old instant removal
+    int m_exitMs = 0;
+    int m_lastLiveCount = 0;   // set from QML; 0 keeps the old instant removal
     int m_coalesceThreshold = 3;
     int m_coalesceWindowMs = 20000;
     QHash<QString, QList<QDateTime>> m_recentByGroup;
