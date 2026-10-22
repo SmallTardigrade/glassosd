@@ -12,6 +12,8 @@
 #include <QDateTime>
 
 #include <KIdleTime>
+
+#include <algorithm>
 #include <KWaylandExtras>
 
 namespace
@@ -334,7 +336,8 @@ bool NotificationModel::coalesce(const Notification &n)
     int absorbed = 0;
     for (int i = m_displayed.size() - 1; i >= 0; --i) {
         const Notification &old = m_displayed.at(i);
-        if (old.groupKey() != key || !old.stackTag.isEmpty()) {
+        /* A closing card was dismissed; it is not part of the burst any more. */
+        if (old.groupKey() != key || !old.stackTag.isEmpty() || old.closing) {
             continue;
         }
         absorbed += old.groupCount;
@@ -648,6 +651,12 @@ void NotificationModel::invokeAction(uint id, const QString &key)
     closeId(id, CloseReason::Dismissed);
 }
 
+int NotificationModel::liveCount() const
+{
+    return int(std::count_if(m_displayed.cbegin(), m_displayed.cend(),
+                             [](const Notification &n) { return !n.closing; }));
+}
+
 int NotificationModel::effectiveLimit() const
 {
     if (m_limit == 0) {
@@ -656,7 +665,7 @@ int NotificationModel::effectiveLimit() const
     /* Reserve a slot for the "+N more" row, but only when there is genuinely
        an overflow to indicate — dunst additionally requires limit > 1, else a
        limit of 1 would leave no room for any notification at all. */
-    if (m_indicateHidden && m_limit > 1 && m_displayed.size() + m_waiting.size() > m_limit) {
+    if (m_indicateHidden && m_limit > 1 && liveCount() + m_waiting.size() > m_limit) {
         return m_limit - 1;
     }
     return m_limit;
@@ -666,8 +675,14 @@ void NotificationModel::update()
 {
     const int limit = effectiveLimit();
 
-    while (m_displayed.size() < limit && !m_waiting.isEmpty()) {
+    /* Counted as live cards only. A closing row is on its way out and only
+       still here to be animated; counting it held a slot that nothing was
+       using, and (below) made it a candidate to be queued. */
+    while (liveCount() < limit && !m_waiting.isEmpty()) {
         Notification n = m_waiting.takeFirst();
+        if (n.closing) {
+            continue;   // never shown again; see below
+        }
         n.displayedAt = QDateTime::currentDateTimeUtc();
         beginInsertRows({}, m_displayed.size(), m_displayed.size());
         m_displayed.append(n);
@@ -675,11 +690,24 @@ void NotificationModel::update()
     }
 
     /* Shrinking the limit (e.g. once the indicator slot is needed) pushes the
-       newest back to the front of the queue rather than dropping it. */
-    while (m_displayed.size() > limit) {
-        const int row = m_displayed.size() - 1;
+       newest live card back to the front of the queue rather than dropping it.
+
+       Never a closing one. That was the ghost card: a burst arriving while
+       the newest card faded out took that card back into the queue mid-fade,
+       where its finishClose() could no longer find it. When it came out again
+       it was still marked closing — drawn, but ignoring clicks, never
+       expiring and invisible to Dismiss All, which all treat closing rows as
+       already gone. */
+    while (liveCount() > limit) {
+        int row = m_displayed.size() - 1;
+        while (row >= 0 && m_displayed.at(row).closing) {
+            --row;
+        }
+        if (row < 0) {
+            break;
+        }
         beginRemoveRows({}, row, row);
-        const Notification n = m_displayed.takeLast();
+        const Notification n = m_displayed.takeAt(row);
         endRemoveRows();
         m_waiting.prepend(n);
     }

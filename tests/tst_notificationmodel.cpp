@@ -704,6 +704,42 @@ private Q_SLOTS:
         QTRY_COMPARE_WITH_TIMEOUT(m.rowCount(), 0, 1500);
     }
 
+    /* The ghost card. A burst arrives while one card is fading out: the
+       overflow takes a slot for the "+N more" row, and the slot it took back
+       was the newest card, which was the one closing. Moved to the queue
+       mid-fade, its removal could no longer find it; when it came back out
+       it was a card already marked closing — drawn, but deaf to clicks, never
+       expiring, and skipped by Dismiss All. Seen live after waking with
+       twenty notifications waiting. */
+    void aClosingCardIsNeverMovedToTheQueue()
+    {
+        NotificationModel m;
+        plain(m);
+        m.setExitMs(50);
+        m.setLimit(4);
+        m.setIndicateHidden(true);
+
+        for (uint i = 1; i <= 4; ++i) {
+            m.insert(note(QStringLiteral("App%1").arg(i), QStringLiteral("n%1").arg(i), {}, i));
+        }
+        m.closeId(4, CloseReason::Dismissed);          // the newest, mid-fade
+        m.insert(note(QStringLiteral("App5"), QStringLiteral("n5"), {}, 5));
+        m.insert(note(QStringLiteral("App6"), QStringLiteral("n6"), {}, 6));
+
+        /* Let the fade finish, then clear the screen the way a user would. */
+        QTest::qWait(150);
+        for (int round = 0; round < 10 && m.rowCount() > 0; ++round) {
+            for (int r = 0; r < m.rowCount(); ++r) {
+                m.closeId(m.index(r).data(NotificationModel::IdRole).toUInt(), CloseReason::Dismissed);
+            }
+            QTest::qWait(100);
+        }
+
+        /* Nothing left drawn, nothing left queued. */
+        QCOMPARE(m.rowCount(), 0);
+        QCOMPARE(m.hiddenCount(), 0);
+    }
+
     void snoozeHandsTheNotificationOnAndTakesItOffScreen()
     {
         NotificationModel m;

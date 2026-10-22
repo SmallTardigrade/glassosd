@@ -195,6 +195,7 @@ private:
     bool coalesce(const Notification &n);
 
     int effectiveLimit() const;
+    int liveCount() const;   // displayed rows not already closing
     int defaultTimeoutFor(Urgency u) const;
 
     QList<Notification> m_displayed;
