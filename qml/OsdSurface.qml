@@ -47,6 +47,7 @@ Window {
        frame-by-frame capture showed the text behind it readable through the
        glass. The fade waits for that first frame instead, about 8 ms. */
     property bool exposed: false
+    onExposedChanged: panel.syncShown()
     onVisibleChanged: {
         exposed = false
         if (visible)
@@ -116,6 +117,7 @@ Window {
     Connections {
         target: OsdModel
         function onChanged() {
+            panel.syncShown()
             if (OsdModel.active) {
                 panel.blurCleared = false
                 panel.refreshBlur()
@@ -142,7 +144,15 @@ Window {
            target can start before the binding updates, and run the wrong
            curve. In decelerates; out holds and then lets go, so the stretch
            where the pill is faint is a frame or two, not the whole exit. */
-        readonly property bool shown: OsdModel.active && win.exposed
+        /* A plain flag brought up to date by syncShown(), not a binding on
+           the two things it reads. Mapping the window resets `exposed` in the
+           middle of the change that made OsdModel.active true, which is a
+           binding loop when `shown` is the expression over both: Qt logged one
+           on most showings and settled by re-evaluating until it gave up. */
+        property bool shown: false
+        function syncShown() {
+            shown = OsdModel.active && win.exposed
+        }
         property bool blurCleared: false
         opacity: 0
         Behavior on opacity {
