@@ -223,6 +223,29 @@ Window {
                 }
             }
             onWidthChanged: if (shown) refreshBlur()
+            /* The column lays this out after the cards above it, so it moves
+               when they arrive, leave or change height without anything here
+               being told. The cards refresh their regions on y for the same
+               reason; this registered once, when it appeared, and then went on
+               describing wherever the layout had it at that moment — a button
+               that works only after something else happens to nudge it. */
+            onYChanged: if (shown) refreshBlur()
+            onXChanged: if (shown) refreshBlur()
+
+            /* The whole pill is the button. It was the two words only, about
+               sixty by sixteen pixels in the middle of it, so pressing the
+               pill anywhere else did nothing. Not while it is fading out: a
+               held, hidden pill must not catch a click meant for the card
+               beneath. */
+            HoverHandler {
+                id: stormHover
+                enabled: storm.shown
+                cursorShape: Qt.PointingHandCursor
+            }
+            TapHandler {
+                enabled: storm.shown
+                onTapped: NotificationModel.dismissAll()
+            }
             /* GlassPanel registers its region when it is created, shown or
                not. Hidden from the start, it would leave a blurred, click-
                swallowing patch where no pill is drawn. */
@@ -262,18 +285,10 @@ Window {
                 Text {
                     id: clearAll
                     text: "Clear all"
-                    color: clearHover.hovered ? Style.accent : Style.foreground
+                    color: stormHover.hovered ? Style.accent : Style.foreground
                     font.family: Style.fontFamily
                     font.pointSize: Style.fontSize - 1
                     font.weight: Font.DemiBold
-
-                    HoverHandler {
-                        id: clearHover
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                    TapHandler {
-                        onTapped: NotificationModel.dismissAll()
-                    }
                 }
             }
         }
