@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(glassosd VERSION 0.3.3 LANGUAGES CXX)
+project(glassosd VERSION 0.3.4 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,8 @@ qt_policy(SET QTP0004 NEW)
 qt_add_executable(glassosd
     src/main.cpp
     src/osdmonitor.cpp
+    src/jobviewmonitor.cpp
+    src/jobbridge.cpp
     src/osdmodel.cpp
     src/capslockwatcher.cpp
     src/fnlockwatcher.cpp

@@ -30,6 +30,8 @@
 #include <QImageReader>
 #include <QKeySequence>
 #include "osdmodel.h"
+#include "jobbridge.h"
+#include "jobviewmonitor.h"
 #include "osdmonitor.h"
 
 #include <QApplication>
@@ -487,6 +489,23 @@ int main(int argc, char *argv[])
        does not have it, or has been told not to handle the portal itself,
        the relay hands each one to whoever does, so they still end up in one
        place. */
+    /* File-operation progress (Dolphin, Ark, anything on KIO) is reported to
+       plasmashell's job view, not to the notification interface, so a daemon
+       that has replaced Plasma's notifications would otherwise never see it.
+       Listening costs nothing when Plasma is serving notifications itself, so
+       this runs only when glassosd is the one showing them. */
+    if (serving && notifyCfg.readEntry("JobProgress", true)) {
+        auto *jobs = new JobViewMonitor(&app);
+        if (jobs->start()) {
+            auto *bridge = new JobBridge(server, &app);
+            QObject::connect(jobs, &JobViewMonitor::jobStarted, bridge, &JobBridge::jobStarted);
+            QObject::connect(jobs, &JobViewMonitor::jobUpdated, bridge, &JobBridge::jobUpdated);
+            QObject::connect(jobs, &JobViewMonitor::jobEnded, bridge, &JobBridge::jobEnded);
+        } else {
+            delete jobs;
+        }
+    }
+
     PortalBackend *portal = nullptr;
     if (serving && notifyCfg.readEntry("Portal", true)) {
         auto *direct = new PortalServer(server, notifications, &app);

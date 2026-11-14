@@ -68,6 +68,18 @@ blank. Default false. See
 .B QUIET WHILE BUSY
 below.
 .TP
+.B JobProgress
+Show file copies, moves, extractions and other KDE file operations as progress
+cards, and the taskbar progress of apps with no KDE job (Chromium-based
+browsers, Steam). Default true. Dolphin, Ark and other KIO applications report these to
+Plasma's job view rather than to the notification interface, and Plasma's own
+popups for them are absent while glassosd serves the notifications, so they
+would otherwise show nothing. glassosd only listens. The cards are read-only:
+pause and cancel have to come from plasmashell, which owns the job view and
+cannot be replaced. Setting this to false does not restore Plasma's cards; it
+means no file progress is shown. Read at startup. Has no effect while another
+daemon serves the notifications.
+.TP
 .B LockscreenPrivacy
 What notifications show while the session is locked:
 .BR show " (default), " hide\-content " or " hide .

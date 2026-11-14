@@ -62,6 +62,15 @@ glassosd_test(tst_notificationserver
             soundplayer.cpp notification.cpp
     LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime KF6::ConfigCore)
 
+glassosd_test(tst_jobviewmonitor
+    SOURCES jobviewmonitor.cpp
+    LIBS PkgConfig::DBUS1)
+
+glassosd_test(tst_jobbridge
+    SOURCES jobbridge.cpp notificationserver.cpp notificationmodel.cpp historymodel.cpp rules.cpp
+            soundplayer.cpp notification.cpp
+    LIBS Qt6::Qml Qt6::Quick KF6::WindowSystem KF6::IdleTime KF6::ConfigCore)
+
 glassosd_test(tst_snoozestore
     SOURCES snoozestore.cpp)
 

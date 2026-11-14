@@ -206,6 +206,31 @@ glassosdctl module notifications off
 glassosdctl restart
 ```
 
+### File operations
+
+Dolphin, Ark and everything else built on KIO report a copy or an extraction to
+Plasma's job view (`org.kde.JobViewServer`), not to the notification interface.
+Plasma shows those in its own notification popups, which are not there while
+glassosd is the notification daemon, so a long transfer would show nothing.
+glassosd listens for those jobs and shows each as a progress card: what is
+happening and where, the file, how far it has got, the speed and the time left.
+When it finishes the card says so ("Copied to Documents") with the totals. A job
+that finishes within a moment gets no card, a job you cancel or skip leaves no
+card, and a card you dismiss stays dismissed while the job carries on.
+
+Apps with no KDE job that publish a taskbar progress bar (the Unity launcher
+entry that Chromium-based browsers and Steam send) are shown the same way, with
+the percentage. Firefox-based browsers do not send it, so their downloads show
+no progress card.
+
+The cards are **read-only**: there is no pause or cancel. Those commands have to
+come from the owner of `org.kde.JobViewServer`, which is plasmashell and cannot
+be replaced, and a listener cannot send. glassosd does not take anything from
+plasmashell, so its taskbar progress is unaffected. Turning this off
+(`glassosdctl set JobProgress false && glassosdctl restart`) does not bring
+Plasma's cards back; it means no file progress is shown at all. To hide a
+particular app's cards, use a rule.
+
 ### Sandboxed apps
 
 Flatpaks cannot reach `org.freedesktop.Notifications` — it is outside their

@@ -215,7 +215,7 @@ Settings keys:  Enabled, Limit, IndicateHidden, CoalesceThreshold,
                 CoalesceWindowMs, DoNotDisturb, AutoCollapseOver,
                 HistoryLength, IdleThresholdMs, HoverPause, NewestFirst,
                 Timeout, TimeoutLow, TimeoutCritical, SnoozeMinutes,
-                QuietWhileBusy, LockscreenPrivacy, Portal, Focus
+                QuietWhileBusy, JobProgress, LockscreenPrivacy, Portal, Focus
 
 How long popups stay (ms; 0 = until dismissed). An app's own
 expire_timeout still wins; these apply when it sends -1:
@@ -368,7 +368,7 @@ case "$cmd" in
     case " Enabled Limit IndicateHidden CoalesceThreshold CoalesceWindowMs \
 DoNotDisturb AutoCollapseOver HistoryLength IdleThresholdMs HoverPause \
 NewestFirst Timeout TimeoutLow TimeoutCritical SnoozeMinutes QuietWhileBusy \
-LockscreenPrivacy Portal Focus " in
+JobProgress LockscreenPrivacy Portal Focus " in
       *" $1 "*) ;;
       *) echo "warning: '$1' is not a setting glassosd reads; writing it anyway" >&2 ;;
     esac

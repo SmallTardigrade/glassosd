@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           glassosd
-Version:        0.3.3
+Version:        0.3.4
 # Plain Release rather than %%autorelease: rpmautospec is not available in
 # every builder, and a spec that only builds on Fedora infrastructure is not
 # much use to someone packaging this for anything else.
@@ -183,6 +183,10 @@ EOF
 fi
 
 %changelog
+* Sat Nov 14 2026 glassosd contributors - 0.3.4-1
+- Show KDE file operations (Dolphin, Ark and other KIO apps) as read-only
+  progress cards with speed and time left; apps that publish a taskbar progress
+  bar are shown too. JobProgress turns it off
 * Thu Oct 22 2026 glassosd contributors - 0.3.3-1
 - Fix a notification card that could be left on screen after a burst, which
   could not be clicked or dismissed
