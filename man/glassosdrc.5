@@ -80,6 +80,14 @@ cannot be replaced. Setting this to false does not restore Plasma's cards; it
 means no file progress is shown. Read at startup. Has no effect while another
 daemon serves the notifications.
 .TP
+.B AppProgress
+Whether the taskbar progress of apps with no KDE job is shown as a card (see
+JobProgress). Default true. Terminals report the progress of apt, cargo and
+systemd this way. Set it to false to keep the cards for Dolphin and other KIO
+jobs but drop these; to hide a single app instead, use a rule, for example
+\fBglassosdctl rule\-set no\-term\-progress category=transfer desktop_entry=org.kde.konsole skip_display=true\fR.
+Read at startup; needs JobProgress.
+.TP
 .B LockscreenPrivacy
 What notifications show while the session is locked:
 .BR show " (default), " hide\-content " or " hide .

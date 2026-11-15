@@ -228,8 +228,10 @@ come from the owner of `org.kde.JobViewServer`, which is plasmashell and cannot
 be replaced, and a listener cannot send. glassosd does not take anything from
 plasmashell, so its taskbar progress is unaffected. Turning this off
 (`glassosdctl set JobProgress false && glassosdctl restart`) does not bring
-Plasma's cards back; it means no file progress is shown at all. To hide a
-particular app's cards, use a rule.
+Plasma's cards back; it means no file progress is shown at all. To drop only the
+taskbar-progress cards (terminals report `apt` and `cargo` this way) and keep
+Dolphin's, set `AppProgress` to false; to hide one app, use a rule such as
+`glassosdctl rule-set no-term-progress category=transfer desktop_entry=org.kde.konsole skip_display=true`.
 
 ### Sandboxed apps
 

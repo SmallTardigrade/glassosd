@@ -309,7 +309,7 @@ void JobViewMonitor::onLauncherEntry(const QString &sender, const QString &appUr
 {
     /* plasmashell re-emits every KIO job as a launcher entry, marked as proxied
        for kuiserver. Those are already shown from the job itself. */
-    if (props.contains(QStringLiteral("proxied-for"))) {
+    if (!m_appProgress || props.contains(QStringLiteral("proxied-for"))) {
         return;
     }
     if (!props.contains(QStringLiteral("progress")) && !props.contains(QStringLiteral("progress-visible"))) {

@@ -496,6 +496,7 @@ int main(int argc, char *argv[])
        this runs only when glassosd is the one showing them. */
     if (serving && notifyCfg.readEntry("JobProgress", true)) {
         auto *jobs = new JobViewMonitor(&app);
+        jobs->setAppProgress(notifyCfg.readEntry("AppProgress", true));
         if (jobs->start()) {
             auto *bridge = new JobBridge(server, &app);
             QObject::connect(jobs, &JobViewMonitor::jobStarted, bridge, &JobBridge::jobStarted);

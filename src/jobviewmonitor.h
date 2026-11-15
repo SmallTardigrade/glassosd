@@ -51,6 +51,10 @@ public:
        has no job progress, as before. */
     bool start();
 
+    /* Whether taskbar-progress (launcher entry) signals become jobs. KIO jobs
+       are unaffected. On by default. */
+    void setAppProgress(bool on) { m_appProgress = on; }
+
     /* The decoded form of the four messages that matter. The libdbus filter
        calls these, and so do the tests, which have no bus to listen on. */
     void onRequestView(const QString &caller, quint32 serial, const QString &appId);
@@ -82,4 +86,5 @@ private:
     QHash<QString, bool> m_open;
     /* Launcher entries currently showing progress: path -> last fraction. */
     QHash<QString, double> m_launcher;
+    bool m_appProgress = true;
 };

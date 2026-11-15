@@ -171,6 +171,16 @@ private Q_SLOTS:
         QCOMPARE(started.count(), 0);
     }
 
+    void appProgressCanBeSwitchedOff()
+    {
+        JobViewMonitor m;
+        m.setAppProgress(false);
+        QSignalSpy started(&m, &JobViewMonitor::jobStarted);
+        m.onLauncherEntry(QStringLiteral(":1.9"), QStringLiteral("application://org.kde.konsole.desktop"),
+                          {{QStringLiteral("progress"), 0.5}, {QStringLiteral("progress-visible"), true}});
+        QCOMPARE(started.count(), 0);
+    }
+
     void launcherEntriesAreBounded()
     {
         JobViewMonitor m;
